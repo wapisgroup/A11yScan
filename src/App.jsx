@@ -10,6 +10,7 @@ import ReportView from './pages/ReportView'
 import Profile from './pages/Profile'
 import {useAuth} from './utils/firebase'
 import Nav from './components/Nav'
+import Home from "./pages/Home";
 
 function PrivateRoute({children}) {
     const {user, loading} = useAuth()
@@ -26,7 +27,7 @@ export default function App() {
                 <div className="p-6">
                     <nav className="flex flex-col gap-8 flex-col">
                         <ul>
-                            <li><Link to="/" className="left-navigation-link">
+                            <li><Link to="/dashboard" className="left-navigation-link">
                                 Dashboard
                             </Link></li>
                             <li>
@@ -42,7 +43,8 @@ export default function App() {
 
                     <main className="px-6 pt-6">
                         <Routes>
-                            <Route path="/" element={<PrivateRoute><Dashboard/></PrivateRoute>}/>
+                            <Route path="/" element={<Home/>}/>
+                            <Route path="/dashboard" element={<PrivateRoute><Dashboard/></PrivateRoute>}/>
                             <Route path="/projects" element={<PrivateRoute><Projects/></PrivateRoute>}/>
                             <Route path="/reports" element={<PrivateRoute><Reports/></PrivateRoute>}/>
                             <Route path="/reports/:id" element={<PrivateRoute><ReportView/></PrivateRoute>}/>

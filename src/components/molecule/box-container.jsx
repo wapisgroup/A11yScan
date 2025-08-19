@@ -1,5 +1,5 @@
 // src/components/BoxContainer.jsx
-import React, {useId, useRef, useState, useLayoutEffect} from "react";
+import React, { useId, useRef } from "react";
 
 /**
  * BoxContainer
@@ -7,41 +7,39 @@ import React, {useId, useRef, useState, useLayoutEffect} from "react";
  * Props:
  *  - title: string | ReactNode (required)
  *  - children: ReactNode (required) -> goes into .box-container-inner
+ *  - className: additional classes for outer container (optional)
+ *  - headerAction: ReactNode (optional) -> an element rendered on the right side of the header (e.g. a + button)
  *
  * Accessibility:
- *  - If collapsible, the header becomes a button with aria-expanded and aria-controls.
- *  - The region has role="region" and aria-labelledby.
+ *  - The region has role="region" and aria-labelledby pointing to the header.
  */
-export default function BoxContainer({
-                                         title,
-                                         children
-
-                                     }) {
+export default function BoxContainer({ title, className = "", children, headerAction = null }) {
     const generatedId = useId();
     const contentId = `box-content-${generatedId}`;
     const headerId = `box-header-${generatedId}`;
     const contentRef = useRef(null);
 
-    // keyboard handler for header-button if needed (Enter/Space are handled by button by default)
     return (
         <div
-            className={`box-container`}
+            className={`box-container ${className || ""}`}
             role="region"
             aria-labelledby={headerId}
         >
-            <div className="px-4 py-3">
+            <div className="px-4">
                 <div id={headerId} className="flex items-center justify-between">
-                    <h2 className="m-0 text-base font-semibold text-slate-900 dark:text-slate-100">
+                    <h2 className="m-0 text-[12px] pt-2 pb-2 font-light text-slate-900 dark:text-slate-100">
                         {title}
                     </h2>
+
+                    {headerAction ? (
+                        <div className="ml-4 flex items-center" aria-hidden={typeof headerAction === 'string'}>
+                            {headerAction}
+                        </div>
+                    ) : null}
                 </div>
             </div>
 
-            <div
-                id={contentId}
-                ref={contentRef}
-                className="box-container-inner"
-            >
+            <div id={contentId} ref={contentRef} className="box-container-inner">
                 {children}
             </div>
         </div>

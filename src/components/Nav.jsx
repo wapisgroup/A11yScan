@@ -17,14 +17,11 @@ export default function Nav(){
         </div>
         <div className="flex items-center space-x-6">
 
-          <div className="text-right text-xs text-gray-500">
-            <div>{dayjs().format('DD MMM YYYY')}</div>
-            <div><a href="https://www.royalmailpensionplan.co.uk" target="_blank" rel="noreferrer" className="text-blue-600">tested: royalmailpensionplan.co.uk</a></div>
-          </div>
+
           <div>
             {user ? (
               <div className="flex items-center space-x-3">
-                <div className="text-sm text-gray-700">Hi, {user.firstName || user.email}</div>
+                <div className="text-sm text-gray-300">Hi, <Link to={`/profile`}>{user.firstName || user.email}</Link></div>
                 <button onClick={()=>{ logout(); nav('/login') }} className="px-3 py-1 bg-red-500 text-white rounded">Logout</button>
               </div>
             ) : (

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>A11yScan — Automated Website Accessibility Scanning</title>
+    <meta name="description" content="Automatically crawl and test whole websites for accessibility issues using Chrome-based checks. Generate client-ready reports with severity counts, grouped issues, and per-page details." />
+    <meta property="og:title" content="A11yScan — Website Accessibility Scanning" />
+    <meta property="og:description" content="Crawl complete websites, run up-to-date Chrome accessibility rules, and deliver beautiful reports your clients will understand." />
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- Google font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root{
+            --bg:#0f172a;
+            --muted:#64748b;
+            --card:#0b1220;
+            --accent1: #7c3aed; /* purple */
+            --accent2: #06b6d4; /* cyan */
+            --glass: rgba(255,255,255,0.06);
+            --radius: 14px;
+            --container: 1100px;
+            color-scheme: light;
+        }
+        html,body{height:100%}
+        body{
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            margin:0;
+            background: linear-gradient(180deg,#071327 0%, #071827 55%, #071a24 100%);
+            color:#e6eef8;
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+            line-height:1.45;
+        }
+        .wrap{max-width:var(--container);margin:0 auto;padding:40px 24px}
+        header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+        .brand{display:flex;align-items:center;gap:12px}
+        .logo {
+            width:46px;height:46px;border-radius:10px;
+            background:linear-gradient(135deg,var(--accent1),var(--accent2));
+            display:flex;align-items:center;justify-content:center;
+            font-weight:700;color:#fff;box-shadow: 0 6px 20px rgba(12,18,30,0.6);
+        }
+        .brand h1{font-size:18px;margin:0;font-weight:700;color:#fff}
+        nav a{color:var(--muted);text-decoration:none;margin-left:18px;font-weight:600}
+        nav a:hover{color:#fff;text-decoration:underline}
+
+        /* Hero */
+        .hero{
+            display:grid;grid-template-columns:1fr 460px;gap:40px;align-items:center;margin-top:28px;
+        }
+        .hero-left h2{font-size:38px;line-height:1.02;margin:0 0 16px}
+        .hero-left p{color:var(--muted);margin:0 0 22px;font-size:16px;max-width:70%}
+        .cta-row{display:flex;gap:14px;align-items:center}
+        .btn{
+            padding:12px 18px;border-radius:10px;border:0;font-weight:700;cursor:pointer;
+            box-shadow: 0 6px 18px rgba(12,18,30,0.45);
+        }
+        .btn-primary{
+            background:linear-gradient(90deg,var(--accent1),var(--accent2));
+            color:#071827;
+            transition: transform .14s ease, box-shadow .14s ease;
+        }
+        .btn-primary:hover{transform:translateY(-3px); box-shadow: 0 12px 30px rgba(12,18,30,0.5);}
+        .btn-ghost{
+            background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.06);
+        }
+
+        /* Hero card / visual */
+        .hero-card{
+            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+            border-radius: 16px;padding:20px;box-shadow: 0 10px 40px rgba(2,6,23,0.6);
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        .stat-row{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+        .stat{background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:10px;font-weight:700;font-size:14px}
+        .mock-report{
+            margin-top:14px;border-radius:10px;overflow:hidden;background:#07131b;padding:16px;
+            border:1px solid rgba(255,255,255,0.03)
+        }
+        .mock-report h4{margin:0 0 8px;font-size:14px}
+        .mock-report .meta{color:var(--muted);font-size:13px;margin-bottom:8px}
+        .mock-report .bar{height:10px;background:linear-gradient(90deg,#ff6b6b,#ffd86b);border-radius:8px;margin-top:8px}
+
+        /* Features */
+        .features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:36px}
+        .feature-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:20px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+        .feature-card h3{margin:0 0 8px;font-size:16px}
+        .feature-card p{margin:0;color:var(--muted);font-size:14px}
+
+        /* Summary / table */
+        .summary{display:flex;gap:18px;margin-top:28px}
+        .summary .left{flex:2}
+        .summary .right{flex:1}
+        .table{width:100%;border-collapse:collapse;background:transparent;margin-top:12px}
+        .table th, .table td{padding:10px 12px;text-align:left;border-bottom:1px dashed rgba(255,255,255,0.03);font-size:13px}
+        .table th{color:var(--muted);font-weight:600}
+
+        /* Pricing */
+        .pricing{display:flex;gap:16px;margin-top:36px}
+        .plan{flex:1;padding:20px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03)}
+        .plan h4{margin:0 0 8px}
+        .plan .price{font-size:22px;font-weight:800;margin:8px 0}
+
+        /* FAQ / accordions */
+        .faq{margin-top:36px}
+        .accordion{background:transparent;border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.03);margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+        .accordion-content{padding:12px;color:var(--muted);display:none;border-left:3px solid rgba(255,255,255,0.02);background:linear-gradient(90deg, rgba(255,255,255,0.01), transparent)}
+
+        /* Footer */
+        footer{margin-top:48px;padding:28px 0;border-top:1px solid rgba(255,255,255,0.03);color:var(--muted)}
+        .footer-inner{display:flex;justify-content:space-between;gap:12px;align-items:center}
+
+        /* responsive */
+        @media (max-width: 980px){
+            .hero{grid-template-columns:1fr; }
+            .features{grid-template-columns:1fr; }
+            .wrap{padding:24px}
+            .hero-left p{max-width:100%}
+            .summary{flex-direction:column}
+        }
+
+        /* small utility */
+        .muted{color:var(--muted)}
+        a.cta-link{color:#bfeffb;text-decoration:underline}
+    </style>
+</head>
+<body>
+<div class="wrap" role="main">
+    <header>
+        <div class="brand" aria-label="A11yScan">
+            <div class="logo" aria-hidden="true">A</div>
+            <div>
+                <h1>A11yScan</h1>
+                <div class="muted" style="font-size:13px;margin-top:2px">Automated accessibility scanning</div>
+            </div>
+        </div>
+
+        <nav aria-label="Primary">
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#faq">FAQ</a>
+            <a href="#contact">Contact</a>
+            <a href="/login" style="margin-left:22px" class="btn btn-ghost">Log in</a>
+        </nav>
+    </header>
+
+    <!-- HERO -->
+    <section class="hero" aria-labelledby="hero-heading">
+        <div class="hero-left">
+            <h2 id="hero-heading">Find accessibility issues across your whole website — fast.</h2>
+            <p>Crawl complete websites with a Chrome-based engine, run up-to-date accessibility checks, and generate client-ready reports grouped by severity and rule.</p>
+
+            <div class="cta-row" style="margin-top:18px">
+                <button class="btn btn-primary" onclick="startTrial()">Get started — Free trial</button>
+                <button class="btn btn-ghost" onclick="openSample()">See sample report</button>
+            </div>
+
+            <div style="margin-top:18px;color:var(--muted);font-size:14px">
+                <strong>Perfect for:</strong> Product teams, agencies, QA, and accessibility leads who need repeatable, auditable scans.
+            </div>
+        </div>
+
+        <aside class="hero-card" aria-label="Sample report preview">
+            <div class="stat-row">
+                <div class="stat">Full-site crawls</div>
+                <div class="stat">Chrome-accurate checks</div>
+                <div class="stat">Export PDF</div>
+            </div>
+
+            <div class="mock-report" role="article" aria-label="Sample summary">
+                <h4>Example — Royal Mail (summary)</h4>
+                <div class="meta">Tested: https://www.royalmailpensionplan.co.uk · Aug 19, 2025</div>
+                <div style="display:flex;gap:8px">
+                    <div style="flex:1">
+                        <div style="display:flex;justify-content:space-between">
+                            <span class="muted">Critical</span><strong>18</strong>
+                        </div>
+                        <div class="bar" style="width:80%"></div>
+                    </div>
+                    <div style="width:10px"></div>
+                    <div style="flex:1">
+                        <div style="display:flex;justify-content:space-between">
+                            <span class="muted">Moderate</span><strong>124</strong>
+                        </div>
+                        <div class="bar" style="width:60%;background:linear-gradient(90deg,#00d4ff,#7c3aed)"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top:12px;color:var(--muted);font-size:13px">Download the full report as PDF or inspect per-page issues in the dashboard.</div>
+            </div>
+        </aside>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="features" aria-labelledby="features-heading">
+        <div class="feature-card">
+            <h3>Site-wide crawling</h3>
+            <p>Breadth-first crawl with same-origin limits. Configure max pages, polite throttling, and depth to avoid overloading target sites.</p>
+        </div>
+
+        <div class="feature-card">
+            <h3>Chrome-accurate tests</h3>
+            <p>Run browser-based checks with a headless Chrome runtime and the latest accessibility rules so findings match real users' browsers.</p>
+        </div>
+
+        <div class="feature-card">
+            <h3>Client-ready reports</h3>
+            <p>Beautiful PDF exports, grouped issues, severity counts and per-page accordions — perfect to share with clients and stakeholders.</p>
+        </div>
+    </section>
+
+    <section class="summary" aria-label="Summary and details">
+        <div class="left">
+            <h3 style="margin:0">How the report presents results</h3>
+            <p class="muted" style="margin-top:8px;max-width:80%">Errors are grouped by rule with occurrence counts. Each page has an accordion with counts of Critical / Serious / Moderate / Minor issues in the header so you can triage quickly.</p>
+
+            <table class="table" aria-label="Example summary table">
+                <thead><tr><th>Error ID</th><th>Description</th><th>Impact</th><th>Occurrences</th></tr></thead>
+                <tbody>
+                <tr><td>document-title</td><td>Ensures each HTML document contains a non-empty &lt;title&gt;</td><td>moderate</td><td>74</td></tr>
+                <tr><td>color-contrast</td><td>Ensures the contrast between foreground and background meets WCAG 2 AA contrast ratio thresholds</td><td>serious</td><td>23</td></tr>
+                <tr><td>image-alt</td><td>Ensures &lt;img&gt; elements have alternate text</td><td>critical</td><td>18</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <aside class="right">
+            <div class="feature-card">
+                <h4>Actionable grouping</h4>
+                <p class="muted">Group errors by rule, see how often they appear, and prioritize fixes by impact.</p>
+                <div style="margin-top:12px">
+                    <a class="cta-link" href="/sample-report">View sample report</a>
+                </div>
+            </div>
+        </aside>
+    </section>
+
+    <!-- Pricing -->
+    <section id="pricing" class="pricing" aria-labelledby="pricing-heading">
+        <div class="plan">
+            <h4>Free / Trial</h4>
+            <div class="price">€0</div>
+            <div class="muted">1 project, up to 200 pages, 3 reports/month</div>
+            <div style="margin-top:12px"><button class="btn btn-primary" onclick="startTrial()">Start free</button></div>
+        </div>
+        <div class="plan">
+            <h4>Team</h4>
+            <div class="price">€49 / mo</div>
+            <div class="muted">Multiple projects, scheduled scans, 2k pages/month</div>
+            <div style="margin-top:12px"><button class="btn btn-primary" onclick="contactSales()">Get Team</button></div>
+        </div>
+        <div class="plan">
+            <h4>Agency</h4>
+            <div class="price">Contact</div>
+            <div class="muted">Private deployment, SSO, audit support</div>
+            <div style="margin-top:12px"><button class="btn btn-primary" onclick="contactSales()">Contact Sales</button></div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="faq" aria-labelledby="faq-heading">
+        <h3 id="faq-heading">FAQ</h3>
+
+        <div class="accordion" data-idx="0">How accurate is the scanner compared to a manual accessibility audit?<span class="muted">+</span></div>
+        <div class="accordion-content" id="acc-0">A11yScan reliably detects many programmatic accessibility issues (alt text, ARIA, contrast, keyboard focus). Manual audits are still necessary for nuanced checks like cognitive accessibility and assistive-technology testing. A11yScan reduces manual effort by surfacing hotspots for human review.</div>
+
+        <div class="accordion" data-idx="1">Can I run the scanner on a staging site?<span class="muted">+</span></div>
+        <div class="accordion-content" id="acc-1">Yes — point A11yScan to any publicly reachable domain. For private staging, run the worker on your network or use a secure tunnel. We also support private Cloud Run deployments.</div>
+
+        <div class="accordion" data-idx="2">Does the scanner respect robots.txt and rate limits?<span class="muted">+</span></div>
+        <div class="accordion-content" id="acc-2">Yes. The crawler respects robots.txt (configurable) and uses polite throttling. Configure delays and maximum pages per run to suit your needs.</div>
+    </section>
+
+    <!-- CTA -->
+    <section style="margin-top:36px;padding:22px;border-radius:12px;background:linear-gradient(90deg, rgba(124,58,237,0.08), rgba(6,182,212,0.04));border:1px solid rgba(255,255,255,0.02)">
+        <div style="display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+            <div>
+                <h3 style="margin:0">Start scanning today</h3>
+                <p class="muted" style="margin-top:6px">Try A11yScan free — create your first project and generate a report in minutes.</p>
+            </div>
+            <div style="display:flex;gap:12px">
+                <button class="btn btn-primary" onclick="startTrial()">Get started — Free trial</button>
+                <button class="btn btn-ghost" onclick="openSample()">See sample report</button>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-inner">
+            <div>
+                <strong>A11yScan</strong> · Automated accessibility scanning · <span class="muted">© 2025 A11yScan</span>
+            </div>
+            <div class="muted">Questions? <a href="mailto:hello@a11yscan.example" style="color:#9feaf6">hello@a11yscan.example</a></div>
+        </div>
+    </footer>
+</div>
+
+<script>
+    // Accordion behavior
+    document.querySelectorAll('.accordion').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            const idx = btn.dataset.idx;
+            const content = document.getElementById('acc-' + idx);
+            const isOpen = content.style.display === 'block';
+            document.querySelectorAll('.accordion-content').forEach(c => c.style.display='none');
+            document.querySelectorAll('.accordion').forEach(a => a.querySelector('.muted').textContent = '+');
+            if(!isOpen){
+                content.style.display = 'block';
+                btn.querySelector('.muted').textContent = '−';
+            }
+        });
+    });
+
+    function startTrial(){
+        // redirect to signup or open modal
+        alert('Start free trial — signup flow not implemented in this demo.');
+        // location.href = '/signup';
+    }
+    function openSample(){
+        // Ideally open sample report. For demo, open a placeholder image or new tab.
+        window.open('/sample-report', '_blank');
+    }
+    function contactSales(){
+        alert('Contact sales — open email composer or form.');
+        window.location.href = 'mailto:sales@a11yscan.example?subject=Demo%20request%20for%20A11yScan';
+    }
+</script>
+</body>
+</html>
