@@ -17,7 +17,11 @@ body { @apply bg-gray-950 text-slate-100; }
     }
 
     .box-container {
-        @apply  bg-white dark:bg-gray-950 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700;
+        @apply  bg-[#121823] rounded-lg shadow-sm border border-gray-200 ;
+    }
+
+    .box-container-inner {
+        @apply  px-4 pb-4 pt-0 text-sm text-slate-700 dark:text-slate-300;
     }
 }
 

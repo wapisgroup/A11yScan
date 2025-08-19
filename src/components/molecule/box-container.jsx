@@ -40,7 +40,7 @@ export default function BoxContainer({
             <div
                 id={contentId}
                 ref={contentRef}
-                className="box-container-inner px-4 pb-4 pt-0 text-sm text-slate-700 dark:text-slate-300"
+                className="box-container-inner"
             >
                 {children}
             </div>
