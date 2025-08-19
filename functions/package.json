@@ -1,0 +1,14 @@
+{
+  "name": "functions",
+  "description": "Cloud Functions for A11yScan",
+  "main": "index.js",
+  "engines": { "node": "20" },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.10.0",
+    "firebase-functions": "^4.4.0",
+    "@google-cloud/pubsub": "^4.0.0"
+  }
+}
