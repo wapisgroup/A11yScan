@@ -1,0 +1,682 @@
+{
+  "nodes": [
+    {
+      "id": "https://sta.ablelytics.com/",
+      "title": "Ablelytics - Website accessibility tool"
+    },
+    {
+      "id": "https://sta.ablelytics.com/auth/login",
+      "title": "404 Not Found"
+    },
+    {
+      "id": "https://sta.ablelytics.com/faqs",
+      "title": "Ablelytics - Website accessibility tool | FAQs"
+    },
+    {
+      "id": "https://sta.ablelytics.com/features",
+      "title": "Ablelytics - Website accessibility tool | Features"
+    },
+    {
+      "id": "https://sta.ablelytics.com/contact",
+      "title": "Ablelytics - Website accessibility tool | Contacts"
+    },
+    {
+      "id": "https://sta.ablelytics.com/pricing",
+      "title": "Ablelytics - Website accessibility tool | Pricing"
+    },
+    {
+      "id": "https://sta.ablelytics.com/signup",
+      "title": "404 Not Found"
+    },
+    {
+      "id": "https://sta.ablelytics.com/window.open('/sample-report',%20'_blank')",
+      "title": "404 Not Found"
+    },
+    {
+      "id": "https://sta.ablelytics.com/sample-report",
+      "title": "404 Not Found"
+    },
+    {
+      "id": "https://sta.ablelytics.com/privacy",
+      "title": "Ablelytics - Website accessibility tool | Privacy policy"
+    },
+    {
+      "id": "https://sta.ablelytics.com/terms",
+      "title": "Ablelytics - Website accessibility tool | Terms and Conditions"
+    },
+    {
+      "id": "https://sta.ablelytics.com/docs/integrations",
+      "title": "404 Not Found"
+    },
+    {
+      "id": "https://sta.ablelytics.com/docs/testing",
+      "title": "404 Not Found"
+    },
+    {
+      "id": "https://sta.ablelytics.com/docs",
+      "title": "404 Not Found"
+    },
+    {
+      "id": "https://sta.ablelytics.com/cookies",
+      "title": "Ablelytics - Website accessibility tool | Cookies"
+    }
+  ],
+  "edges": [
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/auth/login"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/window.open('/sample-report',%20'_blank')"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/sample-report"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/window.open('/sample-report',%20'_blank')"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/privacy"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/terms"
+    },
+    {
+      "source": "https://sta.ablelytics.com/",
+      "target": "https://sta.ablelytics.com/cookies"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/auth/login"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/docs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/sample-report"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/privacy"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/terms"
+    },
+    {
+      "source": "https://sta.ablelytics.com/faqs",
+      "target": "https://sta.ablelytics.com/cookies"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/auth/login"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/docs/integrations"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/docs/testing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/window.open('/sample-report',%20'_blank')"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/privacy"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/terms"
+    },
+    {
+      "source": "https://sta.ablelytics.com/features",
+      "target": "https://sta.ablelytics.com/cookies"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/auth/login"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/privacy"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/terms"
+    },
+    {
+      "source": "https://sta.ablelytics.com/contact",
+      "target": "https://sta.ablelytics.com/cookies"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/auth/login"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/signup"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/privacy"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/terms"
+    },
+    {
+      "source": "https://sta.ablelytics.com/pricing",
+      "target": "https://sta.ablelytics.com/cookies"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/auth/login"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/privacy"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/terms"
+    },
+    {
+      "source": "https://sta.ablelytics.com/privacy",
+      "target": "https://sta.ablelytics.com/cookies"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/auth/login"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/privacy"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/terms"
+    },
+    {
+      "source": "https://sta.ablelytics.com/terms",
+      "target": "https://sta.ablelytics.com/cookies"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/auth/login"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/features"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/pricing"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/faqs"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/contact"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/privacy"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/terms"
+    },
+    {
+      "source": "https://sta.ablelytics.com/cookies",
+      "target": "https://sta.ablelytics.com/cookies"
+    }
+  ]
+}

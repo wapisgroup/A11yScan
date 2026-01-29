@@ -1,0 +1,2252 @@
+{
+  "name": "",
+  "path": "/",
+  "pages": [
+    {
+      "url": "https://www.pearson-pensions.com/",
+      "title": "Home\t\t\t:: Pearson Pensions"
+    },
+    {
+      "url": "https://www.pearson-pensions.com/?page_id=12",
+      "title": "Page not found\t\t\t:: Pearson Pensions"
+    }
+  ],
+  "children": [
+    {
+      "name": "2019",
+      "path": "/2019",
+      "pages": [],
+      "children": [
+        {
+          "name": "02",
+          "path": "/2019/02",
+          "pages": [],
+          "children": [
+            {
+              "name": "11",
+              "path": "/2019/02/11",
+              "pages": [],
+              "children": [
+                {
+                  "name": "contribution-consultation-february-2019",
+                  "path": "/2019/02/11/contribution-consultation-february-2019",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2019/02/11/contribution-consultation-february-2019",
+                      "title": "Contribution Consultation February 2019\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "21",
+              "path": "/2019/02/21",
+              "pages": [],
+              "children": [
+                {
+                  "name": "gmp-news-update",
+                  "path": "/2019/02/21/gmp-news-update",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2019/02/21/gmp-news-update",
+                      "title": "GMP news update\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "04",
+          "path": "/2019/04",
+          "pages": [],
+          "children": [
+            {
+              "name": "09",
+              "path": "/2019/04/09",
+              "pages": [],
+              "children": [
+                {
+                  "name": "changes-to-minimum-pension-contribution-rates",
+                  "path": "/2019/04/09/changes-to-minimum-pension-contribution-rates",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2019/04/09/changes-to-minimum-pension-contribution-rates",
+                      "title": "Changes to minimum pension contribution rates\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "05",
+          "path": "/2019/05",
+          "pages": [],
+          "children": [
+            {
+              "name": "20",
+              "path": "/2019/05/20",
+              "pages": [],
+              "children": [
+                {
+                  "name": "money-and-pensions-service",
+                  "path": "/2019/05/20/money-and-pensions-service",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2019/05/20/money-and-pensions-service",
+                      "title": "Money and Pensions Service\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2020",
+      "path": "/2020",
+      "pages": [],
+      "children": [
+        {
+          "name": "10",
+          "path": "/2020/10",
+          "pages": [],
+          "children": [
+            {
+              "name": "09",
+              "path": "/2020/10/09",
+              "pages": [],
+              "children": [
+                {
+                  "name": "threadneedle-pension-property-fund-reopened",
+                  "path": "/2020/10/09/threadneedle-pension-property-fund-reopened",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2020/10/09/threadneedle-pension-property-fund-reopened",
+                      "title": "Threadneedle Pension Property Fund reopened\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "05",
+          "path": "/2020/05",
+          "pages": [],
+          "children": [
+            {
+              "name": "22",
+              "path": "/2020/05/22",
+              "pages": [],
+              "children": [
+                {
+                  "name": "annual-allowance",
+                  "path": "/2020/05/22/annual-allowance",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2020/05/22/annual-allowance",
+                      "title": "Annual Allowance\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "threadneedle-pension-property-fund-temporarily-suspended",
+                  "path": "/2020/05/22/threadneedle-pension-property-fund-temporarily-suspended",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2020/05/22/threadneedle-pension-property-fund-temporarily-suspended",
+                      "title": "Threadneedle Pension Property Fund temporarily suspended\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2021",
+      "path": "/2021",
+      "pages": [],
+      "children": [
+        {
+          "name": "07",
+          "path": "/2021/07",
+          "pages": [],
+          "children": [
+            {
+              "name": "16",
+              "path": "/2021/07/16",
+              "pages": [],
+              "children": [
+                {
+                  "name": "your-2021-pension-benefit-statement-is-on-its-way",
+                  "path": "/2021/07/16/your-2021-pension-benefit-statement-is-on-its-way",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2021/07/16/your-2021-pension-benefit-statement-is-on-its-way",
+                      "title": "Your 2021 pension benefit statement is on its way\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "08",
+          "path": "/2021/08",
+          "pages": [],
+          "children": [
+            {
+              "name": "18",
+              "path": "/2021/08/18",
+              "pages": [],
+              "children": [
+                {
+                  "name": "got-a-question",
+                  "path": "/2021/08/18/got-a-question",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2021/08/18/got-a-question",
+                      "title": "Got a question?\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "09",
+          "path": "/2021/09",
+          "pages": [],
+          "children": [
+            {
+              "name": "15",
+              "path": "/2021/09/15",
+              "pages": [],
+              "children": [
+                {
+                  "name": "the-pension-savings-statements-for-the-2020-21-tax-year-have-now-been-posted",
+                  "path": "/2021/09/15/the-pension-savings-statements-for-the-2020-21-tax-year-have-now-been-posted",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2021/09/15/the-pension-savings-statements-for-the-2020-21-tax-year-have-now-been-posted",
+                      "title": "The pension savings statements for the 2020/21 tax year have now been posted\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2022",
+      "path": "/2022",
+      "pages": [],
+      "children": [
+        {
+          "name": "12",
+          "path": "/2022/12",
+          "pages": [],
+          "children": [
+            {
+              "name": "21",
+              "path": "/2022/12/21",
+              "pages": [],
+              "children": [
+                {
+                  "name": "the-plan-has-signed-up-to-the-scams-pledge",
+                  "path": "/2022/12/21/the-plan-has-signed-up-to-the-scams-pledge",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2022/12/21/the-plan-has-signed-up-to-the-scams-pledge",
+                      "title": "The Plan has signed up to the Scams Pledge\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "09",
+          "path": "/2022/09",
+          "pages": [],
+          "children": [
+            {
+              "name": "09",
+              "path": "/2022/09/09",
+              "pages": [],
+              "children": [
+                {
+                  "name": "pension-savings-statements-2022",
+                  "path": "/2022/09/09/pension-savings-statements-2022",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2022/09/09/pension-savings-statements-2022",
+                      "title": "Pension savings statements 2022\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2023",
+      "path": "/2023",
+      "pages": [],
+      "children": [
+        {
+          "name": "06",
+          "path": "/2023/06",
+          "pages": [],
+          "children": [
+            {
+              "name": "30",
+              "path": "/2023/06/30",
+              "pages": [],
+              "children": [
+                {
+                  "name": "capita-cyber-incident-update",
+                  "path": "/2023/06/30/capita-cyber-incident-update",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2023/06/30/capita-cyber-incident-update",
+                      "title": "Capita cyber incident – update\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2024",
+      "path": "/2024",
+      "pages": [],
+      "children": [
+        {
+          "name": "12",
+          "path": "/2024/12",
+          "pages": [],
+          "children": [
+            {
+              "name": "17",
+              "path": "/2024/12/17",
+              "pages": [],
+              "children": [
+                {
+                  "name": "christmas-opening-hours-for-2024",
+                  "path": "/2024/12/17/christmas-opening-hours-for-2024",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2024/12/17/christmas-opening-hours-for-2024",
+                      "title": "Christmas opening hours\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "04",
+          "path": "/2024/04",
+          "pages": [],
+          "children": [
+            {
+              "name": "05",
+              "path": "/2024/04/05",
+              "pages": [],
+              "children": [
+                {
+                  "name": "abolition-of-the-lifetime-allowance-from-6-april-2024",
+                  "path": "/2024/04/05/abolition-of-the-lifetime-allowance-from-6-april-2024",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2024/04/05/abolition-of-the-lifetime-allowance-from-6-april-2024",
+                      "title": "Abolition of the Lifetime Allowance from 6 April 2024\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "05",
+          "path": "/2024/05",
+          "pages": [],
+          "children": [
+            {
+              "name": "09",
+              "path": "/2024/05/09",
+              "pages": [],
+              "children": [
+                {
+                  "name": "changes-to-the-plans-investment-options",
+                  "path": "/2024/05/09/changes-to-the-plans-investment-options",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2024/05/09/changes-to-the-plans-investment-options",
+                      "title": "Changes to the Plan’s investment options – 2024\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "09",
+          "path": "/2024/09",
+          "pages": [],
+          "children": [
+            {
+              "name": "10",
+              "path": "/2024/09/10",
+              "pages": [],
+              "children": [
+                {
+                  "name": "pension-savings-statements",
+                  "path": "/2024/09/10/pension-savings-statements",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2024/09/10/pension-savings-statements",
+                      "title": "Pension savings statements\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2025",
+      "path": "/2025",
+      "pages": [],
+      "children": [
+        {
+          "name": "08",
+          "path": "/2025/08",
+          "pages": [],
+          "children": [
+            {
+              "name": "11",
+              "path": "/2025/08/11",
+              "pages": [],
+              "children": [
+                {
+                  "name": "changes-to-the-plans-investment-options-2025",
+                  "path": "/2025/08/11/changes-to-the-plans-investment-options-2025",
+                  "pages": [
+                    {
+                      "url": "https://www.pearson-pensions.com/2025/08/11/changes-to-the-plans-investment-options-2025",
+                      "title": "Changes to the Plan’s investment options – 2025\t\t\t:: Pearson Pensions"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "about-the-plan",
+      "path": "/about-the-plan",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/about-the-plan",
+          "title": "Why join?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "accessibility",
+      "path": "/accessibility",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/accessibility",
+          "title": "Accessibility\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "additional-checks-benefits-transfer-plan",
+      "path": "/additional-checks-benefits-transfer-plan",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/additional-checks-benefits-transfer-plan",
+          "title": "Additional checks when you take your benefits or transfer out of the Plan\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "additional-voluntary-contributions-avcs-application-form",
+      "path": "/additional-voluntary-contributions-avcs-application-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/additional-voluntary-contributions-avcs-application-form",
+          "title": "Additional Voluntary Contributions (AVCS) -  AVCs Application form – DB members only\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "additional-voluntary-contributions-avcs-fund-switch-form",
+      "path": "/additional-voluntary-contributions-avcs-fund-switch-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/additional-voluntary-contributions-avcs-fund-switch-form",
+          "title": "Additional Voluntary Contributions (AVCS) -  Fund switch form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "additional-voluntary-contributions-avcs-single-one-off-payment-form",
+      "path": "/additional-voluntary-contributions-avcs-single-one-off-payment-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/additional-voluntary-contributions-avcs-single-one-off-payment-form",
+          "title": "Additional Voluntary Contributions (AVCS) -  Application form – single one-off payment\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "annual-allowance-lifetime-allowance",
+      "path": "/annual-allowance-lifetime-allowance",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/annual-allowance-lifetime-allowance",
+          "title": "HMRC limits and allowances\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "are-you-on-track-for-your-retirement",
+      "path": "/are-you-on-track-for-your-retirement",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/are-you-on-track-for-your-retirement",
+          "title": "Are you on track for your retirement?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "auto-enrolment-ae-section-application-form",
+      "path": "/auto-enrolment-ae-section-application-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/auto-enrolment-ae-section-application-form",
+          "title": "Auto Enrolment (AE) Section -  Application form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "auto-enrolment-section",
+      "path": "/auto-enrolment-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/auto-enrolment-section",
+          "title": "Auto Enrolment Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "bank-details-form",
+      "path": "/bank-details-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/bank-details-form",
+          "title": "Bank details\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "benefit-statement-assumptions-2021",
+      "path": "/benefit-statement-assumptions-2021",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/benefit-statement-assumptions-2021",
+          "title": "Benefit statement assumptions 2021\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "benefit-statement-assumptions-2022",
+      "path": "/benefit-statement-assumptions-2022",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/benefit-statement-assumptions-2022",
+          "title": "Benefit statement assumptions 2022\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "benefit-statement-assumptions-2023",
+      "path": "/benefit-statement-assumptions-2023",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/benefit-statement-assumptions-2023",
+          "title": "Benefit statement assumptions 2023\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "benefit-statement-assumptions-2024",
+      "path": "/benefit-statement-assumptions-2024",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/benefit-statement-assumptions-2024",
+          "title": "Benefit statement assumptions 2024\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "benefit-statement-assumptions-2025",
+      "path": "/benefit-statement-assumptions-2025",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/benefit-statement-assumptions-2025",
+          "title": "Benefit statement assumptions 2025\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "benefit-statements",
+      "path": "/benefit-statements",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/benefit-statements",
+          "title": "Your Benefit Statement – Explained\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "book-a-meeting",
+      "path": "/book-a-meeting",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/book-a-meeting",
+          "title": "Book a meeting with the team\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "building-your-pension",
+      "path": "/building-your-pension",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/building-your-pension",
+          "title": "Building your pension\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "camco-section",
+      "path": "/camco-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/camco-section",
+          "title": "Camco Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "chairmans-defined-contribution-governance-statement-2019",
+      "path": "/chairmans-defined-contribution-governance-statement-2019",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/chairmans-defined-contribution-governance-statement-2019",
+          "title": "Chairman’s Defined Contribution Governance Statement 2019\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "chairmans-defined-contribution-governance-statement-2020",
+      "path": "/chairmans-defined-contribution-governance-statement-2020",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/chairmans-defined-contribution-governance-statement-2020",
+          "title": "Chairman’s Defined Contribution Governance Statement 2020\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "chairmans-defined-contribution-governance-statement-2021",
+      "path": "/chairmans-defined-contribution-governance-statement-2021",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/chairmans-defined-contribution-governance-statement-2021",
+          "title": "Chairman’s Defined Contribution Governance Statement 2021\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "chairmans-defined-contribution-governance-statement-2022",
+      "path": "/chairmans-defined-contribution-governance-statement-2022",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/chairmans-defined-contribution-governance-statement-2022",
+          "title": "Chairman’s Defined Contribution Governance Statement 2022\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "change-of-details-form",
+      "path": "/change-of-details-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/change-of-details-form",
+          "title": "Change of details\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "changes-to-hmrc-allowances-from-april-2024-faqs",
+      "path": "/changes-to-hmrc-allowances-from-april-2024-faqs",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/changes-to-hmrc-allowances-from-april-2024-faqs",
+          "title": "Changes to HMRC allowances from April 2024 – FAQs\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "changes-to-investment-options-2024",
+      "path": "/changes-to-investment-options-2024",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/changes-to-investment-options-2024",
+          "title": "Changes to investment options 2024\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "changes-to-investment-options-2025",
+      "path": "/changes-to-investment-options-2025",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/changes-to-investment-options-2025",
+          "title": "Changes to investment options 2025\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "choosing-a-pension-thats-right-for-you",
+      "path": "/choosing-a-pension-thats-right-for-you",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/choosing-a-pension-thats-right-for-you",
+          "title": "Choosing a pension that’s right for you\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "civil-service-classic-section",
+      "path": "/civil-service-classic-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/civil-service-classic-section",
+          "title": "Civil Service Classic Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "civil-service-premium-section",
+      "path": "/civil-service-premium-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/civil-service-premium-section",
+          "title": "Civil Service Premium Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "contact-us",
+      "path": "/contact-us",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/contact-us",
+          "title": "Contact us\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "cookies",
+      "path": "/cookies",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/cookies",
+          "title": "Cookies\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "death-and-ill-health-benefits",
+      "path": "/death-and-ill-health-benefits",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/death-and-ill-health-benefits",
+          "title": "Death and ill health benefits\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "dorling-kindersley-section",
+      "path": "/dorling-kindersley-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/dorling-kindersley-section",
+          "title": "Dorling Kindersley Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "edi-section",
+      "path": "/edi-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/edi-section",
+          "title": "EDI Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "expression-of-wish-form",
+      "path": "/expression-of-wish-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/expression-of-wish-form",
+          "title": "Expression of wish\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "extel-section",
+      "path": "/extel-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/extel-section",
+          "title": "Extel Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "fairey-section",
+      "path": "/fairey-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/fairey-section",
+          "title": "Fairey Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "financial-times-section",
+      "path": "/financial-times-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/financial-times-section",
+          "title": "Financial Times Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "find-out-which-section-you-are-in",
+      "path": "/find-out-which-section-you-are-in",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/find-out-which-section-you-are-in",
+          "title": "Find out which section you are in\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "fund-switch-form",
+      "path": "/fund-switch-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/fund-switch-form",
+          "title": "Fund switch form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "go",
+      "path": "/go",
+      "pages": [],
+      "children": [
+        {
+          "name": "external-login",
+          "path": "/go/external-login",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/go/external-login",
+              "title": "Sign in to your account"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "salary-exchange-guide",
+          "path": "/go/salary-exchange-guide",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/go/salary-exchange-guide",
+              "title": "ServiceNow"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "guidance-confirmation-form",
+      "path": "/guidance-confirmation-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/guidance-confirmation-form",
+          "title": "Guidance confirmation form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "here-to-help",
+      "path": "/here-to-help",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/here-to-help",
+          "title": "Here to help\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "hmrc-limits-and-allowances",
+      "path": "/hmrc-limits-and-allowances",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/hmrc-limits-and-allowances",
+          "title": "HMRC limits and allowances\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "how-the-plan-is-run",
+      "path": "/how-the-plan-is-run",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/how-the-plan-is-run",
+          "title": "How the Plan is run\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "how-the-plan-works",
+      "path": "/how-the-plan-works",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/how-the-plan-works",
+          "title": "How the Plan works\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "i-want-to",
+      "path": "/i-want-to",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/i-want-to",
+          "title": "I want to\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "identity-and-verification-check",
+      "path": "/identity-and-verification-check",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/identity-and-verification-check",
+          "title": "Identity and Verification Check\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "implementation-statement-2020",
+      "path": "/implementation-statement-2020",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/implementation-statement-2020",
+          "title": "Implementation Statement, covering 1 January 2020 to 31 December 2020\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "implementation-statement-2021",
+      "path": "/implementation-statement-2021",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/implementation-statement-2021",
+          "title": "Implementation Statement, covering 1 January 2021 to 31 December 2021\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "information-centre",
+      "path": "/information-centre",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/information-centre",
+          "title": "Information Centre\t\t\t:: Pearson Pensions"
+        },
+        {
+          "url": "https://www.pearson-pensions.com/information-centre?quiz",
+          "title": "Information Centre\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": [
+        {
+          "name": "already-receiving-a-pension",
+          "path": "/information-centre/already-receiving-a-pension",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/already-receiving-a-pension",
+              "title": "Already receiving a pension\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": [
+            {
+              "name": "power-of-attorney",
+              "path": "/information-centre/already-receiving-a-pension/power-of-attorney",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/already-receiving-a-pension/power-of-attorney",
+                  "title": "Power of Attorney\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "reaching-state-pension-age-spa",
+              "path": "/information-centre/already-receiving-a-pension/reaching-state-pension-age-spa",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/already-receiving-a-pension/reaching-state-pension-age-spa",
+                  "title": "Reaching State Pension Age (SPA)\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "retiring-overseas",
+              "path": "/information-centre/already-receiving-a-pension/retiring-overseas",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/already-receiving-a-pension/retiring-overseas",
+                  "title": "Retiring overseas\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "social-care-and-support",
+              "path": "/information-centre/already-receiving-a-pension/social-care-and-support",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/already-receiving-a-pension/social-care-and-support",
+                  "title": "Social care and support\t\t\t:: Pearson Pensions"
+                },
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/already-receiving-a-pension/social-care-and-support/",
+                  "title": "Social care and support\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "tax-and-national-insurance-after-retirement",
+              "path": "/information-centre/already-receiving-a-pension/tax-and-national-insurance-after-retirement",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/already-receiving-a-pension/tax-and-national-insurance-after-retirement",
+                  "title": "Tax and National Insurance after retirement\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "document-archives",
+          "path": "/information-centre/document-archives",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/document-archives",
+              "title": "Document Archives\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "information-for-financial-advisers",
+          "path": "/information-centre/information-for-financial-advisers",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/information-for-financial-advisers",
+              "title": "Information for Financial Advisers\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "jargon-buster",
+          "path": "/information-centre/jargon-buster",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/jargon-buster",
+              "title": "Jargon buster\t\t\t:: Pearson Pensions"
+            },
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/jargon-buster?jargon-type=all",
+              "title": "Jargon buster\t\t\t:: Pearson Pensions"
+            },
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/jargon-buster?jargon-type=death-benefits",
+              "title": "Jargon buster\t\t\t:: Pearson Pensions"
+            },
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/jargon-buster?jargon-type=retirement-and-taking-your-pension",
+              "title": "Jargon buster\t\t\t:: Pearson Pensions"
+            },
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/jargon-buster?jargon-type=tax-and-allowances",
+              "title": "Jargon buster\t\t\t:: Pearson Pensions"
+            },
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/jargon-buster?jargon-type=transferring-your-benefits-from-the-plan",
+              "title": "Jargon buster\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "life-events",
+          "path": "/information-centre/life-events",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/life-events",
+              "title": "Life events\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": [
+            {
+              "name": "getting-married",
+              "path": "/information-centre/life-events/getting-married",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/life-events/getting-married",
+                  "title": "Getting married?\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "how-divorce-affects-your-pension",
+              "path": "/information-centre/life-events/how-divorce-affects-your-pension",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/life-events/how-divorce-affects-your-pension",
+                  "title": "How divorce affects your pension\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "welcoming-a-new-member-of-the-family",
+              "path": "/information-centre/life-events/welcoming-a-new-member-of-the-family",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/life-events/welcoming-a-new-member-of-the-family",
+                  "title": "Welcoming a new member of the family\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "what-happens-if-you-are-too-ill-to-work",
+              "path": "/information-centre/life-events/what-happens-if-you-are-too-ill-to-work",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/life-events/what-happens-if-you-are-too-ill-to-work",
+                  "title": "What happens if you are too ill to work\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "what-happens-to-your-pension-if-you-die",
+              "path": "/information-centre/life-events/what-happens-to-your-pension-if-you-die",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/life-events/what-happens-to-your-pension-if-you-die",
+                  "title": "What happens to your pension if you die\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "what-happens-when-you-leave-the-company",
+              "path": "/information-centre/life-events/what-happens-when-you-leave-the-company",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/life-events/what-happens-when-you-leave-the-company",
+                  "title": "What happens when you leave the company\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "your-pension-options-if-you-are-made-redundant",
+              "path": "/information-centre/life-events/your-pension-options-if-you-are-made-redundant",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/life-events/your-pension-options-if-you-are-made-redundant",
+                  "title": "Your pension options if you are made redundant\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "pension-small-print",
+          "path": "/information-centre/pension-small-print",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/pension-small-print",
+              "title": "Pension small print\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "saving-spending-tips",
+          "path": "/information-centre/saving-spending-tips",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/saving-spending-tips",
+              "title": "Saving and spending tips\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": [
+            {
+              "name": "budgeting",
+              "path": "/information-centre/saving-spending-tips/budgeting",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/saving-spending-tips/budgeting",
+                  "title": "Budgeting\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "cost-of-living",
+              "path": "/information-centre/saving-spending-tips/cost-of-living",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/saving-spending-tips/cost-of-living",
+                  "title": "Cost of living\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "loans-and-debt",
+              "path": "/information-centre/saving-spending-tips/loans-and-debt",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/saving-spending-tips/loans-and-debt",
+                  "title": "Loans and debt\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "pension-basics",
+              "path": "/information-centre/saving-spending-tips/pension-basics",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/saving-spending-tips/pension-basics",
+                  "title": "Pension basics\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "saving-and-investment",
+              "path": "/information-centre/saving-spending-tips/saving-and-investment",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/saving-spending-tips/saving-and-investment",
+                  "title": "Saving and investments\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "saving-and-investments",
+              "path": "/information-centre/saving-spending-tips/saving-and-investments",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/saving-spending-tips/saving-and-investments",
+                  "title": "Saving and investments\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "tax",
+              "path": "/information-centre/saving-spending-tips/tax",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/information-centre/saving-spending-tips/tax",
+                  "title": "Tax\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "tools",
+          "path": "/information-centre/tools",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/information-centre/tools",
+              "title": "Tools\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "information-request-form",
+      "path": "/information-request-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/information-request-form",
+          "title": "Information request\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "internal-dispute-resolution-procedure",
+      "path": "/internal-dispute-resolution-procedure",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/internal-dispute-resolution-procedure",
+          "title": "Disputes Resolution Procedure\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "internal-dispute-resolution-procedure-form",
+      "path": "/internal-dispute-resolution-procedure-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/internal-dispute-resolution-procedure-form",
+          "title": "Internal Dispute Resolution Procedure form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "keeping-in-touch-with-you",
+      "path": "/keeping-in-touch-with-you",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/keeping-in-touch-with-you",
+          "title": "Keeping in touch with you\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "ladybird-section",
+      "path": "/ladybird-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/ladybird-section",
+          "title": "Ladybird Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "learning-zone",
+      "path": "/learning-zone",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/learning-zone",
+          "title": "Information Centre\t\t\t:: Pearson Pensions"
+        },
+        {
+          "url": "https://www.pearson-pensions.com/learning-zone?quiz",
+          "title": "Page not found\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "library",
+      "path": "/library",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/library",
+          "title": "Library\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "login",
+      "path": "/login",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/login",
+          "title": "Which portal is right for you?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "longman-group-section",
+      "path": "/longman-group-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/longman-group-section",
+          "title": "Longman Group Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "making-your-money-grow",
+      "path": "/making-your-money-grow",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/making-your-money-grow",
+          "title": "Making your money grow\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "member-declaration-download",
+      "path": "/member-declaration-download",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/member-declaration-download",
+          "title": "Overseas Member Declaration form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "member-declaration-upload",
+      "path": "/member-declaration-upload",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/member-declaration-upload",
+          "title": "Member Declaration\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "money-purchase-2003-mp03-section-application-form",
+      "path": "/money-purchase-2003-mp03-section-application-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/money-purchase-2003-mp03-section-application-form",
+          "title": "Money Purchase 2003 (MP03) Section -  Application form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "money-purchase-2003-mp03-section-contributions-change-form",
+      "path": "/money-purchase-2003-mp03-section-contributions-change-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/money-purchase-2003-mp03-section-contributions-change-form",
+          "title": "Money Purchase 2003 (MP03) Section -  Contributions change form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "money-purchase-2003-mp03-section-switch-form",
+      "path": "/money-purchase-2003-mp03-section-switch-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/money-purchase-2003-mp03-section-switch-form",
+          "title": "Money Purchase 2003 (MP03) Section -  Switch form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "money-purchase-2003-section",
+      "path": "/money-purchase-2003-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/money-purchase-2003-section",
+          "title": "Money Purchase 2003 Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "my-contributions",
+      "path": "/my-contributions",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/my-contributions",
+          "title": "My contributions\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "news",
+      "path": "/news",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/news",
+          "title": "News\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": [
+        {
+          "name": "page",
+          "path": "/news/page",
+          "pages": [],
+          "children": [
+            {
+              "name": "1",
+              "path": "/news/page/1",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/news/page/1",
+                  "title": "News\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "2",
+              "path": "/news/page/2",
+              "pages": [
+                {
+                  "url": "https://www.pearson-pensions.com/news/page/2",
+                  "title": "News\t\t\t:: Pearson Pensions"
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "nominated-dependant-form",
+      "path": "/nominated-dependant-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/nominated-dependant-form",
+          "title": "Nominated dependant\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "opt-out-form-non-auto-enrolment-sections",
+      "path": "/opt-out-form-non-auto-enrolment-sections",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/opt-out-form-non-auto-enrolment-sections",
+          "title": "Opt-out\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "paramount-section",
+      "path": "/paramount-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/paramount-section",
+          "title": "Paramount Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "pay-less-tax",
+      "path": "/pay-less-tax",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/pay-less-tax",
+          "title": "Pay less tax\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "pearson-group-final-pay-section",
+      "path": "/pearson-group-final-pay-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/pearson-group-final-pay-section",
+          "title": "Final Pay Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "pearson-section",
+      "path": "/pearson-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/pearson-section",
+          "title": "Pearson Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "penguin-section",
+      "path": "/penguin-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/penguin-section",
+          "title": "Penguin Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "pension-payments",
+      "path": "/pension-payments",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/pension-payments",
+          "title": "Pension payments\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "pension-savings-statement",
+      "path": "/pension-savings-statement",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/pension-savings-statement",
+          "title": "Pension Savings Statement\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": [
+        {
+          "name": "annual-allowance-tax-charge",
+          "path": "/pension-savings-statement/annual-allowance-tax-charge",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/pension-savings-statement/annual-allowance-tax-charge",
+              "title": "Annual Allowance Tax Charge\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "calculating-your-annual-allowance",
+          "path": "/pension-savings-statement/calculating-your-annual-allowance",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/pension-savings-statement/calculating-your-annual-allowance",
+              "title": "Calculating your Annual Allowance\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "tell-hmrc",
+          "path": "/pension-savings-statement/tell-hmrc",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/pension-savings-statement/tell-hmrc",
+              "title": "Telling HMRC that you have exceeded your Annual Allowance\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "what-milestones-and-deadlines-are-important",
+          "path": "/pension-savings-statement/what-milestones-and-deadlines-are-important",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/pension-savings-statement/what-milestones-and-deadlines-are-important",
+              "title": "Milestones and deadlines\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "your-pension-savings-statement",
+          "path": "/pension-savings-statement/your-pension-savings-statement",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/pension-savings-statement/your-pension-savings-statement",
+              "title": "Your pension savings statement\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "pension-scams",
+      "path": "/pension-scams",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/pension-scams",
+          "title": "Pension scams\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "privacy-notice",
+      "path": "/privacy-notice",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/privacy-notice",
+          "title": "Privacy Notice\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "public-services-section",
+      "path": "/public-services-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/public-services-section",
+          "title": "Public Services Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "regulatory-information",
+      "path": "/regulatory-information",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/regulatory-information",
+          "title": "Regulatory information\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "report-a-death",
+      "path": "/report-a-death",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/report-a-death",
+          "title": "Report a death\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "report-a-death-online-notification-form",
+      "path": "/report-a-death-online-notification-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/report-a-death-online-notification-form",
+          "title": "Report a death form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "report-a-death-what-happens-next",
+      "path": "/report-a-death-what-happens-next",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/report-a-death-what-happens-next",
+          "title": "Report a death – what happens next\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "scheme-pays-request-form",
+      "path": "/scheme-pays-request-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/scheme-pays-request-form",
+          "title": "AA tax charge calculator/Scheme Pays request form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "selected-retirement-age-sra-form",
+      "path": "/selected-retirement-age-sra-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/selected-retirement-age-sra-form",
+          "title": "Selected retirement age\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "state-pension",
+      "path": "/state-pension",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/state-pension",
+          "title": "State Pension\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "submit-a-document-first-party",
+      "path": "/submit-a-document-first-party",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/submit-a-document-first-party",
+          "title": "Submit a document – For myself\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "submit-a-document-third-party",
+      "path": "/submit-a-document-third-party",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/submit-a-document-third-party",
+          "title": "Submit a document – For someone else\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "submit-document",
+      "path": "/submit-document",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/submit-document",
+          "title": "Submit a document\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "switching-form",
+      "path": "/switching-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/switching-form",
+          "title": "Money Purchase 2003 (MP03) Section -  Switch form\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "taking-your-pension",
+      "path": "/taking-your-pension",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/taking-your-pension",
+          "title": "Taking your pension\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": [
+        {
+          "name": "after-retirement",
+          "path": "/taking-your-pension/after-retirement",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/taking-your-pension/after-retirement",
+              "title": "After retirement\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "getting-ready",
+          "path": "/taking-your-pension/getting-ready",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/taking-your-pension/getting-ready",
+              "title": "Getting ready\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "over-five-years-to-go",
+          "path": "/taking-your-pension/over-five-years-to-go",
+          "pages": [
+            {
+              "url": "https://www.pearson-pensions.com/taking-your-pension/over-five-years-to-go",
+              "title": "Over five years to go\t\t\t:: Pearson Pensions"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "terms-and-conditions",
+      "path": "/terms-and-conditions",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/terms-and-conditions",
+          "title": "Terms and Conditions\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "thames-television-section",
+      "path": "/thames-television-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/thames-television-section",
+          "title": "Thames Television Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "tq-section",
+      "path": "/tq-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/tq-section",
+          "title": "TQ Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "transfer-in-information-request-form",
+      "path": "/transfer-in-information-request-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/transfer-in-information-request-form",
+          "title": "Transfer in information request\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "transfer-process",
+      "path": "/transfer-process",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/transfer-process",
+          "title": "Transferring into the Plan\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "trustee-checks-for-transfers",
+      "path": "/trustee-checks-for-transfers",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/trustee-checks-for-transfers",
+          "title": "Trustee checks for transfers\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "tussauds-group-section",
+      "path": "/tussauds-group-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/tussauds-group-section",
+          "title": "Tussauds Group Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "validate-identity-form",
+      "path": "/validate-identity-form",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/validate-identity-form",
+          "title": "Validate Identity\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "ways-you-can-save-more",
+      "path": "/ways-you-can-save-more",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/ways-you-can-save-more",
+          "title": "Ways you can save more\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "westminster-press-group-section",
+      "path": "/westminster-press-group-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/westminster-press-group-section",
+          "title": "Westminster Press Group Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "westminster-press-senior-executive-section",
+      "path": "/westminster-press-senior-executive-section",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/westminster-press-senior-executive-section",
+          "title": "Westminster Press Senior Executive Section\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if",
+      "path": "/what-happens-if",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if",
+          "title": "What happens if…?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-am-made-redundant",
+      "path": "/what-happens-if-i-am-made-redundant",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-am-made-redundant",
+          "title": "What happens if I am made redundant?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-decide-to-work-past-my-normal-retirement-age",
+      "path": "/what-happens-if-i-decide-to-work-past-my-normal-retirement-age",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-decide-to-work-past-my-normal-retirement-age",
+          "title": "What happens if I decide to work past my normal retirement age?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-die-while-still-working-for-pearson",
+      "path": "/what-happens-if-i-die-while-still-working-for-pearson",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-die-while-still-working-for-pearson",
+          "title": "What happens if I die while still working for Pearson?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-get-divorced",
+      "path": "/what-happens-if-i-get-divorced",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-get-divorced",
+          "title": "What happens if I get divorced?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-leave-the-plan",
+      "path": "/what-happens-if-i-leave-the-plan",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-leave-the-plan",
+          "title": "What happens if I leave the Plan?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-need-further-assistance",
+      "path": "/what-happens-if-i-need-further-assistance",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-need-further-assistance",
+          "title": "What happens if I need further assistance?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-start-working-part-time",
+      "path": "/what-happens-if-i-start-working-part-time",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-start-working-part-time",
+          "title": "What happens if I start working part-time?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-take-family-or-unpaid-leave",
+      "path": "/what-happens-if-i-take-family-or-unpaid-leave",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-take-family-or-unpaid-leave",
+          "title": "What happens if I take family or unpaid leave?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "what-happens-if-i-want-to-retire-early",
+      "path": "/what-happens-if-i-want-to-retire-early",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/what-happens-if-i-want-to-retire-early",
+          "title": "What happens if I want to retire early?\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "your-pension-options",
+      "path": "/your-pension-options",
+      "pages": [
+        {
+          "url": "https://www.pearson-pensions.com/your-pension-options",
+          "title": "Your pension options\t\t\t:: Pearson Pensions"
+        }
+      ],
+      "children": []
+    }
+  ]
+}

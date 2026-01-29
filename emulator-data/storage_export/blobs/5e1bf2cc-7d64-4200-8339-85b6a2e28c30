@@ -1,0 +1,181 @@
+{
+  "name": "",
+  "path": "/",
+  "pages": [
+    {
+      "url": "https://sta.ablelytics.com/",
+      "title": "Ablelytics - Website accessibility tool"
+    }
+  ],
+  "children": [
+    {
+      "name": "sample-report",
+      "path": "/sample-report",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/sample-report",
+          "title": "404 Not Found"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "faqs",
+      "path": "/faqs",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/faqs",
+          "title": "Ablelytics - Website accessibility tool | FAQs"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "cookies",
+      "path": "/cookies",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/cookies",
+          "title": "Ablelytics - Website accessibility tool | Cookies"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "docs",
+      "path": "/docs",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/docs",
+          "title": "404 Not Found"
+        }
+      ],
+      "children": [
+        {
+          "name": "testing",
+          "path": "/docs/testing",
+          "pages": [
+            {
+              "url": "https://sta.ablelytics.com/docs/testing",
+              "title": "404 Not Found"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "integrations",
+          "path": "/docs/integrations",
+          "pages": [
+            {
+              "url": "https://sta.ablelytics.com/docs/integrations",
+              "title": "404 Not Found"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "auth",
+      "path": "/auth",
+      "pages": [],
+      "children": [
+        {
+          "name": "login",
+          "path": "/auth/login",
+          "pages": [
+            {
+              "url": "https://sta.ablelytics.com/auth/login",
+              "title": "404 Not Found"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "contact",
+      "path": "/contact",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/contact",
+          "title": "Ablelytics - Website accessibility tool | Contacts"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "pricing",
+      "path": "/pricing",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/pricing",
+          "title": "Ablelytics - Website accessibility tool | Pricing"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "features",
+      "path": "/features",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/features",
+          "title": "Ablelytics - Website accessibility tool | Features"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "window.open('",
+      "path": "/window.open('",
+      "pages": [],
+      "children": [
+        {
+          "name": "sample-report',%20'_blank')",
+          "path": "/window.open('/sample-report',%20'_blank')",
+          "pages": [
+            {
+              "url": "https://sta.ablelytics.com/window.open('/sample-report',%20'_blank')",
+              "title": "404 Not Found"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "privacy",
+      "path": "/privacy",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/privacy",
+          "title": "Ablelytics - Website accessibility tool | Privacy policy"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "signup",
+      "path": "/signup",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/signup",
+          "title": "404 Not Found"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "terms",
+      "path": "/terms",
+      "pages": [
+        {
+          "url": "https://sta.ablelytics.com/terms",
+          "title": "Ablelytics - Website accessibility tool | Terms and Conditions"
+        }
+      ],
+      "children": []
+    }
+  ]
+}

@@ -1,0 +1,746 @@
+/**
+ * Worker
+ * ------
+ * Background worker that executes crawl/scan jobs.
+ *
+ * Sources of jobs:
+ * - Pub/Sub (production)
+ * - Firestore `/jobs` collection (local/emulator fallback)
+ *
+ * Key responsibilities:
+ * - Page collection (crawl site and create page documents)
+ * - Pages → sitemap generation
+ * - Accessibility scan of selected pages (axe-core via puppeteer, with a static HTML fallback)
+ *
+ * Safety notes:
+ * - In local/emulator mode we must not call production Firestore/Storage.
+ * - Firestore Admin SDK must be explicitly pointed at the emulator.
+ */
+
+const admin = require('firebase-admin');
+const { handleScanPages } = require('./handlers/scanPages');
+const { handlePagesToSitemapJob } = require('./handlers/pagesToSitemap');
+const { handlePageCollectionJob } = require('./handlers/pageCollection');
+
+// --- Emulator wiring must happen BEFORE initializeApp/firestore() ---
+// Admin SDK uses FIRESTORE_EMULATOR_HOST to route all traffic to the emulator.
+if (process.env.EMULATOR_MODE === '1') {
+  // Provide sensible defaults if not already set by `firebase emulators:start`.
+  process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
+  // Ensure a project id exists (the emulator namespaces data by project).
+  process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'demo-a11yscan';
+  // Set up Firebase Storage emulator host
+  process.env.FIREBASE_STORAGE_EMULATOR_HOST = process.env.FIREBASE_STORAGE_EMULATOR_HOST || 'localhost:9199';
+  // Set default storage bucket if not provided
+  if (!process.env.STORAGE_BUCKET) {
+    const projectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
+    process.env.STORAGE_BUCKET = `${projectId}.appspot.com`;
+  }
+}
+
+// Prefer explicit projectId and storageBucket so admin.app().options aren't undefined.
+admin.initializeApp({ 
+  projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
+  storageBucket: process.env.STORAGE_BUCKET
+});
+const db = admin.firestore();
+
+console.log('process.env.EMULATOR_MODE', process.env.EMULATOR_MODE);
+console.log('admin projectId:', admin.app().options.projectId);
+console.log('admin storageBucket:', admin.app().options.storageBucket);
+console.log('GCLOUD_PROJECT:', process.env.GCLOUD_PROJECT);
+console.log('FIRESTORE_EMULATOR_HOST:', process.env.FIRESTORE_EMULATOR_HOST);
+console.log('FIREBASE_STORAGE_EMULATOR_HOST:', process.env.FIREBASE_STORAGE_EMULATOR_HOST);
+console.log('STORAGE_BUCKET:', process.env.STORAGE_BUCKET);
+
+// Firestore jobs fallback (used in emulator / local dev). The worker will watch /jobs for queued jobs.
+if (process.env.EMULATOR_MODE === '1' || process.env.FIRESTORE_EMULATOR_HOST) {
+    // Firestore Admin SDK routes to the emulator automatically when FIRESTORE_EMULATOR_HOST is set.
+    console.log('[firebase-admin] Using Firestore emulator at', process.env.FIRESTORE_EMULATOR_HOST);
+    console.log('Worker: enabling Firestore jobs listener (emulator mode)');
+    const jobsCol = db.collection('jobs');
+
+    (async () => {
+      const allSnap = await db.collection('projects').get();
+      console.log('ALL projects:', allSnap.size);
+
+      allSnap.forEach(d => {
+        const data = d.data() || {};
+        console.log('PROJECT', d.id);
+      });
+
+      const qSnap = await db.collection('jobs').where('status', '==', 'queued').get();
+      console.log('QUEUED jobs:', qSnap.size);
+      qSnap.forEach(d => console.log('QUEUED JOB', d.id));
+    })();
+
+    jobsCol.where('status', '==', 'queued').onSnapshot(snapshot => {
+        snapshot.docs.forEach(doc => {
+            try {
+                console.log('Job doc:', doc.id, JSON.stringify(doc.data(), null, 2));
+            } catch (e) {
+                console.log('Job doc (non-serializable):', doc.id, doc.data());
+            }
+        });
+        
+        snapshot.docChanges().forEach(change => {
+            console.log('change.type', change.type);
+            if (change.type === 'added') {
+              const doc = change.doc;
+              (async () => {
+                try {
+                  const job = doc.data();
+                  console.log('Processing job:', job);
+                  if (!job || !job.action) return;
+                  
+                  // Claim the job (avoid double-processing on reconnects / replays).
+                  const claimed = await db.runTransaction(async (tx) => {
+                      const fresh = await tx.get(doc.ref);
+                      const cur = fresh.data();
+                      if (!cur || cur.status !== 'queued') return false;
+                      tx.update(doc.ref, {
+                          status: 'in-progress',
+                          startedAt: admin.firestore.FieldValue.serverTimestamp(),
+                      });
+                      return true;
+                  });
+
+                  if (!claimed) return;
+
+                  switch(job.action) {
+                      case 'page_collection':
+                          await handlePageCollectionJob(db, job.projectId, job.runId);
+                          break;
+                      case 'pages_to_sitemap':
+                          await handlePagesToSitemapJob(db, job.projectId, job.runId);
+                          break;
+                      case 'scan_pages':
+                      case 'full_scan':
+                          await handleScanPages(db, job.projectId, job.runId);
+                          break;
+                      default:
+                          console.log('Unknown job action:', job.action);
+                          return;
+                  }
+
+                  await doc.ref.update({ status: 'done', doneAt: admin.firestore.FieldValue.serverTimestamp() });
+                } catch (err) {
+                  console.error('Error processing Firestore job doc', err);
+                  try { await doc.ref.update({ status: 'error', error: String(err) }); } catch(e){}
+                }
+              })();
+            }
+        });
+    }, err => console.error('Jobs listener error', err));
+}
+
+console.log('Worker started successfully. Listening for jobs...');
+                  }
+                  console.log('Processing job from Firestore:', doc.id, job);
+
+                  await doc.ref.update({ status: 'done', doneAt: admin.firestore.FieldValue.serverTimestamp() });
+                } catch (err) {
+                  console.error('Error processing Firestore job doc', err);
+                  try { await doc.ref.update({ status: 'error', error: String(err) }); } catch(e){}
+                }
+              })();
+            }
+        });
+    }, err => console.error('Jobs listener error', err));
+} else {
+
+}
+
+/* --- Sitemap generator --- */
+
+
+/**
+ * handleScanPages
+ * -------------
+ * Executes an accessibility scan for the pages referenced by a run document.
+ *
+ * Behavior:
+ * - Reads run.pagesIds
+ * - For each page, runs axe-core via puppeteer when available
+ * - Falls back to lightweight HTML heuristics if puppeteer/axe isn't available
+ * - Writes scan results into `projects/{projectId}/scans`
+ * - Updates per-page summaries and run aggregate stats
+ */
+async function handleScanPages(projectId, runId){
+    console.log('handleScanPages', projectId, runId);
+    // locate project and ensure it exists
+    const projectRef = db.collection('projects').doc(projectId);
+    const projSnap = await projectRef.get();
+    if (!projSnap.exists) {
+        throw new Error('Project not found: ' + projectId);
+    }
+
+    // Update run status -> running
+    const runRef = projectRef.collection('runs').doc(runId);
+    await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+    // Get run doc data and list of page IDs to scan
+    const runSnap = await runRef.get();
+    if (!runSnap.exists) {
+        throw new Error('Run not found: ' + runId);
+    }
+    const runData = runSnap.data() || {};
+    const pagesIds = Array.isArray(runData.pagesIds) ? runData.pagesIds : [];
+
+    if (pagesIds.length === 0) {
+        console.log('No pages to scan for run', runId);
+        await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp(), pagesScanned: 0 });
+        return { ok: true, scanned: 0 };
+    }
+
+    const concurrency = Number(process.env.SCAN_CONCURRENCY) || 3;
+    const limit = pLimit(concurrency);
+
+    // Try initialize Puppeteer + axe-core; fall back to HTML heuristics if unavailable
+    let usePuppeteer = false;
+    let puppeteer = null;
+    let axe = null;
+    let browser = null;
+    try {
+        puppeteer = require('puppeteer');
+        // axe-core provides a .source string we can inject
+        axe = require('axe-core');
+        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        usePuppeteer = true;
+        console.log('Puppeteer launched successfully - using axe-core for accessibility checks');
+    } catch (err) {
+        console.warn('Puppeteer/axe not available or failed to launch, falling back to static HTML heuristics:', err && err.message ? err.message : err);
+        usePuppeteer = false;
+        if (browser) try { await browser.close(); } catch(e){}
+        browser = null;
+    }
+
+    // aggregate stats
+    const agg = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+    let scannedCount = 0;
+
+    // helper to classify and push issue
+    function pushIssue(issues, impact, message, selector) {
+        issues.push({ impact, message, selector: selector || null });
+        if (agg[impact] !== undefined) agg[impact]++;
+    }
+
+    // process pages concurrently with limit
+    await Promise.all(pagesIds.map(pageId => limit(async () => {
+        try {
+            // Per-page metadata (snapshot, node rectangles, etc.).
+            // IMPORTANT: must be per-page to avoid leaking data across pages.
+            const pageInfo = {};
+
+            const pageRef = projectRef.collection('pages').doc(pageId);
+            const pageSnap = await pageRef.get();
+            if (!pageSnap.exists) {
+                console.warn('Page doc not found for id', pageId);
+                return;
+            }
+            const page = pageSnap.data();
+            const pageUrl = page.url;
+
+            const issues = [];
+            let httpStatus = null;
+
+            if (usePuppeteer && browser) {
+                let pageP = null;
+                try {
+                    pageP = await browser.newPage();
+                    await pageP.setViewport({ width: 1200, height: 900 });
+                    await pageP.setDefaultNavigationTimeout(30000);
+                    const resp = await pageP.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 30000 }).catch(e => null);
+                    if (resp) httpStatus = resp.status();
+
+                    // inject axe-core into page context
+                    if (axe && axe.source) {
+                        await pageP.addScriptTag({ content: axe.source });
+                        // run axe
+                        const axeResults = await pageP.evaluate(async () => {
+                            try {
+                                return await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa'] } });
+                            } catch (e) {
+                                return { error: String(e) };
+                            }
+                        });
+
+                        if (axeResults && axeResults.violations) {
+                            axeResults.violations.forEach(v => {
+                                const impact = v.impact || 'moderate';
+                                const message = `${v.id}: ${v.description || v.help || ''}`;
+                                // one issue per node
+                                v.nodes.forEach(node => {
+                                    const selector = (node && (node.html || node.target && node.target.join(',') )) || null;
+                                    pushIssue(issues, impact, message, selector);
+                                });
+                            });
+                        } else if (axeResults && axeResults.error) {
+                            pushIssue(issues, 'serious', 'Axe run error: ' + axeResults.error);
+                        }
+
+                        // capture a sanitized page snapshot and node info (selectors + rects) for in-UI highlighting
+                        try {
+                            // Get the rendered HTML content and sanitize it inside the page context
+                            const sanitizedHtml = await pageP.evaluate(() => {
+                                try {
+                                    const clone = document.documentElement.cloneNode(true);
+                                    // remove scripts & noscript
+                                    clone.querySelectorAll('script, noscript').forEach(n => n.remove());
+                                    // remove potentially dangerous attributes
+                                    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT, null, false);
+                                    const eventAttrs = ['onabort','onblur','onchange','onclick','onerror','onfocus','oninput','onload','onmouseover','onsubmit','onresize','onunload'];
+                                    while (walker.nextNode()) {
+                                        const el = walker.currentNode;
+                                        eventAttrs.forEach(a => { if (el.hasAttribute && el.hasAttribute(a)) el.removeAttribute(a); });
+                                        if (el.hasAttribute && el.hasAttribute('href')) {
+                                            const href = el.getAttribute('href') || '';
+                                            if (href.trim().toLowerCase().startsWith('javascript:')) el.removeAttribute('href');
+                                        }
+                                    }
+                                    return '<!doctype html>' + clone.outerHTML;
+                                } catch (e) {
+                                    return null;
+                                }
+                            });
+
+                            // compute bounding rects and normalize selectors for each axe node in a single evaluate (faster)
+                            const nodesForEvaluation = (axeResults && axeResults.violations) ? axeResults.violations.flatMap(v => v.nodes || []).map(n => ({ target: n.target, html: n.html })) : [];
+                            const issueNodes = nodesForEvaluation.length > 0 ? await pageP.evaluate((nodes) => {
+                                function getPrimarySelector(n) { if (n && n.target && n.target.length > 0) return n.target[0]; return null; }
+                                const results = [];
+                                nodes.forEach((n) => {
+                                    const selector = getPrimarySelector(n) || null;
+                                    try {
+                                        let el = null;
+                                        if (selector) el = document.querySelector(selector);
+                                        if (!el && n.html) {
+                                            const all = Array.from(document.querySelectorAll('*'));
+                                            el = all.find(e => {
+                                                try { return e.outerHTML && e.outerHTML.indexOf(n.html.slice(0, 120)) !== -1; } catch (e) { return false; }
+                                            }) || null;
+                                        }
+                                        if (!el) {
+                                            results.push({ selector, xpath: null, outerHTML: n.html || null, rect: null });
+                                        } else {
+                                            const r = el.getBoundingClientRect();
+                                            function getXPathForElement(elm) {
+                                                if (elm.id) return `id("${elm.id}")`;
+                                                const parts = [];
+                                                while (elm && elm.nodeType === Node.ELEMENT_NODE) {
+                                                    let nb = 1;
+                                                    let sib = elm.previousSibling;
+                                                    while (sib) {
+                                                        if (sib.nodeType === Node.DOCUMENT_TYPE_NODE) { sib = sib.previousSibling; continue; }
+                                                        if (sib.nodeType === Node.ELEMENT_NODE && sib.nodeName === elm.nodeName) nb++;
+                                                        sib = sib.previousSibling;
+                                                    }
+                                                    const tagName = elm.nodeName.toLowerCase();
+                                                    parts.unshift(`${tagName}[${nb}]`);
+                                                    elm = elm.parentNode;
+                                                }
+                                                return '/' + parts.join('/');
+                                            }
+                                            results.push({ selector, xpath: getXPathForElement(el), outerHTML: el.outerHTML, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
+                                        }
+                                    } catch (e) {
+                                        results.push({ selector: selector || null, xpath: null, outerHTML: n.html || null, rect: null });
+                                    }
+                                });
+                                return results;
+                            }, nodesForEvaluation) : [];
+
+
+                            // attach snapshot + node info to scanDoc for later storage
+                            if (sanitizedHtml) pageInfo.pageSnapshot = sanitizedHtml;
+                            if (issueNodes && issueNodes.length) pageInfo.nodeInfo = issueNodes;
+                        } catch (e) {
+                            console.warn('Failed to capture sanitized snapshot / node rects', e);
+                        }
+                    }
+
+                    // also collect simple checks: title and html[lang]
+                    try {
+                        const meta = await pageP.evaluate(() => ({ title: document.title || '', lang: document.documentElement.lang || '' }));
+                        if (!meta.title || meta.title.trim() === '') pushIssue(issues, 'critical', 'Missing or empty <title> element');
+                        if (!meta.lang || meta.lang.trim() === '') pushIssue(issues, 'critical', 'Missing html[lang] attribute');
+                    } catch (e) {
+                        // ignore
+                    }
+
+                } catch (err) {
+                    pushIssue(issues, 'critical', `Failed to render page in headless browser: ${String(err)}`);
+                } finally {
+                    try { if (pageP) await pageP.close(); } catch (e) {}
+                }
+            } else {
+                // fallback static checks using fetchHtml + cheerio
+                const pageData = await fetchHtml(pageUrl);
+                httpStatus = pageData ? pageData.status : null;
+                if (!pageData || !pageData.text) {
+                    pushIssue(issues, 'critical', `Failed to fetch page (status: ${httpStatus})`);
+                } else {
+                    const $ = cheerio.load(pageData.text);
+                    const title = ($('title').first().text() || '').trim();
+                    if (!title) pushIssue(issues, 'critical', 'Missing or empty <title> element');
+                    const htmlLang = $('html').attr('lang');
+                    if (!htmlLang) pushIssue(issues, 'critical', 'Missing html[lang] attribute');
+
+                    $('img').each((i, el) => {
+                        const alt = ($(el).attr('alt') || '').trim();
+                        if (!alt) pushIssue(issues, 'serious', 'Image with missing or empty alt attribute', $(el).toString());
+                    });
+
+                    $('a').each((i, el) => {
+                        const $el = $(el);
+                        const text = ($el.text() || '').trim();
+                        const aria = $el.attr('aria-label');
+                        const titleAttr = $el.attr('title');
+                        const hasImgWithAlt = $el.find('img[alt]').length > 0;
+                        if (!text && !aria && !titleAttr && !hasImgWithAlt) {
+                            pushIssue(issues, 'serious', 'Link with no accessible name (no text, title or aria-label)', $el.toString());
+                        }
+                    });
+
+                    if ($('h1').length === 0) pushIssue(issues, 'moderate', 'No <h1> heading present on page');
+                    const desc = $('meta[name="description"]').attr('content');
+                    if (!desc) pushIssue(issues, 'minor', 'Missing meta description');
+                }
+            }
+
+            // store scan result per page in projects/{projectId}/scans
+            const scansCol = projectRef.collection('scans');
+            const scanDoc = {
+                pageId: pageId,
+                pageUrl: pageUrl,
+                runId,
+                httpStatus: httpStatus,
+                summary: {
+                    critical: issues.filter(i => i.impact === 'critical').length,
+                    serious: issues.filter(i => i.impact === 'serious').length,
+                    moderate: issues.filter(i => i.impact === 'moderate').length,
+                    minor: issues.filter(i => i.impact === 'minor').length,
+                },
+                issues,
+                pageInfo,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            };
+
+            await scansCol.add(scanDoc);
+
+            // update run counters
+            scannedCount++;
+
+            // update page document with latest scan summary and metadata
+            try {
+                await pageRef.update({
+                    lastRunId: runId,
+                    lastScan: {
+                        runId: runId,
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        httpStatus: httpStatus || null,
+                        summary: scanDoc.summary
+                    },
+                    lastPageInfo: pageInfo,
+                    violationsCount: scanDoc.summary,
+                    status: 'scanned',
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (e) {
+                // If update fails, log and continue — do not fail the whole job for a single page metadata update
+                console.warn('Failed to update page document with scan summary for', pageId, e && e.message ? e.message : e);
+            }
+
+            // update aggregated counters on the run document
+            await runRef.update({
+                pagesScanned: admin.firestore.FieldValue.increment(1),
+                'stats.critical': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'critical').length),
+                'stats.serious': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'serious').length),
+                'stats.moderate': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'moderate').length),
+                'stats.minor': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'minor').length)
+            });
+
+        } catch (err) {
+            console.error('Error scanning page', pageId, err && err.stack ? err.stack : err);
+            // record error inside scans collection
+            try {
+                const scansCol = projectRef.collection('scans');
+                await scansCol.add({ pageId, runId, error: String(err), createdAt: admin.firestore.FieldValue.serverTimestamp() });
+            } catch (e) {
+                console.warn('Failed to write error scan doc', e);
+            }
+        }
+    })));
+
+    // close browser if used
+    try { if (browser) await browser.close(); } catch (e) { console.warn('Failed to close browser', e); }
+
+    // finalize run: mark done and attach aggregated stats
+    await runRef.update({
+        status: 'done',
+        finishedAt: admin.firestore.FieldValue.serverTimestamp(),
+        pagesScanned: scannedCount,
+        'stats.critical': agg.critical,
+        'stats.serious': agg.serious,
+        'stats.moderate': agg.moderate,
+        'stats.minor': agg.minor
+    });
+
+    console.log('ScanPages job finished', projectId, runId, 'scanned:', scannedCount, 'agg:', agg);
+    return { ok: true, scanned: scannedCount, agg };
+}
+
+/**
+ * handlePagesToSitemapJob
+ * ----------------------
+ * Builds a structured sitemap tree from all discovered pages and persists it.
+ *
+ * Notes:
+ * - The structured sitemap is uploaded to storage (preferred) or local artifacts as fallback.
+ * - The resulting URL/path is stored on the project and run documents.
+ */
+async function handlePagesToSitemapJob(projectId, runId) {
+
+    console.log('handlePagesToSitemapJob', projectId, runId);
+    // locate project and ensure it exists
+    const projectRef = db.collection('projects').doc(projectId);
+    const projSnap = await projectRef.get();
+    if (!projSnap.exists) {
+        throw new Error('Project not found: ' + projectId);
+    }
+
+    // Update run status -> running
+    const runRef = projectRef.collection('runs').doc(runId);
+    await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+    const project = projSnap.data();
+    // Read all pages for this project
+    const pagesCol = projectRef.collection('pages');
+    const pagesSnap = await pagesCol.get();
+    const pages = [];
+    pagesSnap.forEach(doc => {
+        const d = doc.data();
+        if (d && d.url) pages.push({ id: d.url, title: d.title || null });
+    });
+
+
+    try {
+        const structuredTree = buildSitemapTree(pages, { maxDepth: 10, stripQuery: true });
+        const treeJson = JSON.stringify(structuredTree, null, 2);
+
+        // Save the tree JSON to the same storage/ local-artifacts place you use for sitemap
+        const treePath = `projects/${projectId}/sitemaps/${runId}.tree.json`;
+
+        try {
+            // treeJson and treePath exist where you're generating the tree (treePath e.g. `projects/${projectId}/sitemaps/${runId}.tree.json`)
+            const treeUrl = await uploadTreeJson(admin,treeJson, treePath);
+
+            // persist url into project doc (and optionally into the run doc)
+            await projectRef.update({ sitemapTreeUrl: treeUrl });
+            try {
+                const runRef = projectRef.collection('runs').doc(runId);
+                await runRef.update({ sitemapTreeUrl: treeUrl });
+            } catch (e) {
+                console.warn('Failed to update run with sitemapTreeUrl:', e && e.message ? e.message : e);
+            }
+
+            console.log('Uploaded structured sitemap and saved URL into project doc:', treeUrl);
+        } catch (err) {
+            // fallback to local file and persist error
+            const fs = require('fs');
+            const artifactsDir = process.env.LOCAL_ARTIFACTS_DIR || path.join(__dirname, 'local-artifacts');
+            try { fs.mkdirSync(artifactsDir, { recursive: true }); } catch (e) {}
+            const localPath = path.join(artifactsDir, `${runId}.tree.json`);
+            try {
+                fs.writeFileSync(localPath, treeJson, 'utf8');
+                console.log('Wrote structured sitemap to', localPath, 'after storage upload error:', err && err.message ? err.message : err);
+            } catch (fsErr) {
+                console.error('Failed to write structured sitemap locally as fallback:', fsErr && fsErr.message ? fsErr.message : fsErr);
+            }
+
+            try {
+                await projectRef.update({
+                    sitemapTreeLocalPath: localPath,
+                    sitemapUploadError: (err && err.message) ? err.message : String(err)
+                });
+            } catch (metaErr) {
+                console.warn('Failed to update project doc with local path / error:', metaErr && metaErr.message ? metaErr.message : metaErr);
+            }
+        }
+
+
+        // if (process.env.EMULATOR_MODE === '1' || !bucket) {
+        //     // local emulator => write to local artifacts dir
+        //     const fs = require('fs');
+        //     const artifactsDir = process.env.LOCAL_ARTIFACTS_DIR || path.join(__dirname, 'local-artifacts');
+        //     try { fs.mkdirSync(artifactsDir, { recursive: true }); } catch (e) {}
+        //     const localPath = path.join(artifactsDir, `${runId}.tree.json`);
+        //     fs.writeFileSync(localPath, treeJson, 'utf8');
+        //     console.log('Wrote structured sitemap to', localPath);
+        //     // also attach a project doc field pointing to local path (optional)
+        //     await projectRef.update({ sitemapTreeLocalPath: localPath });
+        // } else {
+        //     // Upload to bucket
+        //     await bucket.file(treePath).save(treeJson, { contentType: 'application/json' });
+        //     const [treeUrl] = await bucket.file(treePath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 });
+        //     await projectRef.update({ sitemapTreeUrl: treeUrl });
+        //     console.log('Uploaded structured sitemap to bucket at', treePath);
+        // }
+
+        // Finalize run
+        await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+        console.log('Sitemap job finished', projectId, runId, 'pages:', pages.length);
+    } catch (err) {
+        console.warn('Failed to generate/upload structured sitemap:', err && err.message ? err.message : err);
+    }
+}
+
+/**
+ * handlePageCollectionJob
+ * ----------------------
+ * Crawls the site starting from `project.domain` and populates `projects/{projectId}/pages`.
+ *
+ * Notes:
+ * - Uses a BFS crawl with concurrency limits and a polite delay.
+ * - Page documents use a deterministic SHA-256 hash of the URL as the doc id.
+ * - Produces sitemap.xml + a graph JSON (nodes/edges) and uploads in production.
+ */
+async function handlePageCollectionJob(projectId, runId) {
+    console.log('handlePageCollectionJob', projectId, runId);
+    const projectRef = db.collection('projects').doc(projectId);
+    const projSnap = await projectRef.get();
+    if (!projSnap.exists) {
+        throw new Error('Project not found: ' + projectId);
+    }
+    const project = projSnap.data();
+
+    const domain = project.domain;
+    if (!domain) throw new Error('Project missing domain');
+
+    const maxPages = (project.config && project.config.maxPages) || MAX_PAGES_DEFAULT;
+
+    // Update run status -> running
+    const runRef = projectRef.collection('runs').doc(runId);
+    await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+    // BFS crawl
+    const visited = new Set();
+    const queue = [];
+    const nodes = []; // for graph
+    const edges = [];
+    queue.push(domain);
+    visited.add(domain);
+
+    // concurrency limit
+    const limit = pLimit(5);
+
+    while (queue.length > 0 && visited.size < maxPages) {
+        const chunk = []
+        // build small batch
+        while (queue.length > 0 && chunk.length < 10 && visited.size + chunk.length < maxPages) {
+            chunk.push(queue.shift());
+        }
+
+        // fetch all in parallel with concurrency
+        await Promise.all(chunk.map(u => limit(async () => {
+            await new Promise(r => setTimeout(r, CRAWL_DELAY_MS)); // polite delay
+            const pageData = await fetchHtml(u);
+            if (!pageData) return;
+
+            const $ = cheerio.load(pageData.text);
+            const title = $('title').first().text().trim() || null;
+
+            // write page doc — create a deterministic unique id for the URL using SHA256
+            // deterministic ID means the same page URL will always map to the same doc id
+            const urlHash = crypto.createHash('sha256').update(u).digest('hex');
+            const pageId = urlHash; // you can shorten with .slice(0, 20) if you prefer shorter ids
+            const pageRef = projectRef.collection('pages').doc(pageId);
+            await pageRef.set({
+                url: u,
+                title,
+                status: 'discovered',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                httpStatus: pageData.status
+            }, { merge: true });
+
+            nodes.push({ id: u, title });
+            // extract links
+            $('a[href]').each((i, el) => {
+                const href = $(el).attr('href');
+                const n = normalizeUrl(u, href);
+                if (!n) return;
+                // same-origin only
+                try {
+                    const uOrigin = new url.URL(domain).origin;
+                    const nOrigin = new url.URL(n).origin;
+                    if (nOrigin !== uOrigin) return;
+                } catch (err) {
+                    return;
+                }
+                edges.push({ source: u, target: n });
+
+                if (!visited.has(n) && visited.size < maxPages) {
+                    visited.add(n);
+                    queue.push(n);
+                }
+            });
+
+            // update run progress minimally
+            await runRef.update({
+                pagesScanned: admin.firestore.FieldValue.increment(1)
+            });
+
+        })));
+    } // end while
+
+    // Build sitemap.xml content
+    const xmlItems = nodes.map(n => `<url><loc>${escapeXml(n.id)}</loc><lastmod>${new Date().toISOString()}</lastmod></url>`).join('\n');
+    const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${xmlItems}\n</urlset>`;
+
+    // Build graph json
+    const graph = { nodes, edges };
+
+    // Upload to Cloud Storage
+    const bucketName = process.env.BUCKET_NAME || (admin.instanceId ? null : null); // we will default to admin.app().options.storageBucket
+    let bucket = null;
+    if (process.env.GOOGLE_CLOUD_PROJECT) {
+        // try to get default bucket
+        const defaultBucketName = admin.app().options?.storageBucket || process.env.STORAGE_BUCKET;
+        if (!defaultBucketName) {
+            console.warn('No storage bucket configured. Skipping upload.');
+        } else {
+            bucket = storage.bucket(defaultBucketName);
+            const xmlPath = `projects/${projectId}/sitemaps/${runId}.xml`;
+            const jsonPath = `projects/${projectId}/sitemaps/${runId}.json`;
+            await bucket.file(xmlPath).save(sitemapXml, { contentType: 'application/xml' });
+            await bucket.file(jsonPath).save(JSON.stringify(graph, null, 2), { contentType: 'application/json' });
+
+            let xmlUrl, jsonUrl;
+            
+            // In emulator mode, use public URLs instead of signed URLs
+            if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
+                const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST.replace(/^https?:\/\//, '');
+                xmlUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(xmlPath)}?alt=media`;
+                jsonUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(jsonPath)}?alt=media`;
+                console.log('[Storage] Using emulator URLs:', { xmlUrl, jsonUrl });
+            } else {
+                // Production: use signed URLs
+                [xmlUrl] = await bucket.file(xmlPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 }); // 7 days
+                [jsonUrl] = await bucket.file(jsonPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 });
+            }
+
+            // Store urls on project
+            await projectRef.update({
+                sitemapUrl: xmlUrl,
+                sitemapGraphUrl: jsonUrl
+            });
+        }
+    }
+
+    // Finalize run
+    await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp(), pagesTotal: nodes.length });
+
+    console.log('Sitemap job finished', projectId, runId, 'pages:', nodes.length);
+}
+

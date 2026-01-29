@@ -3,13 +3,23 @@
   "version": "1.0.0",
   "main": "worker-server.js",
   "scripts": {
-    "start": "node worker-server.js"
+    "start": "node index.js",
+    "start:local": "dotenv -e .env.local -- node --trace-warnings index.cjs",
+    "create-topic": "node create_topic.js",
+    "create-run": "node createRun.js",
+    "publish-job": "node publishJob.js"
   },
   "dependencies": {
-    "puppeteer": "^24.9.0",
     "@axe-core/puppeteer": "^4.1.0",
+    "@google-cloud/storage": "^6.9.0",
+    "axe-core": "^4.10.3",
+    "cheerio": "^1.1.2",
     "express": "^4.18.2",
     "firebase-admin": "^11.10.0",
-    "@google-cloud/storage": "^6.9.0"
+    "pdfkit": "^0.15.0",
+    "puppeteer": "^24.16.2"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^5.0.0"
   }
 }

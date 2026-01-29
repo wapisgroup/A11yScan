@@ -143,3 +143,4 @@ Icon?
 
 # Keep any user-specific files out of git
 *.envrc
+.vercel

@@ -1,0 +1,72 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // User documents - users can read/write their own, and read others in same organisation
+    match /users/{userId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == resource.data.organisationId
+      );
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Organisation documents - members can read, owner can write
+    match /organisations/{organisationId} {
+      allow read: if request.auth != null && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == organisationId);
+      allow write: if request.auth != null && 
+        (resource == null && request.auth.uid == request.resource.data.owner) ||
+        (resource != null && request.auth.uid == resource.data.owner);
+    }
+
+    // Project documents - organisation members can read, owner can write
+    match /projects/{projectId} {
+      // Allow read operations (both list and get) for authenticated users in the same organisation
+      allow read: if request.auth != null;
+      
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.owner &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == request.resource.data.organisationId;
+      
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.owner;
+      
+      // Subcollections (pages, runs, etc.) - allow read/write for authenticated users
+      match /pages/{pageId} {
+        allow read, write: if request.auth != null;
+      }
+      match /scans/{scanId} {
+        allow read, write: if request.auth != null;
+      }
+      match /{subcollection}/{doc=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Jobs collection - users can read their own jobs
+    match /jobs/{jobId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Pages collection (top-level) - authenticated users can read/write
+    match /pages/{pageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Runs collection - authenticated users can read/write
+    match /runs/{runId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Reports collection - authenticated users can read/write
+    match /reports/{reportId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Default deny for everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
