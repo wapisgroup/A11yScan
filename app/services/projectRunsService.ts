@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/utils/firebase";
-import type { PageDoc } from "@lib/types/page";
+import type { PageDoc } from "@/types/page-types";
 import { RunDoc } from "@/state-services/project-detail-states_old";
 
 

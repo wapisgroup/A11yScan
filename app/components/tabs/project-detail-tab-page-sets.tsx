@@ -9,8 +9,8 @@ import { Button } from "@/components/atom/button";
 import { useAlert, useConfirm } from "@/components/providers/window-provider";
 
 
-import type { Project } from "@lib/types/project";
-import { PageSetTDO } from "@lib/types/page-set";
+import type { Project } from "@/types/project";
+import { PageSetTDO } from "@/types/page-types-set";
 import dynamic from "next/dynamic";
 import { createPageSet, deletePageSet, updatePageSet } from "@/services/projectSetsService";
 import { ProjectDetailPageSetsTabState } from "@/state-services/project-detail-pagesets-state";

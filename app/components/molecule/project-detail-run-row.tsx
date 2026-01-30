@@ -1,7 +1,7 @@
 "use client";
 
-import { RunDoc } from "@lib/types/run";
-import { safeInt, toDateSafe } from "@lib/ui-helpers/default";
+import { RunDoc } from "@/types/run";
+import { safeInt, toDateSafe } from "@/ui-helpers/default";
 import React, { useMemo } from "react";
 import { Button } from "../atom/button";
 import { FaEyeSlash, FaTrash, FaTrashAlt } from "react-icons/fa";

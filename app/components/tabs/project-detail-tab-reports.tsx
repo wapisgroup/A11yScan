@@ -12,7 +12,7 @@ import {
   PiCalendar
 } from "react-icons/pi";
 import { loadReports, type Report } from "@/services/reportService";
-import { formatTimeAgo } from "@lib/ui-helpers/default";
+import { formatTimeAgo } from "@/ui-helpers/default";
 import { Button } from "@/components/atom/button";
 import { CreateReportModal } from "@/components/modals/CreateReportModal";
 import { useAuth } from "@/utils/firebase";

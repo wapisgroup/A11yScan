@@ -6,7 +6,7 @@ import {
   type DocumentData,
   type Timestamp,
 } from "firebase/firestore";
-import type { Project } from "@lib/types/project";
+import type { Project } from "@/types/project";
 
 /**
  * Loads a single project document by id.

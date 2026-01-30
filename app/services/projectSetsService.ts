@@ -12,7 +12,7 @@ import {
   type Query,
 } from "firebase/firestore";
 
-import type { PageSetTDO } from "@lib/types/page-set";
+import type { PageSetTDO } from "@/types/page-types-set";
 
 /**
  * PageSetCreateInput

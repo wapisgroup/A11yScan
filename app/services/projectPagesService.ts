@@ -11,7 +11,7 @@ import {
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/utils/firebase";
 import { callServerFunction } from "./serverService";
-import type { PageDoc } from "@lib/types/page";
+import type { PageDoc } from "@/types/page-types";
 
 export type RunSelectedPagesResult = {
   title: string;

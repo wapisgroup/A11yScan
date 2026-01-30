@@ -12,7 +12,7 @@ import { Pagination } from "@/components/molecule/pagination";
 import { useAuth } from "@/utils/firebase";
 import { StatPill } from "@/components/atom/stat-pill";
 import { useScansPageState } from "@/state-services/scan-state";
-import { formatTimeAgo } from "@lib/ui-helpers/default";
+import { formatTimeAgo } from "@/ui-helpers/default";
 
 // Disable static generation for this route (uses useSearchParams)
 export const dynamic = 'force-dynamic';

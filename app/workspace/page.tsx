@@ -12,7 +12,7 @@ import { DashboardTopIssues } from "@/components/organism/dashboard-top-issues";
 import { DashboardPast7Days } from "@/components/organism/dashboard-past-7-days";
 import { DashboardProblemPages } from "@/components/organism/dashboard-problem-pages";
 import { useDashboardState } from "@/state-services/dashboard-state";
-import { formatTimeAgo } from "@lib/ui-helpers/default";
+import { formatTimeAgo } from "@/ui-helpers/default";
 import { useRouter } from "next/navigation";
 import { 
   PiFolderOpen,

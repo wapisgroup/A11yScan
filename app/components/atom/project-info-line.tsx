@@ -1,4 +1,4 @@
-import { PageDoc } from "@lib/types/page";
+import { PageDoc } from "@/types/page-types";
 import { useState } from "react";
 import { PiInfoLight } from "react-icons/pi";
 

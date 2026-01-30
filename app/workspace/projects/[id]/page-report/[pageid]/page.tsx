@@ -14,7 +14,7 @@ import {
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 
 import { db, storage } from "@/utils/firebase";
-import { formatDate } from "@lib/ui-helpers/default";
+import { formatDate } from "@/ui-helpers/default";
 import { PrivateRoute } from "@/utils/private-router";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PageContainer } from "@/components/molecule/page-container";

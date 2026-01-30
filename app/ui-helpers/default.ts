@@ -1,4 +1,4 @@
-import { TimestampLike } from "@lib/types/default";
+import { TimestampLike } from "@/types/default";
 
 export const normalizeStatus = (s: unknown): string => {
     const v = String(s ?? "").toLowerCase().trim();

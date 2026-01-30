@@ -1,6 +1,6 @@
 "use client";
 
-import { ProjectStatsTDO } from "@lib/types/project";
+import { ProjectStatsTDO } from "@/types/project";
 import { StatPill } from "../atom/stat-pill";
 import React, { useEffect, useState, useMemo } from "react";
 import { subscribeProjectPages } from "@/services/projectPagesService";

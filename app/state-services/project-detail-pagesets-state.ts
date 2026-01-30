@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 
 import { useItemsPageState, type DefaultPageState } from "./default-list-state";
 import { loadPageSets } from "@/services/projectSetsService";
-import { PageSetTDO } from "@lib/types/page-set";
+import { PageSetTDO } from "@/types/page-types-set";
 
 
 /**
@@ -56,7 +56,7 @@ export const ProjectDetailPageSetsTabState = (
 //   deletePageSet,
 //   loadPageSets,
 // } from "@/services/projectSetsService";
-// import { PageSetTDO } from "@lib/types/page-set";
+// import { PageSetTDO } from "@/types/page-types-set";
 // import { PageTDO } from "./project-detail-pages-state";
 
 

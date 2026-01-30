@@ -16,10 +16,10 @@ import { db } from "@/utils/firebase";
 import { PiPlay, PiArrowClockwise, PiFileText, PiTrash, PiHourglassLow } from "react-icons/pi";
 import { Button } from "../atom/button";
 import { ProjectInfoLine } from "../atom/project-info-line";
-import {  statusFromRun } from "@lib/ui-helpers/page";
-import { PageDoc } from "@lib/types/page";
-import { PageStatsTDO } from "@lib/types/project";
-import { normalizeStatus, safeNumber } from "@lib/ui-helpers/default";
+import {  statusFromRun } from "@/ui-helpers/page-helpers";
+import { PageDoc } from "@/types/page-types";
+import { PageStatsTDO } from "@/types/project";
+import { normalizeStatus, safeNumber } from "@/ui-helpers/default";
 
 
 

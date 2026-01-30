@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 
 import { useItemsPageState, type DefaultPageState } from "./default-list-state";
 import { loadProjectRuns, subscribeProjectRuns } from "@/services/projectRunsService";
-import { RunDoc } from "@lib/types/run";
+import { RunDoc } from "@/types/run";
 
 
 /**

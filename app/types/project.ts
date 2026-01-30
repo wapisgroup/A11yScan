@@ -1,14 +1,13 @@
-import { Timestamp } from "firebase-admin/firestore";
-
-export type ProjectTabKey = "overview" | "runs" | "pages" | "pageSets" | "reports" | "settings";
-
-export type Project = {
-    id: string;
-    name: string;
-    domain: string;
-    owner: string;
-    createdAt: Timestamp | Date | null;
-    sitemapUrl?: string | null;
-    sitemapTreeUrl?: string | null;
-    sitemapGraphUrl?: string | null;
+export type ProjectStatsTDO = {
+    critical: number;
+    serious: number;
+    moderate: number;
+    minor: number;
 }
+
+export type ProjectStatsWithCounts = ProjectStatsTDO & {
+  pagesTotal: number;
+  pagesScanned: number;
+};
+
+export type PageStatsTDO = ProjectStatsTDO & {}

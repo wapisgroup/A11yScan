@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot, type DocumentData } from "firebase/firestore";
 
 import { db } from "@/utils/firebase";
-import type { Project } from "@lib/types/project";
-import type { ProjectTabKey } from "@lib/types/project";
+import type { Project } from "@/types/project";
+import type { ProjectTabKey } from "@/types/project";
 
 /**
  * Supported tabs for the Project Detail page.

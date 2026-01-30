@@ -1,6 +1,6 @@
 "use client";
 
-import { PageSetTDO } from "@lib/types/page-set";
+import { PageSetTDO } from "@/types/page-types-set";
 import React from "react";
 
 type PageSetRowProps = {
