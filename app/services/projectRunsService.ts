@@ -55,10 +55,10 @@ export async function loadProjectRuns(projectId: string): Promise<PageDoc[]> {
     })
     // Exclude soft-hidden runs
     .filter((r) => (r as any).hidden !== true)
-    // Sort by createdAt descending (newest first)
+    // Sort by startedAt descending (newest first), fallback to createdAt
     .sort((a, b) => {
-      const aTime = (a as any).createdAt?.toMillis?.() ?? 0;
-      const bTime = (b as any).createdAt?.toMillis?.() ?? 0;
+      const aTime = (a as any).startedAt?.toMillis?.() ?? (a as any).createdAt?.toMillis?.() ?? 0;
+      const bTime = (b as any).startedAt?.toMillis?.() ?? (b as any).createdAt?.toMillis?.() ?? 0;
       return bTime - aTime;
     });
 }
@@ -91,10 +91,10 @@ export function subscribeProjectRuns(
         })
         // Exclude soft-hidden runs
         .filter((r) => (r as any).hidden !== true)
-        // Sort by createdAt descending (newest first)
+        // Sort by startedAt descending (newest first), fallback to createdAt
         .sort((a, b) => {
-          const aTime = (a as any).createdAt?.toMillis?.() ?? 0;
-          const bTime = (b as any).createdAt?.toMillis?.() ?? 0;
+          const aTime = (a as any).startedAt?.toMillis?.() ?? (a as any).createdAt?.toMillis?.() ?? 0;
+          const bTime = (b as any).startedAt?.toMillis?.() ?? (b as any).createdAt?.toMillis?.() ?? 0;
           return bTime - aTime;
         });
 
