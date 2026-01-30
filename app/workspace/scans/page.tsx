@@ -12,7 +12,7 @@ import { Pagination } from "@/components/molecule/pagination";
 import { useAuth } from "@/utils/firebase";
 import { StatPill } from "@/components/atom/stat-pill";
 import { useScansPageState } from "@/state-services/scan-state";
-import { formatTimeAgo } from "@/ui-helpers/default";
+import { formatTimeAgo } from "@lib/ui-helpers/default";
 
 export default function Scans() {
   const { user } = useAuth();

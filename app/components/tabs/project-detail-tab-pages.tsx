@@ -13,7 +13,7 @@ import { useAlert, useConfirm } from "../providers/window-provider";
 import AddPageModal from "../modals/AddPageModal";
 import UploadSitemapModal from "../modals/UploadSitemapModal";
 
-import type { Project } from "@/types/project";
+import type { Project } from "@lib/types/project";
 import { useProjectPagesPageState } from "@/state-services/project-detail-pages-state";
 import { Pagination } from "../molecule/pagination";
 import type { PageDoc } from "@/state-services/project-detail-states_old";

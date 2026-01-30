@@ -6,7 +6,7 @@ import { RunRow } from "../molecule/project-detail-run-row";
 import { PageContainer } from "../molecule/page-container";
 import { useProjectRunsPageState } from "@/state-services/project-detail-runs-state";
 import { Pagination } from "../molecule/pagination";
-import { Project } from "@/types/project";
+import { Project } from "@lib/types/project";
 import { RunDoc, runTypesList } from "@lib/types/run";
 import { Button } from "../atom/button";
 

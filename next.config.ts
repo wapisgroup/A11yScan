@@ -8,15 +8,15 @@ const nextConfig: NextConfig = {
     // Ignore build errors during deployment (fix later)
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // Ignore ESLint errors during builds
-    ignoreDuringBuilds: true,
-  },
   images: {
     unoptimized: true
   },
   turbopack: {
     root: __dirname,
+  },
+  experimental: {
+    // Allow dynamic rendering for pages using useSearchParams
+    dynamicIO: true,
   },
 };
 

@@ -1,4 +1,4 @@
-import { ProjectTabKey } from "@/types/project";
+import { ProjectTabKey } from "@lib/types/project";
 
  type TabButtonProps = {
   tabKey: ProjectTabKey;
