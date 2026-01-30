@@ -12,13 +12,27 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
+import { 
+  PiArrowLeft, 
+  PiFilePdf, 
+  PiDownload, 
+  PiEye, 
+  PiWarning, 
+  PiCheckCircle, 
+  PiX,
+  PiInfo,
+  PiCode,
+  PiFileText,
+  PiPrinter
+} from "react-icons/pi";
 
-import { db, storage } from "@/utils/firebase";
+import { db, storage, useAuth } from "@/utils/firebase";
 import { formatDate } from "@/ui-helpers/default";
 import { PrivateRoute } from "@/utils/private-router";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PageContainer } from "@/components/molecule/page-container";
 import { Button } from "@/components/atom/button";
+import { createReport } from "@/services/reportService";
 
 // PageReport
 // ----------
@@ -121,6 +135,7 @@ type ParamsShape = {
 export default function PageReport(): React.JSX.Element {
   const params = useParams() as ParamsShape;
   const router = useRouter();
+  const { user } = useAuth();
 
   const projectId = params?.id;
   const pageId = params?.pageid;
@@ -130,6 +145,7 @@ export default function PageReport(): React.JSX.Element {
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const [selectedScan, setSelectedScan] = useState<ScanDoc | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -327,14 +343,43 @@ export default function PageReport(): React.JSX.Element {
     window.print();
   }
 
+  async function generatePageReport() {
+    if (!projectId || !pageId || !user) return;
+    
+    try {
+      setGeneratingReport(true);
+      
+      const result = await createReport({
+        projectId,
+        type: 'individual',
+        title: `${page?.url || 'Page'} - Accessibility Report`,
+        pageIds: [pageId],
+        createdBy: user.uid,
+      });
+
+      if (result.success) {
+        alert('Report generation started! You will find it in the Reports tab soon.');
+      } else {
+        alert(`Failed to generate report: ${result.message}`);
+      }
+    } catch (err) {
+      console.error('Failed to generate report:', err);
+      alert('Failed to generate report');
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
+
 
 
   if (!page) {
     return (
       <PrivateRoute>
-        <div className="p-8 max-w-4xl mx-auto">
-          <div className="text-center text-slate-400">Loading page report…</div>
-        </div>
+        <WorkspaceLayout>
+          <div className="p-8 max-w-4xl mx-auto">
+            <div className="text-center secondary-text-color">Loading page report…</div>
+          </div>
+        </WorkspaceLayout>
       </PrivateRoute>
     );
   }
@@ -344,152 +389,348 @@ export default function PageReport(): React.JSX.Element {
   return (
     <PrivateRoute>
       <WorkspaceLayout>
-      <PageContainer
-        excludePadding
-        title={
-          <>
-            <h1 className="as-h3-text">Page report</h1>
-            <div className="as-p3-text">{String(page.url || "")}</div>
-          </>
-        }
-
-        buttons={<>
-          <div>
-            <div className="as-p3-text secondary-text-color">Project: {String(page.projectName || projectId || "")}</div>
-            <div className="as-p3-text secondary-text-color">Generated: {formatDate(selectedScan?.createdAt) || formatDate(page?.lastScan?.createdAt)}</div>
-          </div>
-        </>}
-
-      >
-        <div className="w-full" ref={containerRef}>
-
-          <div className="flex flex-col gap-medium px-[var(--spacing-l)] py-[var(--spacing-m)]">
-            <div className="flex items-center justify-between gap-small ">
-              <div className="flex gap-3">
+        {/* Header Section */}
+        <div className="mb-6 px-[var(--spacing-l)] pt-[var(--spacing-m)]">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-3">
                 <Button 
                   onClick={() => router.push(`/workspace/projects/${projectId}#pages`)} 
-                  title={`Back`} 
-                  variant="link" 
+                  icon={<PiArrowLeft size={20} />}
+                  title="Back to Project" 
+                  variant="secondary" 
+                  size="small"
                 />
-                <Button onClick={exportPDF} title={`Print / Save PDF`} variant="secondary" />
-                {downloadUrl && (<Button onClick={downloadArtifact} title={`Download full report`} variant="primary" />)}
-                <Button onClick={viewPage} title={`View Page`} variant="secondary" />
+                <h1 className="as-h3-text primary-text-color">Page Accessibility Report</h1>
               </div>
-
-              <div className="flex items-center gap-small">
-                <label className="as-p2-text">Scan:</label>
-                <select
-                  value={selectedScanId || ""}
-                  onChange={(e) => setSelectedScanId(e.target.value)}
-                  className="input"
-                >
-                  <option value="">Latest</option>
-                  {scans.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {formatDate(s.createdAt)}
-                    </option>
-                  ))}
-                </select>
+              
+              <div className="flex items-start gap-3 mb-2">
+                <PiFileText className="text-2xl text-brand mt-1 flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="as-p2-text primary-text-color font-medium mb-1 break-all">
+                    {String(page.url || "")}
+                  </div>
+                  <div className="flex items-center gap-4 as-p3-text secondary-text-color">
+                    <span>Project: {String(page.projectName || projectId || "")}</span>
+                    <span>•</span>
+                    <span>Generated: {formatDate(selectedScan?.createdAt) || formatDate(page?.lastScan?.createdAt)}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Summary tiles */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <PageContainer inner>
-                <div className="as-p2-text secondary-text-color">Pages</div>
-                <div className="as-h2-text text-right w-full">1</div>
-              </PageContainer>
-              <PageContainer inner>
-                <div className="as-p2-text secondary-text-color">Scanned</div>
-                <div className="as-h2-text text-right w-full">{selectedScan ? 1 : page?.lastScan ? 1 : 0}</div>
-              </PageContainer>
-              <PageContainer inner>
-                <div className="as-p2-text secondary-text-color">Critical</div>
-                <div className="as-h2-text text-right w-full">{summary.critical}</div>
-              </PageContainer>
-              <PageContainer inner>
-                <div className="as-p2-text secondary-text-color">Total issues</div>
-                <div className="as-h2-text text-right w-full">{totalIssues}</div>
-              </PageContainer>
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button 
+                onClick={generatePageReport} 
+                icon={<PiFilePdf size={18} />}
+                title="Generate PDF Report" 
+                variant="brand"
+                disabled={generatingReport}
+              />
+              <Button 
+                onClick={exportPDF} 
+                icon={<PiPrinter size={18} />}
+                title="Print" 
+                variant="secondary" 
+              />
+              {downloadUrl && (
+                <Button 
+                  onClick={downloadArtifact} 
+                  icon={<PiDownload size={18} />}
+                  title="Download" 
+                  variant="secondary" 
+                />
+              )}
+              <Button 
+                onClick={viewPage} 
+                icon={<PiEye size={18} />}
+                title="View Page" 
+                variant="secondary" 
+              />
             </div>
           </div>
 
-          <section className="bg-[#F5F7FB] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl  flex flex-col gap-large">
-            <PageContainer title={`Grouped by rule`}>
+          {/* Scan Selector */}
+          <div className="flex items-center gap-3">
+            <label className="as-p2-text primary-text-color font-medium">Scan History:</label>
+            <select
+              value={selectedScanId || ""}
+              onChange={(e) => setSelectedScanId(e.target.value)}
+              className="px-4 py-2 border border-[var(--color-border-light)] rounded-lg as-p2-text primary-text-color bg-[var(--color-bg)] hover:border-brand input-focus"
+            >
+              <option value="">Latest Scan</option>
+              {scans.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {formatDate(s.createdAt)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-              <h2 className="text-lg font-semibold mb-3"></h2>
+        <div className="w-full" ref={containerRef}>
+          {/* Summary Cards & Chart */}
+          <div className="px-[var(--spacing-l)] mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Stats Cards */}
+              <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-gradient-to-br from-[var(--color-primary-light)]/10 to-[var(--color-primary-light)]/5 border border-brand/20 rounded-xl">
+                  <div className="as-p3-text secondary-text-color mb-1">Pages Scanned</div>
+                  <div className="as-h2-text primary-text-color">1</div>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-[var(--color-error)]/10 to-[var(--color-error)]/5 border border-[var(--color-error)]/20 rounded-xl">
+                  <div className="as-p3-text secondary-text-color mb-1">Critical Issues</div>
+                  <div className="as-h2-text text-[var(--color-error)]">{summary.critical}</div>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-[var(--color-warning)]/10 to-[var(--color-warning)]/5 border border-[var(--color-warning)]/20 rounded-xl">
+                  <div className="as-p3-text secondary-text-color mb-1">Serious Issues</div>
+                  <div className="as-h2-text text-[var(--color-warning)]">{summary.serious}</div>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-[var(--color-info)]/10 to-[var(--color-info)]/5 border border-[var(--color-info)]/20 rounded-xl">
+                  <div className="as-p3-text secondary-text-color mb-1">Total Issues</div>
+                  <div className="as-h2-text primary-text-color">{totalIssues}</div>
+                </div>
+              </div>
+
+              {/* Issue Distribution Chart */}
+              <div className="p-6 bg-[var(--color-bg)] border border-[var(--color-border-light)] rounded-xl">
+                <h3 className="as-p2-text primary-text-color font-medium mb-4">Issue Distribution</h3>
+                {totalIssues > 0 ? (
+                  <div className="space-y-3">
+                    {/* Critical Bar */}
+                    {summary.critical > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="as-p3-text text-[var(--color-error)]">Critical</span>
+                          <span className="as-p3-text secondary-text-color">{summary.critical}</span>
+                        </div>
+                        <div className="h-2 bg-[var(--color-bg-light)] rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-[var(--color-error)] rounded-full transition-all duration-500"
+                            style={{ width: `${(summary.critical / totalIssues) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Serious Bar */}
+                    {summary.serious > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="as-p3-text text-[var(--color-warning)]">Serious</span>
+                          <span className="as-p3-text secondary-text-color">{summary.serious}</span>
+                        </div>
+                        <div className="h-2 bg-[var(--color-bg-light)] rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-[var(--color-warning)] rounded-full transition-all duration-500"
+                            style={{ width: `${(summary.serious / totalIssues) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Moderate Bar */}
+                    {summary.moderate > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="as-p3-text text-[var(--color-info)]">Moderate</span>
+                          <span className="as-p3-text secondary-text-color">{summary.moderate}</span>
+                        </div>
+                        <div className="h-2 bg-[var(--color-bg-light)] rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-[var(--color-info)] rounded-full transition-all duration-500"
+                            style={{ width: `${(summary.moderate / totalIssues) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Minor Bar */}
+                    {summary.minor > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="as-p3-text text-[var(--color-success)]">Minor</span>
+                          <span className="as-p3-text secondary-text-color">{summary.minor}</span>
+                        </div>
+                        <div className="h-2 bg-[var(--color-bg-light)] rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-[var(--color-success)] rounded-full transition-all duration-500"
+                            style={{ width: `${(summary.minor / totalIssues) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <PiCheckCircle className="text-4xl text-[var(--color-success)] mb-2" />
+                    <p className="as-p3-text secondary-text-color">No issues detected!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Issues Section */}
+          <div className="px-[var(--spacing-l)]">
+            <PageContainer>
+              <div className="mb-6">
+                <h2 className="as-h4-text primary-text-color mb-2 flex items-center gap-2">
+                  <PiWarning className="text-brand" size={24} />
+                  Accessibility Issues
+                </h2>
+                <p className="as-p2-text secondary-text-color">
+                  Issues are grouped by rule. Click on each issue to see affected elements and code samples.
+                </p>
+              </div>
+
               {Object.keys(groupedByRule).length === 0 ? (
-                <div className="text-slate-400">No violations found for this scan.</div>
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <PiCheckCircle className="text-6xl text-[var(--color-success)] mb-4" />
+                  <h3 className="as-h4-text primary-text-color mb-2">No Issues Found!</h3>
+                  <p className="as-p2-text secondary-text-color max-w-md">
+                    This page passed all automated accessibility checks. Great job!
+                  </p>
+                </div>
               ) : (
-                <div className="space-y-3">
-                  {Object.values(groupedByRule).map((rule) => (
-                    <details key={rule.id} className="bg-white/3 p-3 rounded border border-white/6">
-                      <summary className="cursor-pointer flex items-center justify-between">
-                        <div className="grid grid-cols-[auto_220px] gap-small justify-between w-full">
-                          <div className="as-p2-text">{rule.description || rule.id}</div>
-                          <div className="flex gap-small justify-end">
-                            <div className="as-p3-text secondary-text-color">{String(rule.impact || "")}</div>
-                            <div className="as-p3-text secondary-text-color">Occurrences: {rule.occurrences}</div>
+                <div className="space-y-4">
+                  {Object.values(groupedByRule).map((rule, index) => (
+                    <details 
+                      key={rule.id} 
+                      className="group bg-[var(--color-bg)] border border-[var(--color-border-light)] rounded-xl overflow-hidden hover:border-brand/30 transition-colors"
+                    >
+                      <summary className="cursor-pointer p-4 hover:bg-[var(--color-bg-light)] transition-colors">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="as-p1-text primary-text-color font-medium">
+                                {index + 1}. {rule.description || rule.id}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 as-p3-text secondary-text-color">
+                              {getSeverityBadge(rule.impact)}
+                              <span>•</span>
+                              <span className="font-medium">{rule.occurrences} occurrence{rule.occurrences !== 1 ? 's' : ''}</span>
+                            </div>
                           </div>
+                          <PiCode className="text-brand text-xl flex-shrink-0 mt-1" />
                         </div>
                       </summary>
 
-                      {"helpUrl" in rule && rule.helpUrl ? (
-                        <div className="mt-3 as-p2-text secondary-text-color">
-                          <a className="text-cyan-200 underline" href={rule.helpUrl} target="_blank" rel="noreferrer">
-                            More info
-                          </a>
-                        </div>
-                      ) : null}
-
-                      <div className="mt-3">
-                        {/* Show nodes/selectors for this rule */}
-                        {"nodes" in rule && Array.isArray(rule.nodes) && rule.nodes.length > 0 ? (
-                          rule.nodes.map((node, i) => {
-                            const target =
-                              node?.target ||
-                              node?.selector ||
-                              "";
-
-                            const selectorText = Array.isArray(target)
-                              ? target.join(" | ")
-                              : String(target || "");
-
-                            return (
-                              <div key={i} className="mt-2 p-2 bg-white/5 rounded secondary-text-color as-p2-text">
-                                <div className="">Selector: {selectorText || "—"}</div>
-                                <div className="mt-1">{nodeToHtmlPreview(node)}</div>
+                      <div className="border-t border-[var(--color-border-light)] p-4 bg-[var(--color-bg-light)]">
+                        {/* Help URL */}
+                        {"helpUrl" in rule && rule.helpUrl ? (
+                          <div className="mb-4 p-3 bg-[var(--color-info)]/10 border border-[var(--color-info)]/20 rounded-lg">
+                            <div className="flex items-start gap-2">
+                              <PiInfo className="text-[var(--color-info)] flex-shrink-0 mt-0.5" size={18} />
+                              <div className="flex-1">
+                                <div className="as-p3-text text-[var(--color-info)] font-medium mb-1">
+                                  Learn more about this issue
+                                </div>
+                                <a 
+                                  className="as-p3-text text-brand hover:underline break-all" 
+                                  href={rule.helpUrl} 
+                                  target="_blank" 
+                                  rel="noreferrer"
+                                >
+                                  {rule.helpUrl}
+                                </a>
                               </div>
-                            );
-                          })
+                            </div>
+                          </div>
                         ) : null}
 
-                        {"selectors" in rule && Array.isArray(rule.selectors) && rule.selectors.length > 0 ? (
-                          rule.selectors.map((sel, i) => (
-                            <div key={i} className="mt-2 p-2 bg-white/5 rounded">
-                              <div className="secondary-text-color as-p3-text">Selector: {sel}</div>
-                            </div>
-                          ))
-                        ) : null}
+                        {/* Affected Elements */}
+                        <div className="space-y-3">
+                          <h4 className="as-p2-text primary-text-color font-medium mb-3">
+                            Affected Elements:
+                          </h4>
+                          
+                          {/* Axe nodes */}
+                          {"nodes" in rule && Array.isArray(rule.nodes) && rule.nodes.length > 0 ? (
+                            rule.nodes.map((node, i) => {
+                              const target = node?.target || node?.selector || "";
+                              const selectorText = Array.isArray(target)
+                                ? target.join(" | ")
+                                : String(target || "");
+
+                              return (
+                                <div 
+                                  key={i} 
+                                  className="p-4 bg-[var(--color-bg)] border border-[var(--color-border-light)] rounded-lg"
+                                >
+                                  <div className="flex items-start gap-3 mb-3">
+                                    <div className="p-2 bg-brand/10 rounded">
+                                      <PiCode className="text-brand" size={18} />
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="as-p3-text secondary-text-color mb-1">CSS Selector:</div>
+                                      <code className="as-p2-text primary-text-color font-mono bg-[var(--color-bg-light)] px-2 py-1 rounded break-all">
+                                        {selectorText || "—"}
+                                      </code>
+                                    </div>
+                                  </div>
+                                  {node.html && (
+                                    <div>
+                                      <div className="as-p3-text secondary-text-color mb-1">HTML Code:</div>
+                                      <pre className="as-p3-text primary-text-color font-mono bg-[var(--color-bg-light)] p-3 rounded overflow-x-auto border border-[var(--color-border-light)]">
+                                        {nodeToHtmlPreview(node)}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : null}
+
+                          {/* Issue selectors */}
+                          {"selectors" in rule && Array.isArray(rule.selectors) && rule.selectors.length > 0 ? (
+                            rule.selectors.map((sel, i) => (
+                              <div 
+                                key={i} 
+                                className="p-4 bg-[var(--color-bg)] border border-[var(--color-border-light)] rounded-lg"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="p-2 bg-brand/10 rounded">
+                                    <PiCode className="text-brand" size={18} />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="as-p3-text secondary-text-color mb-1">CSS Selector:</div>
+                                    <code className="as-p2-text primary-text-color font-mono bg-[var(--color-bg-light)] px-2 py-1 rounded break-all">
+                                      {sel}
+                                    </code>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          ) : null}
+                        </div>
                       </div>
                     </details>
                   ))}
                 </div>
               )}
             </PageContainer>
+          </div>
 
-
-            <PageContainer title={`Raw output`}>
-
-              <pre className="bg-white/3 p-3 rounded text-xs overflow-auto max-h-96 max-w-[800px]">
-                {JSON.stringify(selectedScan || page?.lastScan || {}, null, 2)}
-              </pre>
+          {/* Raw Data Section - for debugging */}
+          <div className="px-[var(--spacing-l)] mt-6 mb-6">
+            <PageContainer>
+              <details className="group">
+                <summary className="cursor-pointer as-h5-text primary-text-color mb-4 flex items-center gap-2 hover:text-brand transition-colors">
+                  <PiFileText size={20} />
+                  Raw Scan Data (for debugging)
+                </summary>
+                <pre className="bg-[var(--color-bg-light)] p-4 rounded-lg text-xs overflow-auto max-h-96 border border-[var(--color-border-light)] primary-text-color font-mono">
+                  {JSON.stringify(selectedScan || page?.lastScan || {}, null, 2)}
+                </pre>
+              </details>
             </PageContainer>
-          </section>
+          </div>
         </div>
-      </PageContainer>
-    </WorkspaceLayout>
-  </PrivateRoute>
+      </WorkspaceLayout>
+    </PrivateRoute>
   );
 }
 
@@ -515,5 +756,47 @@ function nodeToHtmlPreview(node: AxeNode | null | undefined): string {
     return t.length > 600 ? t.slice(0, 600) + "…" : t;
   } catch {
     return "—";
+  }
+}
+
+/**
+ * Get severity badge styling
+ */
+function getSeverityBadge(impact?: string) {
+  switch (impact?.toLowerCase()) {
+    case 'critical':
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--color-error)]/10 text-[var(--color-error)] as-p3-text font-medium">
+          <PiX size={14} />
+          Critical
+        </span>
+      );
+    case 'serious':
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--color-warning)]/10 text-[var(--color-warning)] as-p3-text font-medium">
+          <PiWarning size={14} />
+          Serious
+        </span>
+      );
+    case 'moderate':
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--color-info)]/10 text-[var(--color-info)] as-p3-text font-medium">
+          <PiInfo size={14} />
+          Moderate
+        </span>
+      );
+    case 'minor':
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--color-success)]/10 text-[var(--color-success)] as-p3-text font-medium">
+          <PiCheckCircle size={14} />
+          Minor
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full bg-[var(--color-bg-light)] secondary-text-color as-p3-text">
+          {impact || 'Unknown'}
+        </span>
+      );
   }
 }

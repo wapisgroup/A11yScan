@@ -1,120 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs, orderBy, deleteDoc, doc } from "firebase/firestore";
-import { PiFilePdf, PiDownload, PiTrash, PiPlus, PiCalendar, PiGlobe, PiWarning, PiCheckCircle } from "react-icons/pi";
+import { deleteDoc, doc } from "firebase/firestore";
+import { PiFilePdf, PiDownload, PiTrash, PiCalendar, PiGlobe, PiWarning, PiCheckCircle, PiPlus } from "react-icons/pi";
 
 import { PageContainer } from "@/components/molecule/page-container";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
 import { Pagination } from "@/components/molecule/pagination";
 import { useAuth, db } from "@/utils/firebase";
-
-type Report = {
-  id: string;
-  projectId: string;
-  projectName: string;
-  pageSetId?: string;
-  pageSetName?: string;
-  type: 'project' | 'pageset';
-  status: 'generating' | 'completed' | 'failed';
-  totalPages: number;
-  totalIssues: number;
-  uniqueIssues: number;
-  criticalIssues: number;
-  seriousIssues: number;
-  moderateIssues: number;
-  minorIssues: number;
-  pdfUrl?: string;
-  generatedAt?: Date;
-  createdAt: Date;
-  createdBy: string;
-};
+import { useReportsPageState } from "@/state-services/reports-state";
+import { Button } from "@/components/atom/button";
+import { useConfirm } from "@/components/providers/window-provider";
 
 export default function Reports() {
   const { user } = useAuth();
   const router = useRouter();
+  const confirm = useConfirm();
   
-  const [loading, setLoading] = useState(true);
-  const [reports, setReports] = useState<Report[]>([]);
-  const [error, setError] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const itemsPerPage = 20;
+  // Use reports page state hook with real-time updates
+  const {
+    pagedReports,
+    allReports,
+    projects,
+    loading,
+    error,
+    currentPage,
+    totalPages,
+    typeFilter,
+    statusFilter,
+    projectFilter,
+    setTypeFilter,
+    setStatusFilter,
+    setProjectFilter,
+    setPage,
+  } = useReportsPageState(user?.organisationId, 20);
 
-  useEffect(() => {
-    loadReports();
-  }, [user]);
+  const handleDelete = async (reportId: string, reportTitle: string) => {
+    const ok = await confirm({
+      title: "Delete Report",
+      message: `Are you sure you want to delete "${reportTitle}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      tone: "danger",
+    });
 
-  const loadReports = async () => {
-    if (!user?.organisationId) {
-      setLoading(false);
-      return;
-    }
+    if (!ok) return;
 
     try {
-      setError("");
-      const reportsList: Report[] = [];
+      // Find the report to get its projectId
+      const report = pagedReports.find(r => r.id === reportId);
+      if (!report) return;
       
-      // Load reports for the organization
-      const reportsQuery = query(
-        collection(db, "reports"),
-        where("organisationId", "==", user.organisationId),
-        orderBy("createdAt", "desc")
-      );
-      
-      const reportsSnap = await getDocs(reportsQuery);
-      
-      // Load projects to get names
-      const projectsQuery = query(
-        collection(db, "projects"),
-        where("organisationId", "==", user.organisationId)
-      );
-      const projectsSnap = await getDocs(projectsQuery);
-      const projectsMap = new Map(projectsSnap.docs.map(doc => [doc.id, doc.data()]));
-
-      for (const reportDoc of reportsSnap.docs) {
-        const reportData = reportDoc.data();
-        const projectData = projectsMap.get(reportData.projectId);
-        
-        reportsList.push({
-          id: reportDoc.id,
-          projectId: reportData.projectId,
-          projectName: projectData?.name || 'Unknown Project',
-          pageSetId: reportData.pageSetId,
-          pageSetName: reportData.pageSetName,
-          type: reportData.pageSetId ? 'pageset' : 'project',
-          status: reportData.status || 'completed',
-          totalPages: reportData.totalPages || 0,
-          totalIssues: reportData.totalIssues || 0,
-          uniqueIssues: reportData.uniqueIssues || 0,
-          criticalIssues: reportData.criticalIssues || 0,
-          seriousIssues: reportData.seriousIssues || 0,
-          moderateIssues: reportData.moderateIssues || 0,
-          minorIssues: reportData.minorIssues || 0,
-          pdfUrl: reportData.pdfUrl,
-          generatedAt: reportData.generatedAt?.toDate?.(),
-          createdAt: reportData.createdAt?.toDate?.() || new Date(),
-          createdBy: reportData.createdBy || '',
-        });
-      }
-      
-      setReports(reportsList);
-    } catch (err) {
-      console.error("Failed to load reports:", err);
-      setError(err instanceof Error ? err.message : "Failed to load reports");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (reportId: string) => {
-    try {
-      await deleteDoc(doc(db, "reports", reportId));
-      setReports(reports.filter(r => r.id !== reportId));
-      setDeleteConfirm(null);
+      await deleteDoc(doc(db, "projects", report.projectId, "reports", reportId));
+      // Real-time subscription will automatically update the list
     } catch (err) {
       console.error("Failed to delete report:", err);
       alert("Failed to delete report");
@@ -152,11 +92,8 @@ export default function Reports() {
     }
   };
 
-  // Pagination
-  const totalPages = Math.ceil(reports.length / itemsPerPage);
+  // Pagination handled by state hook
   const safePage = Math.max(1, Math.min(currentPage, totalPages || 1));
-  const startIdx = (safePage - 1) * itemsPerPage;
-  const pagedReports = reports.slice(startIdx, startIdx + itemsPerPage);
 
   if (loading) {
     return (
@@ -199,20 +136,67 @@ export default function Reports() {
 
           {/* Action Buttons */}
           <div className="mb-6 flex items-center gap-3">
-            <button
+            <Button
+              variant="brand"
+              icon={<PiPlus size={20} />}
+              title="Generate New Report"
               onClick={() => router.push('/workspace/projects')}
-              className="inline-flex items-center gap-small px-4 py-2 bg-brand text-white rounded-lg as-p2-text hover:bg-brand-hover transition-all"
-            >
-              <PiPlus className="text-lg" />
-              Generate New Report
-            </button>
-            <Link
-              href="/workspace/scans"
-              className="inline-flex items-center gap-small px-4 py-2 bg-[var(--color-bg-light)] secondary-text-color rounded-lg as-p2-text hover:bg-[var(--color-bg-input)] transition-all"
-            >
-              <PiGlobe className="text-lg" />
-              View Scans
-            </Link>
+            />
+            <Button
+              variant="secondary"
+              icon={<PiGlobe size={20} />}
+              title="View Scans"
+              onClick={() => router.push('/workspace/scans')}
+            />
+          </div>
+
+          {/* Filters */}
+          <div className="mb-6 flex flex-wrap gap-4">
+            {/* Type Filter */}
+            <div className="flex items-center gap-small">
+              <span className="as-p2-text primary-text-color">Type:</span>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as any)}
+                className="px-4 py-2 border border-[var(--color-border-light)] rounded-lg as-p2-text primary-text-color bg-[var(--color-bg)] hover:border-brand input-focus"
+              >
+                <option value="all">All Reports ({allReports.length})</option>
+                <option value="project">Project Reports ({allReports.filter(r => r.type === 'project').length})</option>
+                <option value="pageset">PageSet Reports ({allReports.filter(r => r.type === 'pageset').length})</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-small">
+              <span className="as-p2-text primary-text-color">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="px-4 py-2 border border-[var(--color-border-light)] rounded-lg as-p2-text primary-text-color bg-[var(--color-bg)] hover:border-brand input-focus"
+              >
+                <option value="all">All ({allReports.length})</option>
+                <option value="completed">Completed ({allReports.filter(r => r.status === 'completed').length})</option>
+                <option value="generating">Generating ({allReports.filter(r => r.status === 'generating').length})</option>
+                <option value="failed">Failed ({allReports.filter(r => r.status === 'failed').length})</option>
+              </select>
+            </div>
+
+            {/* Project Filter */}
+            <div className="flex items-center gap-small">
+              <span className="as-p2-text primary-text-color">Project:</span>
+              <select
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className="px-4 py-2 border border-[var(--color-border-light)] rounded-lg as-p2-text primary-text-color bg-[var(--color-bg)] hover:border-brand input-focus"
+              >
+                <option value="all">All Projects ({allReports.length})</option>
+                {projects.map(project => (
+                  <option key={project.id} value={project.id}>
+                    {project.name} ({allReports.filter(r => r.projectId === project.id).length})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="w-full">
@@ -238,13 +222,14 @@ export default function Reports() {
                         <p className="as-p2-text table-heading-text-color mt-2">
                           Generate your first report from a project to get started
                         </p>
-                        <button
-                          onClick={() => router.push('/workspace/projects')}
-                          className="mt-4 inline-flex items-center gap-small px-4 py-2 bg-brand text-white rounded-lg as-p2-text hover:bg-brand-hover transition-all"
-                        >
-                          <PiPlus />
-                          Generate Report
-                        </button>
+                        <div className="mt-4">
+                          <Button
+                            variant="brand"
+                            icon={<PiPlus size={20} />}
+                            title="Generate Report"
+                            onClick={() => router.push('/workspace/projects')}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -309,42 +294,19 @@ export default function Reports() {
                         <td className="py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             {report.status === 'completed' && report.pdfUrl && (
-                              <a
-                                href={report.pdfUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-3 py-2 bg-brand text-white rounded-lg as-p3-text hover:bg-brand-hover transition-all"
-                              >
-                                <PiDownload />
-                                Download
-                              </a>
+                              <Button
+                                variant="brand"
+                                icon={<PiDownload size={18} />}
+                                title="Download"
+                                onClick={() => window.open(report.pdfUrl, '_blank')}
+                              />
                             )}
-                            {deleteConfirm === report.id ? (
-                              <div className="flex items-center gap-small">
-                                <button
-                                  onClick={() => handleDelete(report.id)}
-                                  style={{ backgroundColor: 'var(--color-error)', color: 'white' }}
-                                  className="px-3 py-2 rounded-lg as-p3-text hover:opacity-90"
-                                >
-                                  Confirm
-                                </button>
-                                <button
-                                  onClick={() => setDeleteConfirm(null)}
-                                  className="px-3 py-2 bg-[var(--color-bg-light)] secondary-text-color rounded-lg as-p3-text hover:bg-[var(--color-bg-input)]"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setDeleteConfirm(report.id)}
-                                style={{ color: 'var(--color-error)' }}
-                                className="p-2 hover:bg-[var(--color-error-light)] rounded-lg transition-all"
-                                title="Delete report"
-                              >
-                                <PiTrash className="text-lg" />
-                              </button>
-                            )}
+                            <Button
+                              variant="danger"
+                              icon={<PiTrash size={18} />}
+                              title="Delete"
+                              onClick={() => handleDelete(report.id, `${report.projectName} - ${report.type === 'pageset' ? report.pageSetName : 'Full Report'}`)}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -359,7 +321,7 @@ export default function Reports() {
                 <Pagination
                   page={safePage}
                   totalPages={totalPages}
-                  onChange={(next) => setCurrentPage(next)}
+                  onChange={(next) => setPage(next)}
                 />
               </div>
             )}

@@ -1,5 +1,6 @@
-import { collection, query, where, getDocs, orderBy, limit, addDoc, Timestamp } from "firebase/firestore";
-import { db } from "@/utils/firebase";
+import { collection, query, where, getDocs, orderBy, limit, addDoc, Timestamp, onSnapshot, type DocumentData, type Unsubscribe } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/utils/firebase";
 import { callServerFunction } from "@/services/serverService";
 
 export type ReportType = 'full' | 'pageset' | 'individual';
@@ -9,6 +10,7 @@ export type ReportStatus = 'pending' | 'generating' | 'completed' | 'failed';
 export type Report = {
   id: string;
   projectId: string;
+  projectName?: string; // Added for workspace reports page
   type: ReportType;
   status: ReportStatus;
   title: string;
@@ -77,6 +79,259 @@ export async function loadReports(projectId: string): Promise<Report[]> {
     console.error("Failed to load reports:", err);
     throw err;
   }
+}
+
+/**
+ * Load all reports across all user's projects (for workspace reports page)
+ */
+export async function loadAllReports(): Promise<Report[]> {
+  try {
+    const user = auth.currentUser;
+    if (!user) return [];
+
+    // First, load all projects for the user
+    const projectsQuery = query(
+      collection(db, "projects"),
+      where("owner", "==", user.uid)
+    );
+    const projectsSnap = await getDocs(projectsQuery);
+
+    // Then load reports from all projects
+    const reportsPromises = projectsSnap.docs.map(async (projectDoc) => {
+      const projectId = projectDoc.id;
+      const projectName = projectDoc.data().name || 'Untitled Project';
+      
+      const reportsQuery = query(
+        collection(db, "projects", projectId, "reports"),
+        orderBy("createdAt", "desc")
+      );
+      
+      const reportsSnap = await getDocs(reportsQuery);
+      
+      return reportsSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          projectId,
+          projectName,
+          type: data.type || (data.pageSetId ? 'pageset' : 'project'),
+          status: data.status || 'pending',
+          title: data.title || 'Untitled Report',
+          pageSetId: data.pageSetId,
+          pageSetName: data.pageSetName,
+          pageIds: data.pageIds || [],
+          pageCount: data.pageCount || data.pageIds?.length || 0,
+          pdfUrl: data.pdfUrl,
+          runId: data.runId,
+          createdAt: data.createdAt?.toDate?.() || new Date(),
+          completedAt: data.completedAt?.toDate?.(),
+          createdBy: data.createdBy || '',
+          error: data.error,
+          stats: data.stats,
+        } as Report;
+      });
+    });
+
+    const reportsArrays = await Promise.all(reportsPromises);
+    const allReports = reportsArrays.flat();
+    
+    // Sort by createdAt descending
+    return allReports.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  } catch (err) {
+    console.error("Failed to load all reports:", err);
+    throw err;
+  }
+}
+
+/**
+ * Subscribe to reports for a project with real-time updates
+ */
+export function subscribeProjectReports(
+  projectId: string,
+  onNext: (reports: Report[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  if (!projectId) {
+    onNext([]);
+    return () => { };
+  }
+
+  const reportsQuery = query(
+    collection(db, "projects", projectId, "reports"),
+    orderBy("createdAt", "desc"),
+    limit(50)
+  );
+
+  const unsubscribe = onSnapshot(
+    reportsQuery,
+    (snapshot) => {
+      const reports = snapshot.docs.map((doc) => {
+        const data = doc.data() as DocumentData;
+        return {
+          id: doc.id,
+          projectId,
+          type: data.type || 'full',
+          status: data.status || 'pending',
+          title: data.title || 'Untitled Report',
+          pageSetId: data.pageSetId,
+          pageSetName: data.pageSetName,
+          pageIds: data.pageIds || [],
+          pageCount: data.pageCount || data.pageIds?.length || 0,
+          pdfUrl: data.pdfUrl,
+          runId: data.runId,
+          createdAt: data.createdAt?.toDate?.() || new Date(),
+          completedAt: data.completedAt?.toDate?.(),
+          createdBy: data.createdBy || '',
+          error: data.error,
+          stats: data.stats,
+        } as Report;
+      });
+
+      onNext(reports);
+    },
+    (error) => {
+      if (onError) {
+        onError(error instanceof Error ? error.message : error);
+      }
+    }
+  );
+
+  return unsubscribe;
+}
+
+/**
+ * Subscribe to all reports across all user's projects with real-time updates
+ * This is used for the workspace reports page
+ */
+export function subscribeReports(
+  onNext: (reports: Report[]) => void,
+  onError?: (err: unknown) => void
+): Unsubscribe {
+  let unsubscribeProjects: Unsubscribe | null = null;
+  const reportUnsubscribers = new Map<string, Unsubscribe>();
+  const reportsMap = new Map<string, Report>();
+  
+  const updateReports = () => {
+    const allReports = Array.from(reportsMap.values()).sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
+    onNext(allReports);
+  };
+
+  const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    // Clean up previous subscriptions
+    if (unsubscribeProjects) {
+      unsubscribeProjects();
+      unsubscribeProjects = null;
+    }
+    reportUnsubscribers.forEach(unsub => unsub());
+    reportUnsubscribers.clear();
+    reportsMap.clear();
+    
+    if (!user) {
+      onNext([]);
+      return;
+    }
+
+    // Subscribe to user's projects
+    const projectsQuery = query(
+      collection(db, "projects"),
+      where("owner", "==", user.uid)
+    );
+
+    unsubscribeProjects = onSnapshot(
+      projectsQuery,
+      (projectsSnapshot) => {
+        const currentProjectIds = new Set<string>();
+
+        projectsSnapshot.docs.forEach((projectDoc) => {
+          const projectId = projectDoc.id;
+          const projectName = projectDoc.data().name || 'Untitled Project';
+          currentProjectIds.add(projectId);
+
+          // If we're not already subscribed to this project's reports, subscribe now
+          if (!reportUnsubscribers.has(projectId)) {
+            const reportsQuery = query(
+              collection(db, "projects", projectId, "reports"),
+              orderBy("createdAt", "desc")
+            );
+
+            const unsubReports = onSnapshot(
+              reportsQuery,
+              (reportsSnapshot) => {
+                // Remove old reports from this project
+                Array.from(reportsMap.keys())
+                  .filter(key => key.startsWith(`${projectId}_`))
+                  .forEach(key => reportsMap.delete(key));
+
+                // Add current reports from this project
+                reportsSnapshot.docs.forEach(doc => {
+                  const data = doc.data();
+                  const reportKey = `${projectId}_${doc.id}`;
+                  reportsMap.set(reportKey, {
+                    id: doc.id,
+                    projectId,
+                    projectName,
+                    type: data.type || (data.pageSetId ? 'pageset' : 'project'),
+                    status: data.status || 'pending',
+                    title: data.title || 'Untitled Report',
+                    pageSetId: data.pageSetId,
+                    pageSetName: data.pageSetName,
+                    pageIds: data.pageIds || [],
+                    pageCount: data.pageCount || data.pageIds?.length || 0,
+                    pdfUrl: data.pdfUrl,
+                    runId: data.runId,
+                    createdAt: data.createdAt?.toDate?.() || new Date(),
+                    completedAt: data.completedAt?.toDate?.(),
+                    createdBy: data.createdBy || '',
+                    error: data.error,
+                    stats: data.stats,
+                  } as Report);
+                });
+
+                updateReports();
+              },
+              (error) => {
+                console.error(`Error subscribing to reports for project ${projectId}:`, error);
+              }
+            );
+
+            reportUnsubscribers.set(projectId, unsubReports);
+          }
+        });
+
+        // Unsubscribe from projects that no longer exist
+        reportUnsubscribers.forEach((unsub, projectId) => {
+          if (!currentProjectIds.has(projectId)) {
+            unsub();
+            reportUnsubscribers.delete(projectId);
+            // Remove reports from this project
+            Array.from(reportsMap.keys())
+              .filter(key => key.startsWith(`${projectId}_`))
+              .forEach(key => reportsMap.delete(key));
+          }
+        });
+
+        updateReports();
+      },
+      (error) => {
+        if (onError) {
+          onError(error instanceof Error ? error.message : error);
+        }
+      }
+    );
+  });
+
+  // Return cleanup function
+  return () => {
+    unsubscribeAuth();
+    if (unsubscribeProjects) {
+      unsubscribeProjects();
+    }
+    reportUnsubscribers.forEach(unsub => unsub());
+    reportUnsubscribers.clear();
+    reportsMap.clear();
+  };
 }
 
 /**

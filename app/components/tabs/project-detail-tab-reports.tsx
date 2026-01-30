@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { 
   PiFileText, 
@@ -11,7 +11,7 @@ import {
   PiWarningCircle,
   PiCalendar
 } from "react-icons/pi";
-import { loadReports, type Report } from "@/services/reportService";
+import type { Report } from "@/services/reportService";
 import { formatTimeAgo } from "@/ui-helpers/default";
 import { Button } from "@/components/atom/button";
 import { CreateReportModal } from "@/components/modals/CreateReportModal";
@@ -19,6 +19,7 @@ import { useAuth } from "@/utils/firebase";
 import { PageContainer } from "../molecule/page-container";
 import { EmptyState } from "../atom/EmptyState";
 import { LoadingState } from "../atom/LoadingState";
+import { useProjectReportsPageState } from "@/state-services/project-detail-reports-state";
 
 type ReportsTabProps = {
   projectId: string;
@@ -26,25 +27,14 @@ type ReportsTabProps = {
 
 export function ReportsTab({ projectId }: ReportsTabProps) {
   const { user } = useAuth();
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  useEffect(() => {
-    loadReportsData();
-  }, [projectId]);
-
-  const loadReportsData = async () => {
-    try {
-      setLoading(true);
-      const data = await loadReports(projectId);
-      setReports(data);
-    } catch (err) {
-      console.error("Failed to load reports:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use reports page state hook with real-time subscription
+  const {
+    pagedItems: reports,
+    loading,
+    error,
+  } = useProjectReportsPageState(projectId, 50);
 
   const getStatusBadge = (status: Report['status']) => {
     switch (status) {
@@ -97,6 +87,18 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
       <PageContainer inner>
         <div className="p-[var(--spacing-m)]">
           <LoadingState message="Loading reports..." />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageContainer inner>
+        <div className="p-[var(--spacing-m)]">
+          <div className="as-p2-text text-[var(--color-error)]">
+            {error}
+          </div>
         </div>
       </PageContainer>
     );
@@ -205,7 +207,10 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
             onClose={() => setShowCreateModal(false)}
             projectId={projectId}
             userId={user.uid}
-            onSuccess={loadReportsData}
+            onSuccess={() => {
+              setShowCreateModal(false);
+              // Real-time subscription will automatically update the list
+            }}
           />
         )}
       </div>

@@ -94,14 +94,15 @@ export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowPr
 
   // Use page-level stats when available
   const counts = useMemo(() => {
-    const summary = (page.lastStats ?? null) as PageStatsTDO | null;
+    // Try lastStats first, then fall back to lastScan.summary
+    const summary = (page.lastStats ?? (page.lastScan as any)?.summary ?? null) as PageStatsTDO | null;
     return {
       critical: safeNumber(summary?.critical),
       serious: safeNumber(summary?.serious),
       moderate: safeNumber(summary?.moderate),
       minor: safeNumber(summary?.minor),
     };
-  }, [page.lastStats]);
+  }, [page.lastStats, page.lastScan]);
 
   const totalIssues = counts.critical + counts.serious + counts.moderate + counts.minor;
 
