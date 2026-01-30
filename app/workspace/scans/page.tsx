@@ -14,6 +14,10 @@ import { StatPill } from "@/components/atom/stat-pill";
 import { useScansPageState } from "@/state-services/scan-state";
 import { formatTimeAgo } from "@lib/ui-helpers/default";
 
+// Disable static generation for this route (uses useSearchParams)
+export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
+
 export default function Scans() {
   const { user } = useAuth();
   const router = useRouter();

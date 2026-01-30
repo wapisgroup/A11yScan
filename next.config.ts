@@ -14,10 +14,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
-  experimental: {
-    // Allow dynamic rendering for pages using useSearchParams
-    dynamicIO: true,
-  },
 };
 
 export default nextConfig;
