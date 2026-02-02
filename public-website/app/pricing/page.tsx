@@ -20,7 +20,7 @@ export default function PricingPage() {
 
             <MainSections>
                 {/* Hero */}
-                <RevealSection custom={0}>
+                <section className="py-16 md:py-24 lg:py-32">
                     <div className="text-center max-w-4xl mx-auto">
                         <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full mb-6">
                             <span className="text-xs font-semibold text-green-700">14-DAY FREE TRIAL • NO CREDIT CARD REQUIRED</span>
@@ -32,7 +32,7 @@ export default function PricingPage() {
                             Choose the plan that fits your needs. All plans include our core accessibility testing features.
                         </p>
                     </div>
-                </RevealSection>
+                </section>
 
                 {/* Pricing tiers */}
                 <RevealSection custom={1}>
