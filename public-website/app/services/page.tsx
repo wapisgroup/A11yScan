@@ -7,6 +7,7 @@ import { Metadata } from 'next';
 import { RevealSection } from '../components/molecule/reveal-section';
 import Link from 'next/link';
 import { HiMagnifyingGlass, HiChartBar, HiAcademicCap, HiRocketLaunch } from 'react-icons/hi2';
+import { URL_FRONTEND_CONTACT, URL_FRONTEND_PRICING } from "@/app/services/urlServices";
 
 export const metadata: Metadata = withTitlePostfix(["Services"]);
 
@@ -44,7 +45,7 @@ export default function ServicesPage() {
                                 <li>• Scheduled recurring scans</li>
                                 <li>• Professional PDF reports</li>
                             </ul>
-                            <Link href="/pricing" className="text-purple-600 hover:text-purple-700 font-semibold">
+                            <Link href={URL_FRONTEND_PRICING} className="text-purple-600 hover:text-purple-700 font-semibold">
                                 View Pricing →
                             </Link>
                         </div>
@@ -64,7 +65,7 @@ export default function ServicesPage() {
                                 <li>• VPAT documentation</li>
                                 <li>• Executive summary for stakeholders</li>
                             </ul>
-                            <Link href="/contact" className="text-purple-600 hover:text-purple-700 font-semibold">
+                            <Link href={URL_FRONTEND_CONTACT} className="text-purple-600 hover:text-purple-700 font-semibold">
                                 Request Audit →
                             </Link>
                         </div>
@@ -84,7 +85,7 @@ export default function ServicesPage() {
                                 <li>• Testing strategies and tools</li>
                                 <li>• Certificate of completion</li>
                             </ul>
-                            <Link href="/contact" className="text-purple-600 hover:text-purple-700 font-semibold">
+                            <Link href={URL_FRONTEND_CONTACT} className="text-purple-600 hover:text-purple-700 font-semibold">
                                 Book Training →
                             </Link>
                         </div>
@@ -104,7 +105,7 @@ export default function ServicesPage() {
                                 <li>• Design system accessibility</li>
                                 <li>• Ongoing support and maintenance</li>
                             </ul>
-                            <Link href="/contact" className="text-purple-600 hover:text-purple-700 font-semibold">
+                            <Link href={URL_FRONTEND_CONTACT} className="text-purple-600 hover:text-purple-700 font-semibold">
                                 Get Started →
                             </Link>
                         </div>
@@ -120,7 +121,7 @@ export default function ServicesPage() {
                             <p className="text-xl text-slate-600 mb-8">
                                 Schedule a free consultation to discuss your accessibility needs and get personalized recommendations.
                             </p>
-                            <Link href="/contact">
+                            <Link href={URL_FRONTEND_CONTACT}>
                                 <button className="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-colors">
                                     Schedule Consultation
                                 </button>

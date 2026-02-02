@@ -50,7 +50,7 @@ export default function Home() {
               Trusted by Leading Organizations
             </h2>
             <p className="text-lg text-slate-600 mb-8">
-              From startups to Fortune 500 companies, teams worldwide rely on A11yScan for comprehensive accessibility testing
+              From startups to Fortune 500 companies, teams worldwide rely on Ablelytics for comprehensive accessibility testing
             </p>
           </div>
         </div>
@@ -98,7 +98,7 @@ export default function Home() {
         <div className="container mx-auto px-4 md:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center mb-12 md:mb-16">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-4 leading-tight">
-              A11yScan Is the Perfect Solution For:
+              Ablelytics Is the Perfect Solution For:
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
@@ -246,27 +246,27 @@ export default function Home() {
               Real Teams, Real Results
             </h2>
             <p className="text-lg md:text-xl text-slate-600 leading-relaxed">
-              See how organizations use A11yScan to build accessible digital experiences
+              See how organizations use Ablelytics to build accessible digital experiences
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
             {[
               {
-                quote: "A11yScan helped us achieve WCAG AA compliance across 500+ pages in just 2 weeks. The automated scanning and detailed reports saved us countless hours of manual testing.",
+                quote: "Ablelytics helped us achieve WCAG AA compliance across 500+ pages in just 2 weeks. The automated scanning and detailed reports saved us countless hours of manual testing.",
                 author: "Sarah Kim",
                 role: "Head of Compliance, TechCorp",
                 initials: "SK",
                 color: "purple"
               },
               {
-                quote: "As an agency, we use A11yScan for all client audits. The professional reports and white-labeling features make us look great, and the API integration streamlines our workflow.",
+                quote: "As an agency, we use Ablelytics for all client audits. The professional reports and white-labeling features make us look great, and the API integration streamlines our workflow.",
                 author: "Marcus Rodriguez",
                 role: "Founder, AccessibleWeb Agency",
                 initials: "MR",
                 color: "blue"
               },
               {
-                quote: "We integrated A11yScan into our CI/CD pipeline and now catch accessibility issues before they reach production. It's become an essential part of our quality assurance process.",
+                quote: "We integrated Ablelytics into our CI/CD pipeline and now catch accessibility issues before they reach production. It's become an essential part of our quality assurance process.",
                 author: "Jennifer Park",
                 role: "Engineering Lead, HealthTech Solutions",
                 initials: "JP",
@@ -303,7 +303,7 @@ export default function Home() {
               Start Building More Accessible Experiences Today
             </h2>
             <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
-              Join hundreds of teams using A11yScan to ensure WCAG compliance and create inclusive digital experiences.
+              Join hundreds of teams using Ablelytics to ensure WCAG compliance and create inclusive digital experiences.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 

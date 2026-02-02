@@ -5,6 +5,7 @@ import { LoggedOutHeader } from "../components/organism/logged-out-header";
 import { LoggedOutFooter } from "../components/organism/logged-out-footer";
 import Link from "next/link";
 import { HiGlobeAlt, HiComputerDesktop, HiDocumentText, HiArrowPath, HiMagnifyingGlass, HiCommandLine, HiBolt, HiShieldCheck, HiChartBar, HiClock, HiCheckCircle, HiCog } from "react-icons/hi2";
+import { URL_AUTH_REGISTER, URL_FRONTEND_PRICING, URL_FRONTEND_CONTACT } from "@/app/services/urlServices";
 
 export default function FeaturesPage() {
   return (
@@ -22,17 +23,17 @@ export default function FeaturesPage() {
               Everything You Need for Accessibility Compliance
             </h1>
             <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
-              From automated crawling to detailed reports, A11yScan provides comprehensive WCAG testing tools designed for modern development workflows
+              From automated crawling to detailed reports, Ablelytics provides comprehensive WCAG testing tools designed for modern development workflows
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
-                href="/register" 
+                href={URL_AUTH_REGISTER} 
                 className="px-8 py-4 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors shadow-lg hover:shadow-xl"
               >
                 Start Free Trial
               </Link>
               <Link 
-                href="/pricing" 
+                href={URL_FRONTEND_PRICING} 
                 className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-semibold hover:border-slate-300 transition-colors"
               >
                 View Pricing
@@ -384,13 +385,13 @@ export default function FeaturesPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
-                href="/register" 
+                href={URL_AUTH_REGISTER} 
                 className="px-8 py-4 bg-white text-purple-600 rounded-lg font-semibold hover:bg-slate-50 transition-colors shadow-lg hover:shadow-xl"
               >
                 Get Started Free
               </Link>
               <Link 
-                href="/contact" 
+                href={URL_FRONTEND_CONTACT} 
                 className="px-8 py-4 bg-transparent text-white border-2 border-white rounded-lg font-semibold hover:bg-white/10 transition-colors"
               >
                 Talk to Sales

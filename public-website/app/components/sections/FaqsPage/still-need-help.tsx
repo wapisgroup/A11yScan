@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link";
-import { contactSales } from "../../../services/urlServices";
+import { contactSales, URL_FRONTEND_PRICING } from "../../../services/urlServices";
 import { Button } from "../../atom/button";
 import { WhiteBox } from "../../molecule/white-box";
 
@@ -25,7 +25,7 @@ export function FAQPageHelpSection() {
                         guide</Link></li>
                     <li><Link href="/sample-report" className="underline">View a sample
                         report</Link></li>
-                    <li><Link href="/pricing" className="underline">Plans & pricing</Link></li>
+                    <li><Link href={URL_FRONTEND_PRICING} className="underline">Plans & pricing</Link></li>
                 </ul>
             </WhiteBox>
         </section>

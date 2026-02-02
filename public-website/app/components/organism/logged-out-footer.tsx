@@ -1,11 +1,48 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import { FooterNavItem } from "../atom/footer-nav-item";
 import { FooterNavigation } from "../molecule/footer-navigation";
-import { URL_FRONTEND_BLOG, URL_FRONTEND_CASE_STUDIES, URL_FRONTEND_CONTACT, URL_FRONTEND_COOKIES, URL_FRONTEND_DOCUMENTATION, URL_FRONTEND_FAQS, URL_FRONTEND_FEATURES, URL_FRONTEND_GUIDES, URL_FRONTEND_PRICING, URL_FRONTEND_PRIVACY, URL_FRONTEND_TERMS } from "@/app/services/urlServices";
+import { URL_FRONTEND_BLOG, URL_FRONTEND_CASE_STUDIES, URL_FRONTEND_CONTACT, URL_FRONTEND_COOKIES, URL_FRONTEND_DOCUMENTATION, URL_FRONTEND_FAQS, URL_FRONTEND_FEATURES, URL_FRONTEND_GUIDES, URL_FRONTEND_PRICING, URL_FRONTEND_PRIVACY, URL_FRONTEND_TERMS, URL_FRONTEND_INTEGRATIONS, URL_FRONTEND_ABOUT } from "@/app/services/urlServices";
 import Link from "next/link";
 import Image from "next/image";
 
 export const LoggedOutFooter = () => {
+    const [email, setEmail] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    const handleNewsletterSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setMessage(null);
+        
+        if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+            setMessage({ type: 'error', text: 'Please enter a valid email address' });
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const res = await fetch('/api/newsletter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Thank you for subscribing!' });
+                setEmail("");
+            } else {
+                const data = await res.json();
+                setMessage({ type: 'error', text: data.error || 'Failed to subscribe' });
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Failed to subscribe. Please try again.' });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
 
@@ -15,7 +52,7 @@ export const LoggedOutFooter = () => {
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-5 mb-12">
                     <div className="lg:col-span-2">
                         <div className="flex items-center gap-3 mb-6">
-                            <Image src="/web-logo-02.svg" alt="A11yScan" width={160} height={40} priority className="h-8 brightness-0 invert" />
+                            <Image src="/logo-white.svg" alt="Ablelytics" width={160} height={65} priority className="brightness-0 invert" />
                         </div>
 
                         <p className="max-w-sm text-sm leading-relaxed mb-6">
@@ -24,16 +61,28 @@ export const LoggedOutFooter = () => {
 
                         <div className="space-y-3">
                             <p className="text-sm font-semibold text-white">Stay Updated</p>
-                            <div className="flex gap-2 max-w-sm">
+                            <form onSubmit={handleNewsletterSubmit} className="flex gap-2 max-w-sm">
                                 <input
                                     type="email"
                                     placeholder="Your email"
-                                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    disabled={loading}
+                                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white disabled:opacity-50"
                                 />
-                                <button className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-violet-700 transition-all">
-                                    Subscribe
+                                <button 
+                                    type="submit"
+                                    disabled={loading}
+                                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-violet-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? 'Sending...' : 'Subscribe'}
                                 </button>
-                            </div>
+                            </form>
+                            {message && (
+                                <p className={`text-xs ${message.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {message.text}
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -44,7 +93,7 @@ export const LoggedOutFooter = () => {
                                 <li><Link href={URL_FRONTEND_FEATURES} className="hover:text-white transition-colors">Features</Link></li>
                                 <li><Link href={URL_FRONTEND_PRICING} className="hover:text-white transition-colors">Pricing</Link></li>
                                 <li><Link href={URL_FRONTEND_FAQS} className="hover:text-white transition-colors">FAQ</Link></li>
-                                <li><Link href="/integrations" className="hover:text-white transition-colors">Integrations</Link></li>
+                                <li><Link href={URL_FRONTEND_INTEGRATIONS} className="hover:text-white transition-colors">Integrations</Link></li>
                             </ul>
                         </div>
 
@@ -62,7 +111,7 @@ export const LoggedOutFooter = () => {
                             <h3 className="text-white font-semibold mb-4">Company</h3>
                             <ul className="space-y-3 text-sm">
                                 <li><Link href={URL_FRONTEND_CONTACT} className="hover:text-white transition-colors">Contact</Link></li>
-                                <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                                <li><Link href={URL_FRONTEND_ABOUT} className="hover:text-white transition-colors">About Us</Link></li>
                                 <li><Link href={URL_FRONTEND_PRIVACY} className="hover:text-white transition-colors">Privacy</Link></li>
                                 <li><Link href={URL_FRONTEND_TERMS} className="hover:text-white transition-colors">Terms</Link></li>
                             </ul>
@@ -73,7 +122,7 @@ export const LoggedOutFooter = () => {
 
                 <div className="border-t border-slate-800 pt-8">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <p className="text-sm">© 2026 A11yScan. All rights reserved.</p>
+                        <p className="text-sm">© 2026 Ablelytics. All rights reserved.</p>
 
                         <div className="flex items-center gap-6">
                             <a

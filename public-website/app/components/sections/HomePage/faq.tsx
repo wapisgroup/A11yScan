@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FAQItem } from "../../atom/faq-item";
+import { URL_FRONTEND_CONTACT, URL_FRONTEND_DOCUMENTATION } from "@/app/services/urlServices";
 
 export function HomePageFAQsSection() {
     const [openFaq, setOpenFaq] = useState<number>(-1);
@@ -15,7 +16,7 @@ export function HomePageFAQsSection() {
                     Frequently Asked Questions
                 </h2>
                 <p className="text-xl text-slate-600">
-                    Everything you need to know about accessibility testing with A11yScan
+                    Everything you need to know about accessibility testing with Ablelytics
                 </p>
             </div>
 
@@ -24,9 +25,9 @@ export function HomePageFAQsSection() {
                     toggle={toggleFaq}
                     toggleIndex={0}
                     openFaq={openFaq}
-                    title={`What accessibility standards does A11yScan test against?`}
+                    title={`What accessibility standards does Ablelytics test against?`}
                 >
-                    A11yScan tests against WCAG 2.1 Level A, AA, and AAA success criteria. We also cover ADA Title III requirements, Section 508 compliance (US Federal), and EN 301 549 (EU). Our testing engine uses Axe-core, the industry-standard accessibility testing library trusted by governments and Fortune 500 companies.
+                    Ablelytics tests against WCAG 2.1 Level A, AA, and AAA success criteria. We also cover ADA Title III requirements, Section 508 compliance (US Federal), and EN 301 549 (EU). Our testing engine uses Axe-core, the industry-standard accessibility testing library trusted by governments and Fortune 500 companies.
                 </FAQItem>
 
                 <FAQItem
@@ -35,7 +36,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`How accurate is automated testing compared to manual audits?`}
                 >
-                    A11yScan reliably detects 60-70% of accessibility issues automatically — things like missing alt text, color contrast failures, improper ARIA usage, keyboard navigation problems, and form labeling issues. This eliminates hundreds of hours of manual testing. However, 30-40% of WCAG criteria require human judgment (like meaningful alt text quality or proper heading hierarchy). We recommend using A11yScan for initial discovery and ongoing monitoring, then manual audits for final certification.
+                    Ablelytics reliably detects 60-70% of accessibility issues automatically — things like missing alt text, color contrast failures, improper ARIA usage, keyboard navigation problems, and form labeling issues. This eliminates hundreds of hours of manual testing. However, 30-40% of WCAG criteria require human judgment (like meaningful alt text quality or proper heading hierarchy). We recommend using Ablelytics for initial discovery and ongoing monitoring, then manual audits for final certification.
                 </FAQItem>
 
                 <FAQItem
@@ -98,7 +99,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`How do you handle single-page applications (SPAs)?`}
                 >
-                    A11yScan uses a real Chrome browser (Puppeteer) to render pages, so JavaScript-heavy SPAs built with React, Vue, Angular, etc. work perfectly. We wait for the page to fully load, execute all JavaScript, and then run accessibility tests on the final rendered DOM — just like a real user would experience it.
+                    Ablelytics uses a real Chrome browser (Puppeteer) to render pages, so JavaScript-heavy SPAs built with React, Vue, Angular, etc. work perfectly. We wait for the page to fully load, execute all JavaScript, and then run accessibility tests on the final rendered DOM — just like a real user would experience it.
                 </FAQItem>
 
                 <FAQItem
@@ -123,7 +124,7 @@ export function HomePageFAQsSection() {
                     toggle={toggleFaq}
                     toggleIndex={11}
                     openFaq={openFaq}
-                    title={`Can I try A11yScan before committing to a paid plan?`}
+                    title={`Can I try Ablelytics before committing to a paid plan?`}
                 >
                     Yes! We offer a 14-day free trial with access to all Pro features — no credit card required. You can scan up to 50 pages during the trial period. If you need to test more pages or evaluate Enterprise features, contact us for an extended trial.
                 </FAQItem>
@@ -137,13 +138,13 @@ export function HomePageFAQsSection() {
                 </p>
                 <div className="flex gap-4 justify-center flex-wrap">
                     <a 
-                        href="/contact" 
+                        href={URL_FRONTEND_CONTACT} 
                         className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors"
                     >
                         Contact Sales
                     </a>
                     <a 
-                        href="https://docs.a11yscan.com" 
+                        href={URL_FRONTEND_DOCUMENTATION} 
                         className="px-6 py-3 bg-white hover:bg-slate-50 text-slate-900 font-semibold rounded-lg border border-slate-300 transition-colors"
                     >
                         View Documentation

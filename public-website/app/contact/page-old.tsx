@@ -24,7 +24,7 @@ export default function ContactPage() {
                             Get in Touch
                         </h1>
                         <p className="text-xl text-slate-600">
-                            Have questions about A11yScan? Our team is here to help with pricing, technical questions, or custom solutions.
+                            Have questions about Ablelytics? Our team is here to help with pricing, technical questions, or custom solutions.
                         </p>
                     </div>
                 </RevealSection>
@@ -39,8 +39,8 @@ export default function ContactPage() {
                             <p className="text-slate-600 mb-4">
                                 Questions about pricing, plans, or custom solutions?
                             </p>
-                            <a href="mailto:sales@a11yscan.com" className="text-purple-600 hover:text-purple-700 font-semibold">
-                                sales@a11yscan.com
+                            <a href="mailto:sales@ablelytics.com" className="text-purple-600 hover:text-purple-700 font-semibold">
+                                sales@ablelytics.com
                             </a>
                         </WhiteBox>
 
@@ -50,10 +50,10 @@ export default function ContactPage() {
                             </div>
                             <h3 className="text-xl font-bold text-slate-900 mb-2">Support</h3>
                             <p className="text-slate-600 mb-4">
-                                Need technical help or have questions about using A11yScan?
+                                Need technical help or have questions about using Ablelytics?
                             </p>
-                            <a href="mailto:support@a11yscan.com" className="text-purple-600 hover:text-purple-700 font-semibold">
-                                support@a11yscan.com
+                            <a href="mailto:support@ablelytics.com" className="text-purple-600 hover:text-purple-700 font-semibold">
+                                support@ablelytics.com
                             </a>
                         </WhiteBox>
 
@@ -65,8 +65,8 @@ export default function ContactPage() {
                             <p className="text-slate-600 mb-4">
                                 Interested in becoming a partner or reseller?
                             </p>
-                            <a href="mailto:partners@a11yscan.com" className="text-purple-600 hover:text-purple-700 font-semibold">
-                                partners@a11yscan.com
+                            <a href="mailto:partners@ablelytics.com" className="text-purple-600 hover:text-purple-700 font-semibold">
+                                partners@ablelytics.com
                             </a>
                         </WhiteBox>
                     </div>
@@ -105,7 +105,7 @@ export default function ContactPage() {
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="https://docs.a11yscan.com" className="text-purple-600 hover:text-purple-700 font-semibold">
+                                    <a href="https://docs.ablelytics.com" className="text-purple-600 hover:text-purple-700 font-semibold">
                                         → Documentation & Guides
                                     </a>
                                 </li>

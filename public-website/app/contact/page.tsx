@@ -7,6 +7,7 @@ import { ContactPageForm } from '../components/sections/ContactPage/form';
 import { withTitlePostfix } from "../libs/metadata";
 import { HiEnvelope, HiLifebuoy, HiUserGroup, HiClock, HiDocumentText, HiChatBubbleLeftRight } from 'react-icons/hi2';
 import Link from 'next/link';
+import { URL_FRONTEND_FAQS, URL_FRONTEND_PRICING, URL_FRONTEND_FEATURES } from "@/app/services/urlServices";
 
 export default function ContactPage() {
     return (
@@ -25,7 +26,7 @@ export default function ContactPage() {
                             Get in Touch
                         </h1>
                         <p className="text-xl text-slate-600 leading-relaxed">
-                            Have questions about A11yScan? Our team is here to help with pricing, technical questions, or custom solutions.
+                            Have questions about Ablelytics? Our team is here to help with pricing, technical questions, or custom solutions.
                         </p>
                     </div>
                 </div>
@@ -45,10 +46,10 @@ export default function ContactPage() {
                                 Questions about pricing, plans, or custom solutions?
                             </p>
                             <a 
-                                href="mailto:sales@a11yscan.com" 
+                                href="mailto:sales@ablelytics.com" 
                                 className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold"
                             >
-                                sales@a11yscan.com
+                                sales@ablelytics.com
                                 <span>→</span>
                             </a>
                         </div>
@@ -60,13 +61,13 @@ export default function ContactPage() {
                             </div>
                             <h3 className="text-2xl font-bold text-slate-900 mb-3">Support</h3>
                             <p className="text-slate-600 mb-6 leading-relaxed">
-                                Need technical help or have questions about using A11yScan?
+                                Need technical help or have questions about using Ablelytics?
                             </p>
                             <a 
-                                href="mailto:support@a11yscan.com" 
+                                href="mailto:support@ablelytics.com" 
                                 className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-semibold"
                             >
-                                support@a11yscan.com
+                                support@ablelytics.com
                                 <span>→</span>
                             </a>
                         </div>
@@ -81,10 +82,10 @@ export default function ContactPage() {
                                 Interested in becoming a partner or reseller?
                             </p>
                             <a 
-                                href="mailto:partners@a11yscan.com" 
+                                href="mailto:partners@ablelytics.com" 
                                 className="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700 font-semibold"
                             >
-                                partners@a11yscan.com
+                                partners@ablelytics.com
                                 <span>→</span>
                             </a>
                         </div>
@@ -150,28 +151,28 @@ export default function ContactPage() {
                             </div>
                             <div className="space-y-3">
                                 <Link 
-                                    href="/faqs" 
+                                    href={URL_FRONTEND_FAQS} 
                                     className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
                                 >
                                     <span className="text-slate-700 font-medium">View FAQs</span>
                                     <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
                                 </Link>
                                 <Link 
-                                    href="/pricing" 
+                                    href={URL_FRONTEND_PRICING} 
                                     className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
                                 >
                                     <span className="text-slate-700 font-medium">Pricing Plans</span>
                                     <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
                                 </Link>
                                 <Link 
-                                    href="/features" 
+                                    href={URL_FRONTEND_FEATURES} 
                                     className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
                                 >
                                     <span className="text-slate-700 font-medium">Feature Overview</span>
                                     <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
                                 </Link>
                                 <a 
-                                    href="https://docs.a11yscan.com" 
+                                    href="/" 
                                     className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
                                     target="_blank"
                                     rel="noopener noreferrer"

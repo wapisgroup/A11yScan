@@ -1,14 +1,33 @@
-"use client";
-
 import { LoggedOutHeader } from "../components/organism/logged-out-header";
 import { LoggedOutFooter } from "../components/organism/logged-out-footer";
 import { LoggedOutLayout } from "../components/organism/logged-out-layout";
-import { withTitlePostfix } from '../libs/metadata';
 import { FAQPageItemsSection } from '../components/sections/FaqsPage/items';
 import { HiQuestionMarkCircle, HiEnvelope } from 'react-icons/hi2';
 import Link from 'next/link';
+import { client } from '../../lib/sanity';
+import { URL_FRONTEND_CONTACT } from "@/app/services/urlServices";
 
-export default function FAQPage() {
+// Fetch FAQs from Sanity
+async function getFAQs() {
+    const query = `*[_type == "faq"] | order(order asc) {
+        _id,
+        question,
+        answer,
+        order,
+        "category": category->title
+    }`;
+    
+    try {
+        const faqs = await client.fetch(query);
+        return faqs;
+    } catch (error) {
+        console.error('Error fetching FAQs:', error);
+        return [];
+    }
+}
+
+export default async function FAQPage() {
+    const faqs = await getFAQs();
     return (
         <LoggedOutLayout>
             <LoggedOutHeader />
@@ -34,7 +53,7 @@ export default function FAQPage() {
             {/* FAQ Items Section */}
             <section className="bg-slate-50 py-20 md:py-28">
                 <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
-                    <FAQPageItemsSection />
+                    <FAQPageItemsSection faqs={faqs} />
                 </div>
             </section>
 
@@ -50,13 +69,13 @@ export default function FAQPage() {
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Link 
-                            href="/contact" 
+                            href={URL_FRONTEND_CONTACT} 
                             className="px-8 py-4 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-lg hover:shadow-xl"
                         >
                             Contact Support
                         </Link>
                         <a 
-                            href="mailto:support@a11yscan.com" 
+                            href="mailto:support@ablelytics.com" 
                             className="px-8 py-4 bg-transparent text-white border-2 border-white rounded-xl font-semibold hover:bg-white/10 transition-colors"
                         >
                             Email Us

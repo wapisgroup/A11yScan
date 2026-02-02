@@ -5,6 +5,7 @@ import { LoggedOutLayout } from "./components/organism/logged-out-layout";
 import { LoggedOutFooter } from "./components/organism/logged-out-footer";
 import Link from "next/link";
 import { HiCheckCircle, HiShieldCheck, HiBriefcase, HiCodeBracket, HiGlobeAlt, HiComputerDesktop, HiDocumentText, HiArrowPath, HiMagnifyingGlass, HiCommandLine, HiStar, HiSparkles, HiBolt, HiChartBar } from "react-icons/hi2";
+import { URL_AUTH_REGISTER, URL_FRONTEND_FEATURES, URL_FRONTEND_CONTACT, URL_FRONTEND_SOLUTIONS_COMPLIANCE, URL_FRONTEND_SOLUTIONS_AGENCIES, URL_FRONTEND_SOLUTIONS_DEVELOPERS, URL_FRONTEND_WHY_ACCESSIBILITY } from "./services/urlServices";
 
 export default function Home() {
   return (
@@ -27,13 +28,13 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
               <Link 
-                href="/register" 
+                href={URL_AUTH_REGISTER} 
                 className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-semibold hover:from-indigo-700 hover:to-violet-700 transition-all shadow-lg hover:shadow-xl text-lg"
               >
                 Start Free Trial
               </Link>
               <Link 
-                href="/features" 
+                href={URL_FRONTEND_FEATURES} 
                 className="px-8 py-4 bg-white text-slate-900 border-2 border-slate-300 rounded-xl font-semibold hover:border-slate-400 transition-colors text-lg"
               >
                 Explore Features
@@ -102,7 +103,7 @@ export default function Home() {
               Built for Every Team
             </h2>
             <p className="text-xl text-slate-600 mb-16 text-center max-w-3xl mx-auto">
-              Whether you're in compliance, development, or management—A11yScan adapts to your workflow
+              Whether you're in compliance, development, or management—Ablelytics adapts to your workflow
             </p>
             
             <div className="grid md:grid-cols-3 gap-8">
@@ -117,7 +118,7 @@ export default function Home() {
                 <p className="text-slate-600 mb-6 leading-relaxed">
                   Reduce legal exposure with comprehensive WCAG 2.2, ADA, and Section 508 compliance reports that stand up to audits.
                 </p>
-                <Link href="/solutions/compliance" className="text-emerald-600 font-semibold hover:text-emerald-700 inline-flex items-center gap-2">
+                <Link href={URL_FRONTEND_SOLUTIONS_COMPLIANCE} className="text-emerald-600 font-semibold hover:text-emerald-700 inline-flex items-center gap-2">
                   Learn more
                   <span>→</span>
                 </Link>
@@ -134,7 +135,7 @@ export default function Home() {
                 <p className="text-slate-600 mb-6 leading-relaxed">
                   Deliver professional audits to clients faster with white-label reports, bulk scanning, and automated monitoring.
                 </p>
-                <Link href="/solutions/agencies" className="text-orange-600 font-semibold hover:text-orange-700 inline-flex items-center gap-2">
+                <Link href={URL_FRONTEND_SOLUTIONS_AGENCIES} className="text-orange-600 font-semibold hover:text-orange-700 inline-flex items-center gap-2">
                   Learn more
                   <span>→</span>
                 </Link>
@@ -151,7 +152,7 @@ export default function Home() {
                 <p className="text-slate-600 mb-6 leading-relaxed">
                   Catch issues in CI/CD pipelines with REST API integration, webhooks, and automated testing in your builds.
                 </p>
-                <Link href="/solutions/developers" className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-2">
+                <Link href={URL_FRONTEND_SOLUTIONS_DEVELOPERS} className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-2">
                   Learn more
                   <span>→</span>
                 </Link>
@@ -228,6 +229,27 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Why Accessibility Matters - Gradient Background */}
+      <section className="bg-gradient-to-br from-rose-500 via-pink-600 to-fuchsia-600 py-20 md:py-28">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
+              Why Accessibility Matters
+            </h2>
+            <p className="text-xl text-rose-50 mb-10 leading-relaxed">
+              Digital accessibility isn't optional anymore. Millions of users rely on assistive technologies, and regulations like WCAG and the European Accessibility Act are making accessibility a legal requirement. Inaccessible websites risk lawsuits, lost customers, and reputational damage.
+            </p>
+            <Link 
+              href={URL_FRONTEND_WHY_ACCESSIBILITY} 
+              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-pink-600 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-lg hover:shadow-xl text-lg"
+            >
+              Learn why accessibility matters
+              <span>→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Compliance Standards - Colored Background */}
       <section className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 py-20 md:py-28">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
@@ -265,13 +287,13 @@ export default function Home() {
               Trusted by Teams Worldwide
             </h2>
             <p className="text-xl text-slate-600 mb-16 text-center max-w-3xl mx-auto">
-              See how organizations use A11yScan to maintain accessible digital experiences
+              See how organizations use Ablelytics to maintain accessible digital experiences
             </p>
             
             <div className="grid md:grid-cols-3 gap-8">
               {[
                 {
-                  quote: "A11yScan helped us achieve WCAG 2.2 AA compliance across our entire platform in just 3 weeks. The reports were comprehensive and easy to understand.",
+                  quote: "Ablelytics helped us achieve WCAG 2.2 AA compliance across our entire platform in just 3 weeks. The reports were comprehensive and easy to understand.",
                   author: "Sarah Chen",
                   role: "Compliance Director",
                   company: "TechCorp"
@@ -283,7 +305,7 @@ export default function Home() {
                   company: "StartupXYZ"
                 },
                 {
-                  quote: "As an agency, A11yScan is essential for delivering professional accessibility audits to our clients. The white-label reports are a game-changer.",
+                  quote: "As an agency, Ablelytics is essential for delivering professional accessibility audits to our clients. The white-label reports are a game-changer.",
                   author: "Emma Thompson",
                   role: "Agency Owner",
                   company: "DesignHub"
@@ -321,13 +343,13 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
-                href="/register" 
+                href={URL_AUTH_REGISTER} 
                 className="px-8 py-4 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-lg hover:shadow-xl text-lg"
               >
                 Start Free Trial
               </Link>
               <Link 
-                href="/contact" 
+                href={URL_FRONTEND_CONTACT} 
                 className="px-8 py-4 bg-transparent text-white border-2 border-white rounded-xl font-semibold hover:bg-white/10 transition-colors text-lg"
               >
                 Contact Sales

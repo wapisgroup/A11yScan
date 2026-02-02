@@ -67,7 +67,7 @@ export const LoggedOutHeader = () => {
             <div className="flex items-center justify-between h-16">
               <Link className="flex items-center gap-4" href={`/`}>
                   <div>
-                      <Image src="/web-logo-02.svg" alt="A11yScan" width={160} height={40} priority />
+                      <Image src="/logo.svg" alt="Ablelytics" width={160} height={40} priority />
                   </div>
               </Link>
               <button
@@ -131,7 +131,7 @@ export const LoggedOutHeader = () => {
                         >
                             <div className="flex items-center justify-between">
                                 <div className="">
-                                     <Image src="/web-logo-02.svg" alt="Ablelytics" width={160} height={40} priority />
+                                     <Image src="/logo-white.svg" alt="Ablelytics" width={160} height={40} priority />
                                 </div>
                                 <button
                                     type="button"

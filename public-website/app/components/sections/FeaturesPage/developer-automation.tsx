@@ -7,7 +7,7 @@ export const FeaturesDeveloperAutomationSection = () => {
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <WhiteBox extraClass="gap-medium" largeRounded>
                 <h3 className="as-h4-text primary-text-color">Developer-friendly</h3>
-                <p className="as-p2-text secondary-text-color">Integrate A11yScan with your workflow — run scans from CI, upload results to your storage, or fetch JSON via API for automation.</p>
+                <p className="as-p2-text secondary-text-color">Integrate Ablelytics with your workflow — run scans from CI, upload results to your storage, or fetch JSON via API for automation.</p>
 
                 <div className="flex flex-col gap-medium">
                     <div className="flex flex-col gap-small">

@@ -6,7 +6,7 @@ type MainSectionsProps = {
 
 export function MainSections({ children }: MainSectionsProps) {
     return (
-        <main className="flex flex-col gap-[120px] py-12">
+        <main className="flex flex-col gap-[120px]">
             {children}
         </main>
     );

@@ -8,6 +8,7 @@ import { withTitlePostfix } from "../libs/metadata";
 import { Metadata } from "next";
 import { RevealSection } from "../components/molecule/reveal-section";
 import Link from "next/link";
+import { URL_FRONTEND_CONTACT } from "@/app/services/urlServices";
 import { startTrial } from "../services/urlServices";
 
 export const metadata: Metadata = withTitlePostfix(["Pricing"]);
@@ -44,7 +45,7 @@ export default function PricingPage() {
                                     <span className="text-5xl font-bold text-slate-900">$0</span>
                                     <span className="text-slate-600">/month</span>
                                 </div>
-                                <p className="text-slate-600">Perfect for trying out A11yScan</p>
+                                <p className="text-slate-600">Perfect for trying out Ablelytics</p>
                             </div>
                             
                             <ul className="space-y-4 mb-8 flex-grow">
@@ -194,7 +195,7 @@ export default function PricingPage() {
                                 </li>
                             </ul>
                             
-                            <Link href="/contact" className="w-full">
+                            <Link href={URL_FRONTEND_CONTACT} className="w-full">
                                 <button className="w-full px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors">
                                     Contact Sales
                                 </button>
@@ -248,7 +249,7 @@ export default function PricingPage() {
 
                 {/* CTA */}
                 <RevealSection custom={3}>
-                    <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-12 text-center text-white">
+                    <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-12 text-center text-white">
                         <h2 className="text-4xl font-bold mb-4">
                             Ready to Improve Your Accessibility?
                         </h2>

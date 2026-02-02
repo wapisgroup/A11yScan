@@ -19,8 +19,8 @@ export const PricingPageFAQCta = () => {
                 <SectionTitle title={`Frequently asked questions`} />
 
                 <div className="flex flex-col gap-small">
-                    <FAQItem toggle={toggleFaq} toggleIndex={0} openFaq={openFaq} title={`How accurate is the scanner compared to a manual accessibility audit?`}>A11yScan reliably detects many programmatic accessibility issues (alt text, ARIA, contrast, keyboard focus). Manual audits are still necessary for nuanced checks and assistive-technology testing.</FAQItem>
-                    <FAQItem toggle={toggleFaq} toggleIndex={1} openFaq={openFaq} title={`Can I run the scanner on a staging site?`}>Yes — point A11yScan to any publicly reachable domain or deploy the worker privately for internal sites.</FAQItem>
+                    <FAQItem toggle={toggleFaq} toggleIndex={0} openFaq={openFaq} title={`How accurate is the scanner compared to a manual accessibility audit?`}>Ablelytics reliably detects many programmatic accessibility issues (alt text, ARIA, contrast, keyboard focus). Manual audits are still necessary for nuanced checks and assistive-technology testing.</FAQItem>
+                    <FAQItem toggle={toggleFaq} toggleIndex={1} openFaq={openFaq} title={`Can I run the scanner on a staging site?`}>Yes — point Ablelytics to any publicly reachable domain or deploy the worker privately for internal sites.</FAQItem>
                     <FAQItem toggle={toggleFaq} toggleIndex={2} openFaq={openFaq} title={`Do you offer discounts for agencies or nonprofits?`}>Yes — contact our sales team and we'll work with you on pricing and deployment options for high-volume scanning.</FAQItem>
                 </div>
             </div>

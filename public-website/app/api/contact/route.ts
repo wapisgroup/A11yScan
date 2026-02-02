@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 type ContactPayload = {
     name: string;
@@ -34,7 +37,33 @@ export async function POST(request: NextRequest) {
         // 2. Store in database for tracking
         // 3. Add to CRM system
         
-        // For now, we'll just log it and return success
+        // Send email to hello@ablelytics.com
+        if (process.env.RESEND_API_KEY) {
+            try {
+                await resend.emails.send({
+                    from: 'Ablelytics Contact Form <noreply@ablelytics.com>',
+                    to: 'hello@ablelytics.com',
+                    replyTo: payload.email,
+                    subject: `Contact Form: ${payload.plan} - ${payload.name}`,
+                    html: `
+                        <h2>New Contact Form Submission</h2>
+                        <p><strong>Name:</strong> ${payload.name}</p>
+                        <p><strong>Email:</strong> ${payload.email}</p>
+                        <p><strong>Company:</strong> ${payload.company || 'Not provided'}</p>
+                        <p><strong>Interested Plan:</strong> ${payload.plan}</p>
+                        <h3>Message:</h3>
+                        <p>${payload.message.replace(/\n/g, '<br>')}</p>
+                        <hr>
+                        <p style="color: #666; font-size: 12px;">Submitted at: ${new Date().toISOString()}</p>
+                    `,
+                });
+            } catch (emailError) {
+                console.error('Error sending email via Resend:', emailError);
+                // Continue anyway - we'll log it below
+            }
+        }
+        
+        // Log it for tracking
         console.log('Contact form submission:', {
             name: payload.name,
             email: payload.email,

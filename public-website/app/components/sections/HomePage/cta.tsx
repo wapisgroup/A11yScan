@@ -8,7 +8,7 @@ export function HomePageCTASection() {
             <div className="flex flex-col sm:gap-small md:flex-row items-center justify-between gap-large md:gap-medium">
                 <div className="flex flex-col gap-medium md:w-[80%]">
                     <h3 className="as-h4-text primary-text-color">Start scanning today</h3>
-                    <p className="as-p1-text secondary-text-color">Try A11yScan free — create your first project and generate a report in minutes.</p>
+                    <p className="as-p1-text secondary-text-color">Try Ablelytics free — create your first project and generate a report in minutes.</p>
                 </div>
                 <div className="flex flex-col items-center gap-large md:flex-row md:items-start md:gap-medium ">
                     <Link href={startTrial}>

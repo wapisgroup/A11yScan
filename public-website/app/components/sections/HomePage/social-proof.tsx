@@ -10,7 +10,7 @@ export function HomePageSocialProofSection() {
                     Trusted by Teams Building Accessible Experiences
                 </h2>
                 <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                    From startups to enterprises, accessibility professionals rely on A11yScan for comprehensive WCAG testing
+                    From startups to enterprises, accessibility professionals rely on Ablelytics for comprehensive WCAG testing
                 </p>
             </div>
 
@@ -52,7 +52,7 @@ export function HomePageSocialProofSection() {
                     <div className="flex flex-col gap-4">
                         <div className="text-yellow-400 text-xl">★★★★★</div>
                         <p className="text-slate-700 italic">
-                            "A11yScan caught issues our manual testing missed. The automated reporting saves us hours every sprint. Essential tool for our accessibility workflow."
+                            "Ablelytics caught issues our manual testing missed. The automated reporting saves us hours every sprint. Essential tool for our accessibility workflow."
                         </p>
                         <div className="flex items-center gap-3 mt-auto">
                             <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold">
