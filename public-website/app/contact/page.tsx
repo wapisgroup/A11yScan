@@ -1,131 +1,191 @@
-// src/pages/Contact.jsx
+"use client";
+
 import { LoggedOutHeader } from "../components/organism/logged-out-header";
 import { LoggedOutFooter } from "../components/organism/logged-out-footer";
 import { LoggedOutLayout } from "../components/organism/logged-out-layout";
-import { MainSections } from '../components/molecule/main-sections';
-import { WhiteBox } from '../components/molecule/white-box';
 import { ContactPageForm } from '../components/sections/ContactPage/form';
 import { withTitlePostfix } from "../libs/metadata";
-import { Metadata } from "next";
-import { RevealSection } from "../components/molecule/reveal-section";
-import { HiChatBubbleLeftRight, HiWrench, HiUserGroup } from 'react-icons/hi2';
-
-export const metadata: Metadata = withTitlePostfix(["Contact Us"]);
+import { HiEnvelope, HiLifebuoy, HiUserGroup, HiClock, HiDocumentText, HiChatBubbleLeftRight } from 'react-icons/hi2';
+import Link from 'next/link';
 
 export default function ContactPage() {
     return (
         <LoggedOutLayout>
             <LoggedOutHeader />
 
-            <MainSections>
-                <RevealSection custom={0}>
-                    <div className="text-center max-w-3xl mx-auto">
-                        <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6">
+            {/* Hero Section */}
+            <section className="bg-white py-20 md:py-28">
+                <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+                    <div className="max-w-4xl mx-auto text-center">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-full text-emerald-700 text-sm font-semibold mb-6">
+                            <HiChatBubbleLeftRight className="w-4 h-4" />
+                            We're Here to Help
+                        </div>
+                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-6 leading-tight">
                             Get in Touch
                         </h1>
-                        <p className="text-xl text-slate-600">
+                        <p className="text-xl text-slate-600 leading-relaxed">
                             Have questions about A11yScan? Our team is here to help with pricing, technical questions, or custom solutions.
                         </p>
                     </div>
-                </RevealSection>
+                </div>
+            </section>
 
-                <RevealSection custom={1}>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                        <WhiteBox withShadow extraClass='p-8 text-center'>
-                            <div className="flex justify-center mb-4">
-                                <HiChatBubbleLeftRight className="w-12 h-12 text-purple-600" />
+            {/* Contact Cards Section */}
+            <section className="bg-slate-50 py-20 md:py-28">
+                <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-16">
+                        {/* Sales Card */}
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-8 text-center hover:shadow-lg transition-shadow">
+                            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center mx-auto mb-6">
+                                <HiEnvelope className="w-7 h-7 text-white" />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">Sales</h3>
-                            <p className="text-slate-600 mb-4">
+                            <h3 className="text-2xl font-bold text-slate-900 mb-3">Sales</h3>
+                            <p className="text-slate-600 mb-6 leading-relaxed">
                                 Questions about pricing, plans, or custom solutions?
                             </p>
-                            <a href="mailto:sales@a11yscan.com" className="text-purple-600 hover:text-purple-700 font-semibold">
+                            <a 
+                                href="mailto:sales@a11yscan.com" 
+                                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold"
+                            >
                                 sales@a11yscan.com
+                                <span>→</span>
                             </a>
-                        </WhiteBox>
+                        </div>
 
-                        <WhiteBox withShadow extraClass='p-8 text-center'>
-                            <div className="flex justify-center mb-4">
-                                <HiWrench className="w-12 h-12 text-purple-600" />
+                        {/* Support Card */}
+                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-2xl p-8 text-center hover:shadow-lg transition-shadow">
+                            <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center mx-auto mb-6">
+                                <HiLifebuoy className="w-7 h-7 text-white" />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">Support</h3>
-                            <p className="text-slate-600 mb-4">
+                            <h3 className="text-2xl font-bold text-slate-900 mb-3">Support</h3>
+                            <p className="text-slate-600 mb-6 leading-relaxed">
                                 Need technical help or have questions about using A11yScan?
                             </p>
-                            <a href="mailto:support@a11yscan.com" className="text-purple-600 hover:text-purple-700 font-semibold">
+                            <a 
+                                href="mailto:support@a11yscan.com" 
+                                className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-semibold"
+                            >
                                 support@a11yscan.com
+                                <span>→</span>
                             </a>
-                        </WhiteBox>
+                        </div>
 
-                        <WhiteBox withShadow extraClass='p-8 text-center'>
-                            <div className="flex justify-center mb-4">
-                                <HiUserGroup className="w-12 h-12 text-purple-600" />
+                        {/* Partnerships Card */}
+                        <div className="bg-gradient-to-br from-violet-50 to-purple-50 border-2 border-violet-200 rounded-2xl p-8 text-center hover:shadow-lg transition-shadow">
+                            <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center mx-auto mb-6">
+                                <HiUserGroup className="w-7 h-7 text-white" />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">Partnerships</h3>
-                            <p className="text-slate-600 mb-4">
+                            <h3 className="text-2xl font-bold text-slate-900 mb-3">Partnerships</h3>
+                            <p className="text-slate-600 mb-6 leading-relaxed">
                                 Interested in becoming a partner or reseller?
                             </p>
-                            <a href="mailto:partners@a11yscan.com" className="text-purple-600 hover:text-purple-700 font-semibold">
+                            <a 
+                                href="mailto:partners@a11yscan.com" 
+                                className="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700 font-semibold"
+                            >
                                 partners@a11yscan.com
+                                <span>→</span>
                             </a>
-                        </WhiteBox>
+                        </div>
                     </div>
-                </RevealSection>
+                </div>
+            </section>
 
-                <RevealSection custom={2}>
+            {/* Contact Form Section */}
+            <section className="bg-white py-20 md:py-28">
+                <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
                     <div className="max-w-3xl mx-auto">
-                        <WhiteBox withShadow extraClass='p-12'>
-                            <h2 className="text-3xl font-bold text-slate-900 mb-6 text-center">
+                        <div className="text-center mb-12">
+                            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
                                 Send Us a Message
                             </h2>
+                            <p className="text-lg text-slate-600">
+                                Fill out the form below and we'll get back to you as soon as possible
+                            </p>
+                        </div>
+                        <div className="bg-slate-50 rounded-2xl p-8 md:p-12 border border-slate-200">
                             <ContactPageForm />
-                        </WhiteBox>
+                        </div>
                     </div>
-                </RevealSection>
+                </div>
+            </section>
 
-                <RevealSection custom={3}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                        <div className="bg-slate-50 rounded-lg p-8">
-                            <h3 className="text-xl font-bold text-slate-900 mb-4">Business Hours</h3>
-                            <div className="space-y-2 text-slate-600">
-                                <p><strong>Monday - Friday:</strong> 9:00 AM - 6:00 PM EST</p>
-                                <p><strong>Saturday - Sunday:</strong> Closed</p>
-                                <p className="text-sm mt-4 text-slate-500">
-                                    We typically respond to sales inquiries within 4 hours during business hours and support tickets within 24 hours.
+            {/* Additional Info Section */}
+            <section className="bg-slate-50 py-20 md:py-28">
+                <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                        {/* Business Hours */}
+                        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
+                                    <HiClock className="w-6 h-6 text-white" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-slate-900">Business Hours</h3>
+                            </div>
+                            <div className="space-y-3 text-slate-600">
+                                <div className="flex justify-between py-2 border-b border-slate-100">
+                                    <span className="font-semibold">Monday - Friday</span>
+                                    <span>9:00 AM - 6:00 PM EST</span>
+                                </div>
+                                <div className="flex justify-between py-2 border-b border-slate-100">
+                                    <span className="font-semibold">Saturday - Sunday</span>
+                                    <span>Closed</span>
+                                </div>
+                                <p className="text-sm text-slate-500 mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                    <strong className="text-amber-700">Response Times:</strong><br />
+                                    Sales inquiries: 4 hours<br />
+                                    Support tickets: 24 hours
                                 </p>
                             </div>
                         </div>
 
-                        <div className="bg-slate-50 rounded-lg p-8">
-                            <h3 className="text-xl font-bold text-slate-900 mb-4">Quick Links</h3>
-                            <ul className="space-y-3">
-                                <li>
-                                    <a href="/faqs" className="text-purple-600 hover:text-purple-700 font-semibold">
-                                        → Frequently Asked Questions
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="https://docs.a11yscan.com" className="text-purple-600 hover:text-purple-700 font-semibold">
-                                        → Documentation & Guides
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="/pricing" className="text-purple-600 hover:text-purple-700 font-semibold">
-                                        → Pricing & Plans
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="/features" className="text-purple-600 hover:text-purple-700 font-semibold">
-                                        → Feature Overview
-                                    </a>
-                                </li>
-                            </ul>
+                        {/* Quick Links */}
+                        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-xl flex items-center justify-center">
+                                    <HiDocumentText className="w-6 h-6 text-white" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-slate-900">Quick Links</h3>
+                            </div>
+                            <div className="space-y-3">
+                                <Link 
+                                    href="/faqs" 
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
+                                >
+                                    <span className="text-slate-700 font-medium">View FAQs</span>
+                                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
+                                </Link>
+                                <Link 
+                                    href="/pricing" 
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
+                                >
+                                    <span className="text-slate-700 font-medium">Pricing Plans</span>
+                                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
+                                </Link>
+                                <Link 
+                                    href="/features" 
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
+                                >
+                                    <span className="text-slate-700 font-medium">Feature Overview</span>
+                                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
+                                </Link>
+                                <a 
+                                    href="https://docs.a11yscan.com" 
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <span className="text-slate-700 font-medium">Documentation</span>
+                                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
+                                </a>
+                            </div>
                         </div>
                     </div>
-                </RevealSection>
+                </div>
+            </section>
 
-            </MainSections>
             <LoggedOutFooter />
         </LoggedOutLayout>
-    )
+    );
 }

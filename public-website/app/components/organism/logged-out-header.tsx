@@ -62,41 +62,43 @@ export const LoggedOutHeader = () => {
     };
 
     return (
-        <header className="relative flex items-center justify-between gap-6">
-            <Link className="flex items-center gap-4" href={`/`}>
-                <div>
-                    <Image src="/web-logo-02.svg" alt="Ablelytics" width={160} height={40} priority />
-                </div>
-            </Link>
-            <button
-                type="button"
-                className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-slate-400 hover:text-slate-200 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:ring-slate-400"
-                aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-                aria-expanded={isMenuOpen}
-                aria-controls="mobile-nav"
-                onClick={() => (isMenuOpen ? closeMenu() : openMenu())}
-            >
-                {/* Hamburger / X icon */}
-                <span className="relative block h-5 w-6">
-                    <span
-                        className={`absolute left-0 top-0 block h-0.5 w-6 bg-current transition-transform duration-200 ${
-                            isMenuOpen ? "translate-y-2 rotate-45" : ""
-                        }`}
-                    />
-                    <span
-                        className={`absolute left-0 top-2 block h-0.5 w-6 bg-current transition-opacity duration-200 ${
-                            isMenuOpen ? "opacity-0" : "opacity-100"
-                        }`}
-                    />
-                    <span
-                        className={`absolute left-0 top-4 block h-0.5 w-6 bg-current transition-transform duration-200 ${
-                            isMenuOpen ? "-translate-y-2 -rotate-45" : ""
-                        }`}
-                    />
-                </span>
-            </button>
+        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <Link className="flex items-center gap-4" href={`/`}>
+                  <div>
+                      <Image src="/web-logo-02.svg" alt="A11yScan" width={160} height={40} priority />
+                  </div>
+              </Link>
+              <button
+                  type="button"
+                  className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+                  aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+                  aria-expanded={isMenuOpen}
+                  aria-controls="mobile-nav"
+                  onClick={() => (isMenuOpen ? closeMenu() : openMenu())}
+              >
+                  {/* Hamburger / X icon */}
+                  <span className="relative block h-5 w-6">
+                      <span
+                          className={`absolute left-0 top-0 block h-0.5 w-6 bg-current transition-transform duration-200 ${
+                              isMenuOpen ? "translate-y-2 rotate-45" : ""
+                          }`}
+                      />
+                      <span
+                          className={`absolute left-0 top-2 block h-0.5 w-6 bg-current transition-opacity duration-200 ${
+                              isMenuOpen ? "opacity-0" : "opacity-100"
+                          }`}
+                      />
+                      <span
+                          className={`absolute left-0 top-4 block h-0.5 w-6 bg-current transition-transform duration-200 ${
+                              isMenuOpen ? "-translate-y-2 -rotate-45" : ""
+                          }`}
+                      />
+                  </span>
+              </button>
 
-            <nav className="hidden md:flex items-center gap-6 text-slate-400">
+              <nav className="hidden md:flex items-center gap-8 text-slate-600 font-medium">
                 {main_menu_urls.map((item) => (
                     <Link
                     key={item.url}
@@ -163,6 +165,8 @@ export const LoggedOutHeader = () => {
                     document.body
                 )
                 : null}
+            </div>
+          </div>
         </header>
     )
 }

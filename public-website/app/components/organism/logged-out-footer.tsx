@@ -10,96 +10,96 @@ export const LoggedOutFooter = () => {
     return (
 
 
-        <footer className="">
-            <div className="mx-auto py-[16px]">
-                <div className="grid gap-medium md:grid-cols-[400px_auto]">
-                    <div className=" md:min-w-[400px] flex flex-col gap-medium">
-                        <div className="flex items-center gap-3">
-                            <Image src="/web-logo-02.svg" alt="Ablelytics" width={200} height={80} priority className="h-10" />
+        <footer className="bg-slate-900 text-slate-300">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-16">
+                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-5 mb-12">
+                    <div className="lg:col-span-2">
+                        <div className="flex items-center gap-3 mb-6">
+                            <Image src="/web-logo-02.svg" alt="A11yScan" width={160} height={40} priority className="h-8 brightness-0 invert" />
                         </div>
 
-                        <p className="max-w-xs text-sm leading-6 text-slate-600">
+                        <p className="max-w-sm text-sm leading-relaxed mb-6">
                             Automated accessibility scanning that helps you meet WCAG and legal compliance — fast.
                         </p>
 
-                        <p className="text-xs text-slate-500">
-                            Built for WCAG 2.2 · Used by public sector teams
-                        </p>
+                        <div className="space-y-3">
+                            <p className="text-sm font-semibold text-white">Stay Updated</p>
+                            <div className="flex gap-2 max-w-sm">
+                                <input
+                                    type="email"
+                                    placeholder="Your email"
+                                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white"
+                                />
+                                <button className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-violet-700 transition-all">
+                                    Subscribe
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="grid md:grid-cols-3">
-                        <FooterNavigation title={`Navigation`}>
-                            <FooterNavItem href={URL_FRONTEND_FEATURES}>Features</FooterNavItem>
-                            <FooterNavItem href={URL_FRONTEND_PRICING}>Pricing</FooterNavItem>
-                            <FooterNavItem href={URL_FRONTEND_FAQS}>FAQ</FooterNavItem>
-                            <FooterNavItem href={URL_FRONTEND_CONTACT}>Contact</FooterNavItem>
-                        </FooterNavigation>
+                    <div className="grid grid-cols-2 gap-8 lg:col-span-3 lg:grid-cols-3">
+                        <div>
+                            <h3 className="text-white font-semibold mb-4">Product</h3>
+                            <ul className="space-y-3 text-sm">
+                                <li><Link href={URL_FRONTEND_FEATURES} className="hover:text-white transition-colors">Features</Link></li>
+                                <li><Link href={URL_FRONTEND_PRICING} className="hover:text-white transition-colors">Pricing</Link></li>
+                                <li><Link href={URL_FRONTEND_FAQS} className="hover:text-white transition-colors">FAQ</Link></li>
+                                <li><Link href="/integrations" className="hover:text-white transition-colors">Integrations</Link></li>
+                            </ul>
+                        </div>
 
-                        <FooterNavigation title={`Resources`}>
-                            <FooterNavItem href={URL_FRONTEND_CASE_STUDIES}>Case studies</FooterNavItem>
-                            <FooterNavItem href={URL_FRONTEND_BLOG}>Blog</FooterNavItem>
-                            <FooterNavItem href={URL_FRONTEND_DOCUMENTATION}>Documentation</FooterNavItem>
-                            <FooterNavItem href={URL_FRONTEND_GUIDES}>Accessibility guides</FooterNavItem>
-                        </FooterNavigation>
+                        <div>
+                            <h3 className="text-white font-semibold mb-4">Resources</h3>
+                            <ul className="space-y-3 text-sm">
+                                <li><Link href={URL_FRONTEND_BLOG} className="hover:text-white transition-colors">Blog</Link></li>
+                                <li><Link href={URL_FRONTEND_CASE_STUDIES} className="hover:text-white transition-colors">Case Studies</Link></li>
+                                <li><Link href={URL_FRONTEND_DOCUMENTATION} className="hover:text-white transition-colors">Documentation</Link></li>
+                                <li><Link href={URL_FRONTEND_GUIDES} className="hover:text-white transition-colors">Guides</Link></li>
+                            </ul>
+                        </div>
 
-                        <FooterNavigation title={`Get in touch`}>
-                            <FooterNavItem extraClass="flex gap-small items-center" href="mailto:hello@ablelytics.com">
-                                <svg className="mt-0.5 h-5 w-5 text-indigo-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path d="M4 6h16v12H4V6Z" stroke="currentColor" strokeWidth="1.5" />
-                                    <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.5" />
-                                </svg>
-                                
-                                    hello@ablelytics.com
-                                
-                            </FooterNavItem>
-                            <li className="flex items-start gap-small">
-                                <svg className="mt-0.5 h-5 w-5 text-indigo-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path d="M4 6h16v14H4V6Z" stroke="currentColor" strokeWidth="1.5" />
-                                    <path d="M7 10h10M7 14h10" stroke="currentColor" strokeWidth="1.5" />
-                                </svg>
-                                <span>Support hours: Mon–Fri, 9–5 GMT</span>
-                            </li>
-                        </FooterNavigation>
+                        <div>
+                            <h3 className="text-white font-semibold mb-4">Company</h3>
+                            <ul className="space-y-3 text-sm">
+                                <li><Link href={URL_FRONTEND_CONTACT} className="hover:text-white transition-colors">Contact</Link></li>
+                                <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                                <li><Link href={URL_FRONTEND_PRIVACY} className="hover:text-white transition-colors">Privacy</Link></li>
+                                <li><Link href={URL_FRONTEND_TERMS} className="hover:text-white transition-colors">Terms</Link></li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
 
 
-                <div className="my-10 h-px w-full bg-slate-200/80"></div>
+                <div className="border-t border-slate-800 pt-8">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <p className="text-sm">© 2026 A11yScan. All rights reserved.</p>
 
+                        <div className="flex items-center gap-6">
+                            <a
+                                href="https://www.linkedin.com/company/ablelytics/"
+                                className="hover:text-white transition-colors"
+                                aria-label="LinkedIn"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+                                    <path d="M20.447 20.452H17.21v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.0V9h3.112v1.561h.045c.433-.82 1.49-1.685 3.065-1.685 3.276 0 3.88 2.156 3.88 4.96v6.616zM5.337 7.433a1.805 1.805 0 1 1 0-3.61 1.805 1.805 0 0 1 0 3.61zM6.956 20.452H3.717V9h3.239v11.452z" />
+                                </svg>
+                            </a>
 
-                <div className="flex flex-col gap-4 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
-                    <p>© 2026 A11yScan · Automated accessibility scanning</p>
-
-                    <nav aria-label="Legal links">
-                        <ul className="flex flex-wrap gap-x-6 gap-y-2">
-                            <FooterNavItem href={URL_FRONTEND_PRIVACY}>Privacy</FooterNavItem>
-                            <FooterNavItem href={URL_FRONTEND_TERMS}>Terms</FooterNavItem>
-                            <FooterNavItem href={URL_FRONTEND_COOKIES}>Cookies</FooterNavItem>
-                        </ul>
-                    </nav>
-
-                    <div className="flex items-center gap-3">
-                        <a
-                            href="https://www.linkedin.com/company/ablelytics/"
-                            className="inline-flex h-10 w-10 items-center justify-center secondary-text-color hover:underline underline-offset-[4px] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                            aria-label="LinkedIn"
-                            target="_blank"
-                        >
-                            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-                                <path d="M20.447 20.452H17.21v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.0V9h3.112v1.561h.045c.433-.82 1.49-1.685 3.065-1.685 3.276 0 3.88 2.156 3.88 4.96v6.616zM5.337 7.433a1.805 1.805 0 1 1 0-3.61 1.805 1.805 0 0 1 0 3.61zM6.956 20.452H3.717V9h3.239v11.452z" />
-                            </svg>
-                        </a>
-
-                        <a
-                            href="https://x.com/ablelytics"
-                            className="inline-flex h-10 w-10 items-center justify-center secondary-text-color hover:underline underline-offset-[4px] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                            aria-label="X"
-                            target="_blank"
-                        >
-                            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-                                <path d="M18.9 2H21l-6.9 7.9L22 22h-6.2l-4.9-6.3L5.3 22H3.2l7.4-8.5L2 2h6.4l4.4 5.7L18.9 2Zm-1.1 18h1.7L7.1 3.9H5.3L17.8 20Z" />
-                            </svg>
-                        </a>
+                            <a
+                                href="https://x.com/ablelytics"
+                                className="hover:text-white transition-colors"
+                                aria-label="X"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+                                    <path d="M18.9 2H21l-6.9 7.9L22 22h-6.2l-4.9-6.3L5.3 22H3.2l7.4-8.5L2 2h6.4l4.4 5.7L18.9 2Zm-1.1 18h1.7L7.1 3.9H5.3L17.8 20Z" />
+                                </svg>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

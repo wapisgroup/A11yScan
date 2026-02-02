@@ -15,9 +15,18 @@ export default function CookiesPage() {
         <LoggedOutLayout>
             <LoggedOutHeader />
 
-            <MainSections>
-                <p className='as-p3-text secondary-text-color'><em>Last updated: 13/01/2026</em></p>
-                <TitleText title={`Cookies Policy`}/>
+            {/* Hero Section */}
+            <section className="bg-white py-20 md:py-28">
+                <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
+                    <p className='text-sm text-slate-500 mb-4'><em>Last updated: 13/01/2026</em></p>
+                    <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">Cookies Policy</h1>
+                </div>
+            </section>
+
+            {/* Content Section */}
+            <section className="bg-slate-50 py-20">
+                <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
+                    <MainSections>
 
                 <TextBlock title={`1. Purpose`}>
                     <p>
@@ -74,7 +83,9 @@ export default function CookiesPage() {
                     <p>Email: privacy@ablelytics.com</p>
                 </TextBlock>
 
-            </MainSections>
+                    </MainSections>
+                </div>
+            </section>
 
             <LoggedOutFooter />
         </LoggedOutLayout>

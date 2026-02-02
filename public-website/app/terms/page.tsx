@@ -15,9 +15,18 @@ export default function TermsPage() {
         <LoggedOutLayout>
             <LoggedOutHeader />
 
-            <MainSections>
-                <p className='as-p3-text secondary-text-color'><em>Last updated: 13/01/2026</em></p>
-                <TitleText title={`Terms and Conditions`}/>
+            {/* Hero Section */}
+            <section className="bg-white py-20 md:py-28">
+                <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
+                    <p className='text-sm text-slate-500 mb-4'><em>Last updated: 13/01/2026</em></p>
+                    <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">Terms and Conditions</h1>
+                </div>
+            </section>
+
+            {/* Content Section */}
+            <section className="bg-slate-50 py-20">
+                <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
+                    <MainSections>
                 <TextBlock title={`1. Purpose and Scope`}>
                     <p>These Terms and Conditions (“Terms”) govern access to and use of the Ablelytics platform (“Service”), operated by Ablelytics (“the Provider”).</p>
                     <p>The Service enables users to assess websites for potential accessibility issues through automated scanning and reporting tools.</p>
@@ -108,7 +117,9 @@ export default function TermsPage() {
                     <p>Registered address: [TO BE ADDED]</p>
                 </TextBlock>
 
-            </MainSections>
+                    </MainSections>
+                </div>
+            </section>
 
             <LoggedOutFooter />
         </LoggedOutLayout>
