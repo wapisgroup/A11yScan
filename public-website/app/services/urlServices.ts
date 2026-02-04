@@ -18,6 +18,7 @@ export const URL_FRONTEND_CASE_STUDIES = "/case_studies"
 export const URL_FRONTEND_BLOG = "/blog"
 export const URL_FRONTEND_DOCUMENTATION = "/documentation"
 export const URL_FRONTEND_GUIDES = "/guides"
+export const URL_FRONTEND_ACCESSIBILITY_RULES = "/accessibility-rules"
 
 export const URL_FRONTEND_PRIVACY = "/privacy"
 export const URL_FRONTEND_TERMS = "/terms"

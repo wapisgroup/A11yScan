@@ -15,6 +15,7 @@ import { getUserSubscription, getUsageLimits, getTrialDaysRemaining, getStatusMe
 import { getAllPackages, SUBSCRIPTION_PACKAGES } from '../../config/subscriptions';
 import { getInvoices, cancelSubscription } from '../../services/stripeService';
 import { PriceCol } from "@/components/atom/price-col";
+import { PageWrapper } from "@/components/molecule/page-wrapper";
 
 function BillingPageContent() {
   const { user } = useAuth();
@@ -161,7 +162,6 @@ function BillingPageContent() {
   if (!subscription) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Billing & Subscription</h1>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <p className="text-yellow-800">No active subscription found. Please select a plan.</p>
         </div>
@@ -175,9 +175,7 @@ function BillingPageContent() {
   const statusMessage = getStatusMessage(subscription);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Billing & Subscription</h1>
-
+      <>
       {/* Tab Navigation */}
       <div className="mb-6 border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
@@ -210,6 +208,7 @@ function BillingPageContent() {
           </button>
         </nav>
       </div>
+      
 
       {/* Trial Warning Banner */}
       {activeTab === 'overview' && isTrial && trialDaysRemaining <= 3 && (
@@ -465,43 +464,31 @@ function BillingPageContent() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="my-table">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Invoice
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Invoice</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Amount</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody>
                   {invoices.map((invoice) => (
                     <tr key={invoice.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td>
                         {new Date(invoice.created * 1000).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric'
-                        })}
+                        })}s
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="font-medium">
                         {invoice.number || invoice.id.slice(-8)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td >
                         <div>{invoice.description || 'Subscription payment'}</div>
                         {invoice.periodStart && invoice.periodEnd && (
                           <div className="text-xs text-gray-500 mt-1">
@@ -509,10 +496,10 @@ function BillingPageContent() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td>
                         {(invoice.amount / 100).toFixed(2)} {invoice.currency?.toUpperCase() || 'USD'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td>
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${invoice.status === 'paid'
                           ? 'bg-green-100 text-green-800'
                           : invoice.status === 'open'
@@ -522,7 +509,7 @@ function BillingPageContent() {
                           {invoice.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <td className="font-medium">
                         {invoice.invoicePdf && (
                           <a
                             href={invoice.invoicePdf}
@@ -568,7 +555,7 @@ function BillingPageContent() {
           <p className="text-gray-600">No payment methods available. Please subscribe to a plan first.</p>
         </div>
       )}
-    </div>
+      </>
   );
 }
 
@@ -576,7 +563,9 @@ export default function BillingPage() {
   return (
     <PrivateRoute>
       <WorkspaceLayout>
+        <PageWrapper title="Billing & Subscription">
         <BillingPageContent />
+        </PageWrapper>
       </WorkspaceLayout>
     </PrivateRoute>
   );

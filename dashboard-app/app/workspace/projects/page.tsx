@@ -29,6 +29,8 @@ import dynamic from "next/dynamic";
 import { useConfirm } from "@/components/providers/window-provider";
 import { Pagination } from "@/components/molecule/pagination";
 import { useProjectsPageState } from "@/state-services/projects-page-states";
+import { PageWrapper } from "@/components/molecule/page-wrapper";
+import { Button } from "@/components/atom/button";
 
 
 /**
@@ -58,7 +60,7 @@ export default function ProjectsPage() {
    * Local modal state for the create/edit ProjectModal.
    */
   const [modal, setModal] = useState<ModalState<Project>>({ open: false });
-  
+
   /**
    * Track which project is being edited inline
    */
@@ -115,14 +117,11 @@ export default function ProjectsPage() {
  */
   const AddButton = () => {
     return (
-      <button
-        type="button"
+      <Button
         onClick={openCreate}
-        className="inline-flex items-center px-4 py-2 rounded-xl text-white bg-gradient-to-r from-[var(--color-gradient-purple)] to-[var(--color-gradient-cyan)] as-p2-text"
         aria-label="Add project"
-      >
-        Add Project
-      </button>
+        title={`Add Project`}/>
+      
     );
   };
 
@@ -228,183 +227,130 @@ export default function ProjectsPage() {
   return (
     <PrivateRoute>
       <WorkspaceLayout>
-      <h1 className="as-h2-text primary-text-color mb-6 mt-4 ml-3">Projects</h1>
-      <PageContainer title="Projects" buttons={<AddButton />}>
-        {error && <div style={{ color: 'var(--color-error)' }} className="as-p2-text">{error}</div>}
+        <PageWrapper title="Projects">
+          <PageContainer title="List of projects" buttons={<AddButton />} >
 
-        <div className="w-full">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="text-left as-p2-text table-heading-text-color">
-                  <th className="py-4 pr-4">Project</th>
-                  <th className="py-4 pr-4">URL</th>
-                  <th className="py-4 pr-4">Last scan</th>
-                  <th className="py-4 pr-4 text-right">&nbsp;</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagedItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center as-p2-text secondary-text-color">
-                      No projects yet
-                    </td>
-                  </tr>
-                ) : (
-                  pagedItems.map((p) => {
-                    const projectName = p.name || p.domain;
-                    const url = p.domain?.startsWith("http") ? p.domain : `https://${p.domain}`;
-                    // We only have createdAt in the current data model; show it as a placeholder for "Last scan".
-                    const lastScan = p.createdAt
-                      ? (() => {
-                        try {
-                          // Firestore Timestamp has toDate()
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const v: any = p.createdAt;
-                          const d: Date = typeof v?.toDate === "function" ? v.toDate() : new Date(v);
-                          return d.toLocaleString();
-                        } catch {
-                          return "—";
-                        }
-                      })()
-                      : "—";
+            {error && <div style={{ color: 'var(--color-error)' }} className="as-p2-text">{error}</div>}
 
-                    return (
-                      <tr key={p.id} className="border-t border-[var(--color-border-light)]">
-                        <td className="py-4 pr-4">
-                          {editingInline === p.id ? (
-                            <div className="flex items-center gap-small">
-                              <input
-                                type="text"
-                                className="input as-p2-text px-2 py-1 border-[var(--color-border-medium)] rounded input-focus"
-                                value={editedName}
-                                onChange={(e) => setEditedName(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") void saveInlineEdit(p.id);
-                                  if (e.key === "Escape") cancelInlineEdit();
-                                }}
-                                autoFocus
-                              />
-                              <button
-                                onClick={() => void saveInlineEdit(p.id)}
-                                className="as-p3-text px-2 py-1 bg-brand text-white rounded hover:bg-brand-hover"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={cancelInlineEdit}
-                                className="as-p3-text px-2 py-1 border border-[var(--color-border-medium)] rounded hover:bg-[var(--color-bg-light)]"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <Link
-                                href={`/workspace/projects/${p.id}`}
-                                className="as-p2-text secondary-text-color hover:underline"
-                              >
-                                {projectName}
-                              </Link>
-                              <button
-                                type="button"
-                                onClick={() => startInlineEdit(p)}
-                                className="p-1 rounded hover:bg-[var(--color-bg-light)] secondary-text-color hover:primary-text-color"
-                                aria-label="Edit project name"
-                                title="Edit name"
-                              >
-                                <FiEdit2 size={14} />
-                              </button>
-                            </div>
-                          )}
+            <div className="w-full">
+              <div className="overflow-x-auto">
+                <table className="my-table">
+                  <thead>
+                    <tr>
+                      <th>Project</th>
+                      <th>URL</th>
+                      <th>Last scan</th>
+                      <th className="actions">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center as-p2-text secondary-text-color">
+                          No projects yet
                         </td>
-
-                        <td className="py-4 pr-4">
-                          <div className="flex items-center gap-small">
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="as-p2-text secondary-text-color hover:underline"
-                            >
-                              {p.domain}
-                            </a>
-                            <FiExternalLink size={14} className="table-heading-text-color" />
-                          </div>
-                        </td>
-
-                        <td className="py-4 pr-4 as-p2-text secondary-text-color">{lastScan}</td>
-
-                        <td className="py-4">
-                          <div className="flex justify-end gap-small">
-                            <button
-                              type="button"
-                              onClick={() => void start(p)}
-                              className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
-                              aria-label="Start scan"
-                              title="Start scan"
-                            >
-                              <FiUpload />
-                            </button>
-
-                            <Link
-                              href={`/workspace/reports?projectId=${encodeURIComponent(p.id)}`}
-                              className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
-                              aria-label="View reports"
-                              title="View reports"
-                            >
-                              <FiFileText />
-                            </Link>
-
-                            <button
-                              type="button"
-                              onClick={() => openEdit(p)}
-                              className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
-                              aria-label="Project settings"
-                              title="Project settings"
-                            >
-                              <FiSettings />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => void handleRemove(p)}
-                              className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
-                              aria-label="Disable / delete"
-                              title="Disable / delete"
-                            >
-                              <FiSlash />
-                            </button>
-                          </div>
-                        </td>
-
-                        <td className="py-4 text-right table-heading-text-color">&nbsp;</td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                    ) : (
+                      pagedItems.map((p) => {
+                        const projectName = p.name || p.domain;
+                        const url = p.domain?.startsWith("http") ? p.domain : `https://${p.domain}`;
+                        // We only have createdAt in the current data model; show it as a placeholder for "Last scan".
+                        const lastScan = p.createdAt
+                          ? (() => {
+                            try {
+                              // Firestore Timestamp has toDate()
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const v: any = p.createdAt;
+                              const d: Date = typeof v?.toDate === "function" ? v.toDate() : new Date(v);
+                              return d.toLocaleString();
+                            } catch {
+                              return "—";
+                            }
+                          })()
+                          : "—";
 
-          <div className="mt-6">
-            <Pagination
-              page={safePage}
-              totalPages={totalPages}
-              onChange={(next) => setPage(next)}
+                        return (
+                          <tr key={p.id}>
+                            <td >
+                              <a href={`/workspace/projects/${encodeURIComponent(p.id)}`} className="hover:underline">
+                              {projectName}</a></td>
+                            <td>
+                              <div className="flex items-center gap-small">
+                                <a href={url} target="_blank" rel="noreferrer" className="hover:underline">{p.domain}</a><FiExternalLink size={14}  />
+                              </div>
+                            </td>
+
+                            <td>{lastScan}</td>
+
+                            <td className="text-right">
+                              <div className="flex justify-end gap-small">
+                                <button
+                                  type="button"
+                                  onClick={() => void start(p)}
+                                  className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
+                                  aria-label="Start scan"
+                                  title="Start scan"
+                                >
+                                  <FiUpload />
+                                </button>
+
+                                <Link
+                                  href={`/workspace/reports?projectId=${encodeURIComponent(p.id)}`}
+                                  className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
+                                  aria-label="View reports"
+                                  title="View reports"
+                                >
+                                  <FiFileText />
+                                </Link>
+
+                                <button
+                                  type="button"
+                                  onClick={() => openEdit(p)}
+                                  className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
+                                  aria-label="Project settings"
+                                  title="Project settings"
+                                >
+                                  <FiSettings />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRemove(p)}
+                                  className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
+                                  aria-label="Disable / delete"
+                                  title="Disable / delete"
+                                >
+                                  <FiSlash />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-6">
+                <Pagination
+                  page={safePage}
+                  totalPages={totalPages}
+                  onChange={(next) => setPage(next)}
+                />
+              </div>
+            </div>
+
+            <ProjectModal
+              open={modal.open}
+              mode={modal.open ? modal.mode : "create"}
+              initial={modal.open ? modal.initial : null}
+              onClose={closeModal}
+              onSubmit={handleModalSubmission}
             />
-          </div>
-        </div>
-
-        <ProjectModal
-          open={modal.open}
-          mode={modal.open ? modal.mode : "create"}
-          initial={modal.open ? modal.initial : null}
-          onClose={closeModal}
-          onSubmit={handleModalSubmission}
-        />
-      </PageContainer>
-    </WorkspaceLayout>
+          </PageContainer>
+        </PageWrapper>
+      </WorkspaceLayout>
     </PrivateRoute>
   );
 }

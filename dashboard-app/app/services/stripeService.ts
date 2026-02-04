@@ -227,12 +227,15 @@ export async function getInvoices(customerId: string): Promise<any[]> {
   try {
     const response = await fetch(`/api/stripe/invoices?customerId=${customerId}`);
 
+   
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Failed to fetch invoices');
     }
 
     const data = await response.json();
+    console.log('Fetched invoices:', data);
     return data.invoices || [];
   } catch (error) {
     console.error('Error fetching invoices:', error);

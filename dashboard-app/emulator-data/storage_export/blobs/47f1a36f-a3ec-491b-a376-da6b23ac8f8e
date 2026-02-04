@@ -1,0 +1,1898 @@
+{
+  "name": "",
+  "path": "/",
+  "pages": [
+    {
+      "url": "https://www.gymspk.cz/",
+      "title": "Gymnázium Šumperk"
+    }
+  ],
+  "children": [
+    {
+      "name": "category",
+      "path": "/category",
+      "pages": [],
+      "children": [
+        {
+          "name": "ekologicke-aktivity",
+          "path": "/category/ekologicke-aktivity",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/ekologicke-aktivity",
+              "title": "Gymnázium Šumperk » Ekologické aktivity"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "jazykove-souteze",
+          "path": "/category/jazykove-souteze",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/jazykove-souteze",
+              "title": "Gymnázium Šumperk » Soutěže – jazykové"
+            }
+          ],
+          "children": [
+            {
+              "name": "page",
+              "path": "/category/jazykove-souteze/page",
+              "pages": [],
+              "children": [
+                {
+                  "name": "2",
+                  "path": "/category/jazykove-souteze/page/2",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/category/jazykove-souteze/page/2",
+                      "title": "Gymnázium Šumperk » Soutěže – jazykové"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "5",
+                  "path": "/category/jazykove-souteze/page/5",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/category/jazykove-souteze/page/5",
+                      "title": "Gymnázium Šumperk » Soutěže – jazykové"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sportovni-souteze",
+          "path": "/category/sportovni-souteze",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/sportovni-souteze",
+              "title": "Gymnázium Šumperk » Soutěže – sportovní"
+            }
+          ],
+          "children": [
+            {
+              "name": "page",
+              "path": "/category/sportovni-souteze/page",
+              "pages": [],
+              "children": [
+                {
+                  "name": "2",
+                  "path": "/category/sportovni-souteze/page/2",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/category/sportovni-souteze/page/2",
+                      "title": "Gymnázium Šumperk » Soutěže – sportovní"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "9",
+                  "path": "/category/sportovni-souteze/page/9",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/category/sportovni-souteze/page/9",
+                      "title": "Gymnázium Šumperk » Soutěže – sportovní"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "slideshow",
+          "path": "/category/slideshow",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/slideshow",
+              "title": "Gymnázium Šumperk » Slideshow"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "zahranicni-zajezdy",
+          "path": "/category/zahranicni-zajezdy",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/zahranicni-zajezdy",
+              "title": "Gymnázium Šumperk » Zahraniční zájezdy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "vymenne-programy",
+          "path": "/category/vymenne-programy",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/vymenne-programy",
+              "title": "Gymnázium Šumperk » Výměnné programy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "sachovy-krouzek",
+          "path": "/category/sachovy-krouzek",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/sachovy-krouzek",
+              "title": "Gymnázium Šumperk » Šachový kroužek"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "ruzne",
+          "path": "/category/ruzne",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/ruzne",
+              "title": "Gymnázium Šumperk » Různé"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "sportovni-kurzy",
+          "path": "/category/sportovni-kurzy",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/sportovni-kurzy",
+              "title": "Gymnázium Šumperk » Sportovní kurzy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "osmilete-gymnazium",
+          "path": "/category/osmilete-gymnazium",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/osmilete-gymnazium",
+              "title": "Gymnázium Šumperk » Osmileté gymnázium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "exkurze",
+          "path": "/category/exkurze",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/exkurze",
+              "title": "Gymnázium Šumperk » Exkurze"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "ostatni-souteze",
+          "path": "/category/ostatni-souteze",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/ostatni-souteze",
+              "title": "Gymnázium Šumperk » Soutěže – ostatní"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "fotogalerie",
+          "path": "/category/fotogalerie",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/fotogalerie",
+              "title": "Gymnázium Šumperk » Fotogalerie"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "aktuality",
+          "path": "/category/aktuality",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/aktuality",
+              "title": "Gymnázium Šumperk » Aktuality"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "prirodovedne-souteze",
+          "path": "/category/prirodovedne-souteze",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/category/prirodovedne-souteze",
+              "title": "Gymnázium Šumperk » Soutěže – přírodovědné"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "studium",
+      "path": "/studium",
+      "pages": [
+        {
+          "url": "https://www.gymspk.cz/studium",
+          "title": "Gymnázium Šumperk » Studium"
+        }
+      ],
+      "children": [
+        {
+          "name": "predmety",
+          "path": "/studium/predmety",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/studium/predmety",
+              "title": "Gymnázium Šumperk » Předměty"
+            }
+          ],
+          "children": [
+            {
+              "name": "volitelne-predmety",
+              "path": "/studium/predmety/volitelne-predmety",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/predmety/volitelne-predmety",
+                  "title": "Gymnázium Šumperk » Volitelné předměty"
+                }
+              ],
+              "children": [
+                {
+                  "name": "ctyrhodinove-volitelne-predmety",
+                  "path": "/studium/predmety/volitelne-predmety/ctyrhodinove-volitelne-predmety",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/volitelne-predmety/ctyrhodinove-volitelne-predmety",
+                      "title": "Gymnázium Šumperk » Čtyřhodinové volitelné předměty"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "dvouhodinove-volitelne-predmety",
+                  "path": "/studium/predmety/volitelne-predmety/dvouhodinove-volitelne-predmety",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/volitelne-predmety/dvouhodinove-volitelne-predmety",
+                      "title": "Gymnázium Šumperk » Dvouhodinové volitelné předměty"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "prirodovedne",
+              "path": "/studium/predmety/prirodovedne",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/predmety/prirodovedne",
+                  "title": "Gymnázium Šumperk » Přírodovědné předměty"
+                }
+              ],
+              "children": [
+                {
+                  "name": "informatika-a-vypocetni-technika",
+                  "path": "/studium/predmety/prirodovedne/informatika-a-vypocetni-technika",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/prirodovedne/informatika-a-vypocetni-technika",
+                      "title": "Gymnázium Šumperk » Informatika a výpočetní technika"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "zemepis",
+                  "path": "/studium/predmety/prirodovedne/zemepis",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/prirodovedne/zemepis",
+                      "title": "Gymnázium Šumperk » Zeměpis"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "matematika",
+                  "path": "/studium/predmety/prirodovedne/matematika",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/prirodovedne/matematika",
+                      "title": "Gymnázium Šumperk » Matematika"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "biologie-a-evvo",
+                  "path": "/studium/predmety/prirodovedne/biologie-a-evvo",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/prirodovedne/biologie-a-evvo",
+                      "title": "Gymnázium Šumperk » Biologie a EVVO"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "fyzika",
+                  "path": "/studium/predmety/prirodovedne/fyzika",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/prirodovedne/fyzika",
+                      "title": "Gymnázium Šumperk » Fyzika"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "chemie",
+                  "path": "/studium/predmety/prirodovedne/chemie",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/prirodovedne/chemie",
+                      "title": "Gymnázium Šumperk » Chemie"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "telesna-vychova",
+              "path": "/studium/predmety/telesna-vychova",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/predmety/telesna-vychova",
+                  "title": "Gymnázium Šumperk » Tělesná výchova"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "cizi-jazyky",
+              "path": "/studium/predmety/cizi-jazyky",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/predmety/cizi-jazyky",
+                  "title": "Gymnázium Šumperk » Jazyky"
+                }
+              ],
+              "children": [
+                {
+                  "name": "anglicky-jazyk",
+                  "path": "/studium/predmety/cizi-jazyky/anglicky-jazyk",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/cizi-jazyky/anglicky-jazyk",
+                      "title": "Gymnázium Šumperk » Anglický jazyk"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "francouzsky-jazyk",
+                  "path": "/studium/predmety/cizi-jazyky/francouzsky-jazyk",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/cizi-jazyky/francouzsky-jazyk",
+                      "title": "Gymnázium Šumperk » Francouzský jazyk"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "nemecky-jazyk",
+                  "path": "/studium/predmety/cizi-jazyky/nemecky-jazyk",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/cizi-jazyky/nemecky-jazyk",
+                      "title": "Gymnázium Šumperk » Německý jazyk"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "rusky-jazyk",
+                  "path": "/studium/predmety/cizi-jazyky/rusky-jazyk",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/cizi-jazyky/rusky-jazyk",
+                      "title": "Gymnázium Šumperk » Ruský jazyk"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "latina",
+                  "path": "/studium/predmety/cizi-jazyky/latina",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/cizi-jazyky/latina",
+                      "title": "Gymnázium Šumperk » Latina"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "spanelsky-jazyk",
+                  "path": "/studium/predmety/cizi-jazyky/spanelsky-jazyk",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/cizi-jazyky/spanelsky-jazyk",
+                      "title": "Gymnázium Šumperk » Španělský jazyk"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "cesky-jazyk-a-literatura",
+                  "path": "/studium/predmety/cizi-jazyky/cesky-jazyk-a-literatura",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/cizi-jazyky/cesky-jazyk-a-literatura",
+                      "title": "Gymnázium Šumperk » Český jazyk a literatura"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "spolecenske",
+              "path": "/studium/predmety/spolecenske",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/predmety/spolecenske",
+                  "title": "Gymnázium Šumperk » Společenské předměty"
+                }
+              ],
+              "children": [
+                {
+                  "name": "hudebni-umeni",
+                  "path": "/studium/predmety/spolecenske/hudebni-umeni",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/spolecenske/hudebni-umeni",
+                      "title": "Gymnázium Šumperk » Hudební umění"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "vytvarne-umeni",
+                  "path": "/studium/predmety/spolecenske/vytvarne-umeni",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/spolecenske/vytvarne-umeni",
+                      "title": "Gymnázium Šumperk » Výtvarné umění"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "zaklady-spolecenskych-ved-obcanska-nauka",
+                  "path": "/studium/predmety/spolecenske/zaklady-spolecenskych-ved-obcanska-nauka",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/spolecenske/zaklady-spolecenskych-ved-obcanska-nauka",
+                      "title": "Gymnázium Šumperk » Základy společenských věd + Občanská nauka"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "dejepis",
+                  "path": "/studium/predmety/spolecenske/dejepis",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/predmety/spolecenske/dejepis",
+                      "title": "Gymnázium Šumperk » Dějepis"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "podpora-studia",
+          "path": "/studium/podpora-studia",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/studium/podpora-studia",
+              "title": "Gymnázium Šumperk » Podpora studia"
+            }
+          ],
+          "children": [
+            {
+              "name": "karierove-poradenstvi",
+              "path": "/studium/podpora-studia/karierove-poradenstvi",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/podpora-studia/karierove-poradenstvi",
+                  "title": "Gymnázium Šumperk » Kariérové poradenství"
+                }
+              ],
+              "children": [
+                {
+                  "name": "kam-po-maturite",
+                  "path": "/studium/podpora-studia/karierove-poradenstvi/kam-po-maturite",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/podpora-studia/karierove-poradenstvi/kam-po-maturite",
+                      "title": "Gymnázium Šumperk » Kam po maturitě"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "uzitecne-odkazy",
+                  "path": "/studium/podpora-studia/karierove-poradenstvi/uzitecne-odkazy",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/podpora-studia/karierove-poradenstvi/uzitecne-odkazy",
+                      "title": "Gymnázium Šumperk » Užitečné odkazy"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "nasi-absolventi",
+                  "path": "/studium/podpora-studia/karierove-poradenstvi/nasi-absolventi",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/podpora-studia/karierove-poradenstvi/nasi-absolventi",
+                      "title": "Gymnázium Šumperk » Naši absolventi"
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "name": "akce-tipy-zajimavosti",
+                  "path": "/studium/podpora-studia/karierove-poradenstvi/akce-tipy-zajimavosti",
+                  "pages": [
+                    {
+                      "url": "https://www.gymspk.cz/studium/podpora-studia/karierove-poradenstvi/akce-tipy-zajimavosti",
+                      "title": "Gymnázium Šumperk » Akce, tipy, zajímavosti"
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "kontakt-schranka-duvery",
+              "path": "/studium/podpora-studia/kontakt-schranka-duvery",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/podpora-studia/kontakt-schranka-duvery",
+                  "title": "Gymnázium Šumperk » Schránka důvěry"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "dokumenty-ke-stazeni",
+              "path": "/studium/podpora-studia/dokumenty-ke-stazeni",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/podpora-studia/dokumenty-ke-stazeni",
+                  "title": "Gymnázium Šumperk » Dokumenty ke stažení"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "konzultacni-hodiny",
+              "path": "/studium/podpora-studia/konzultacni-hodiny",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/podpora-studia/konzultacni-hodiny",
+                  "title": "Gymnázium Šumperk » Konzultační hodiny"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "psychologicka-poradna-2",
+              "path": "/studium/podpora-studia/psychologicka-poradna-2",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/podpora-studia/psychologicka-poradna-2",
+                  "title": "Gymnázium Šumperk » Psychologická poradna"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "vychovne-poradenstvi",
+              "path": "/studium/podpora-studia/vychovne-poradenstvi",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/podpora-studia/vychovne-poradenstvi",
+                  "title": "Gymnázium Šumperk » Výchovné poradenství"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "zakladni-informace",
+          "path": "/studium/zakladni-informace",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/studium/zakladni-informace",
+              "title": "Gymnázium Šumperk » Základní informace"
+            }
+          ],
+          "children": [
+            {
+              "name": "skolni-vzdelavaci-programy",
+              "path": "/studium/zakladni-informace/skolni-vzdelavaci-programy",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/zakladni-informace/skolni-vzdelavaci-programy",
+                  "title": "Gymnázium Šumperk » Školní vzdělávací programy"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "maturita",
+              "path": "/studium/zakladni-informace/maturita",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/zakladni-informace/maturita",
+                  "title": "Gymnázium Šumperk » Maturita"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "preventivni-program",
+              "path": "/studium/zakladni-informace/preventivni-program",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/zakladni-informace/preventivni-program",
+                  "title": "Gymnázium Šumperk » Preventivní program"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "klasifikacni-rad",
+              "path": "/studium/zakladni-informace/klasifikacni-rad",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/zakladni-informace/klasifikacni-rad",
+                  "title": "Gymnázium Šumperk » Pravidla pro hodnocení výsledků vzdělávání žáků"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "harmonogram-skolniho-roku",
+              "path": "/studium/zakladni-informace/harmonogram-skolniho-roku",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/zakladni-informace/harmonogram-skolniho-roku",
+                  "title": "Gymnázium Šumperk » Harmonogram školního roku"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "skolni-rad",
+              "path": "/studium/zakladni-informace/skolni-rad",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/zakladni-informace/skolni-rad",
+                  "title": "Gymnázium Šumperk » Školní řád"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "pro-uchazece",
+          "path": "/studium/pro-uchazece",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/studium/pro-uchazece",
+              "title": "Gymnázium Šumperk » Pro uchazeče"
+            }
+          ],
+          "children": [
+            {
+              "name": "prijimaci-rizeni-obecne",
+              "path": "/studium/pro-uchazece/prijimaci-rizeni-obecne",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/pro-uchazece/prijimaci-rizeni-obecne",
+                  "title": "Gymnázium Šumperk » Přijímací řízení – obecně"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "prijimacky-g-8lete",
+              "path": "/studium/pro-uchazece/prijimacky-g-8lete",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/pro-uchazece/prijimacky-g-8lete",
+                  "title": "Gymnázium Šumperk » Přijímačky G 8leté"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "dod",
+              "path": "/studium/pro-uchazece/dod",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/pro-uchazece/dod",
+                  "title": "Gymnázium Šumperk » Den otevřených dveří"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "prijimacky-g-4lete",
+              "path": "/studium/pro-uchazece/prijimacky-g-4lete",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/studium/pro-uchazece/prijimacky-g-4lete",
+                  "title": "Gymnázium Šumperk » Přijímačky G 4leté"
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "aktuality",
+      "path": "/aktuality",
+      "pages": [],
+      "children": [
+        {
+          "name": "konverzacni-soutez-v-nemeckem-jazyce-kategorie-iii-a-4",
+          "path": "/aktuality/konverzacni-soutez-v-nemeckem-jazyce-kategorie-iii-a-4",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/konverzacni-soutez-v-nemeckem-jazyce-kategorie-iii-a-4",
+              "title": "Gymnázium Šumperk » Konverzační soutěž v německém jazyce kategorie III A"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "vg-english-conversation-competition",
+          "path": "/aktuality/vg-english-conversation-competition",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/vg-english-conversation-competition",
+              "title": "Gymnázium Šumperk » VG English Conversation Competition"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "republikove-finale-skol-v-orientacnim-behu",
+          "path": "/aktuality/republikove-finale-skol-v-orientacnim-behu",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/republikove-finale-skol-v-orientacnim-behu",
+              "title": "Gymnázium Šumperk » Republikové finále škol v orientačním běhu"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "pet-medaili-z-okresniho-kola-v-prespolnim-behu",
+          "path": "/aktuality/pet-medaili-z-okresniho-kola-v-prespolnim-behu",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/pet-medaili-z-okresniho-kola-v-prespolnim-behu",
+              "title": "Gymnázium Šumperk » Pět medailí z okresního kola v přespolním běhu"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "psychologove-v-terenu",
+          "path": "/aktuality/psychologove-v-terenu",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/psychologove-v-terenu",
+              "title": "Gymnázium Šumperk » Psychologové v terénu"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "2-misto-v-okresnim-kole-florbalu-starsich-divek",
+          "path": "/aktuality/2-misto-v-okresnim-kole-florbalu-starsich-divek",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/2-misto-v-okresnim-kole-florbalu-starsich-divek",
+              "title": "Gymnázium Šumperk » 2. místo v okresním kole florbalu starších dívek"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "okrskove-kolo-ve-florbalu-divek",
+          "path": "/aktuality/okrskove-kolo-ve-florbalu-divek",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/okrskove-kolo-ve-florbalu-divek",
+              "title": "Gymnázium Šumperk » Okrskové kolo ve florbalu dívek"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "dvakrat-ve-stejne-rece-byt",
+          "path": "/aktuality/dvakrat-ve-stejne-rece-byt",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/dvakrat-ve-stejne-rece-byt",
+              "title": "Gymnázium Šumperk » Dvakrát ve stejné řece být…"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "proc-si-vybrat-nase-gymnazium",
+          "path": "/aktuality/proc-si-vybrat-nase-gymnazium",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/proc-si-vybrat-nase-gymnazium",
+              "title": "Gymnázium Šumperk » Proč si vybrat naše gymnázium?"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "okresni-kolo-ve-florbalu-subterra-cupu-nase-divky-vyhraly",
+          "path": "/aktuality/okresni-kolo-ve-florbalu-subterra-cupu-nase-divky-vyhraly",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/okresni-kolo-ve-florbalu-subterra-cupu-nase-divky-vyhraly",
+              "title": "Gymnázium Šumperk » Okresní kolo ve florbalu naše středoškolačky vyhrály"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "kancelar-skoly-o-jarnich-prazdninach",
+          "path": "/aktuality/kancelar-skoly-o-jarnich-prazdninach",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/kancelar-skoly-o-jarnich-prazdninach",
+              "title": "Gymnázium Šumperk » Škola o jarních prázdninách"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "konverzacni-soutez-v-nemeckem-jazyce-kategorie-iii-a-5",
+          "path": "/aktuality/konverzacni-soutez-v-nemeckem-jazyce-kategorie-iii-a-5",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/konverzacni-soutez-v-nemeckem-jazyce-kategorie-iii-a-5",
+              "title": "Gymnázium Šumperk » Konverzační soutěž v německém jazyce kategorie III A"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "prebor-skol-v-sachu-okres",
+          "path": "/aktuality/prebor-skol-v-sachu-okres",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/prebor-skol-v-sachu-okres",
+              "title": "Gymnázium Šumperk » Přebor škol v šachu – okres"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "zprava-ze-souteze-usty-basnika",
+          "path": "/aktuality/zprava-ze-souteze-usty-basnika",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/zprava-ze-souteze-usty-basnika",
+              "title": "Gymnázium Šumperk » Zpráva ze soutěže „Ústy básníka“"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "stribrna-a-bronzova-medaile-z-okresniho-finale-stredoskolskych-her-ve-volejbale",
+          "path": "/aktuality/stribrna-a-bronzova-medaile-z-okresniho-finale-stredoskolskych-her-ve-volejbale",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/stribrna-a-bronzova-medaile-z-okresniho-finale-stredoskolskych-her-ve-volejbale",
+              "title": "Gymnázium Šumperk » Stříbrná a bronzová medaile z okresního finále středoškolských her ve volejbale."
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "filozoficka-olympiada-skolni-kolo",
+          "path": "/aktuality/filozoficka-olympiada-skolni-kolo",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/filozoficka-olympiada-skolni-kolo",
+              "title": "Gymnázium Šumperk » Filozofická olympiáda – školní kolo"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "vitezky-konverzacni-souteze",
+          "path": "/aktuality/vitezky-konverzacni-souteze",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/vitezky-konverzacni-souteze",
+              "title": "Gymnázium Šumperk » Vítězky konverzační soutěže"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "pes-ve-skole",
+          "path": "/aktuality/pes-ve-skole",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/pes-ve-skole",
+              "title": "Gymnázium Šumperk » Pes ve škole"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "zname-viteze-skolniho-kola-souteze-v-predcitani-v-nemeckem-jazyce-bucherwurm2025",
+          "path": "/aktuality/zname-viteze-skolniho-kola-souteze-v-predcitani-v-nemeckem-jazyce-bucherwurm2025",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/zname-viteze-skolniho-kola-souteze-v-predcitani-v-nemeckem-jazyce-bucherwurm2025",
+              "title": "Gymnázium Šumperk » Známe vítěze školního kola soutěže v předčítání v německém jazyce Bücherwurm 2025"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "certamen-latinum-otevreny-dopis",
+          "path": "/aktuality/certamen-latinum-otevreny-dopis",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/certamen-latinum-otevreny-dopis",
+              "title": "Gymnázium Šumperk » Certamen Latinum – otevřený dopis…"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "olympiada-z-anglickeho-jazyka-okresni-kolo-kategorie-g",
+          "path": "/aktuality/olympiada-z-anglickeho-jazyka-okresni-kolo-kategorie-g",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/olympiada-z-anglickeho-jazyka-okresni-kolo-kategorie-g",
+              "title": "Gymnázium Šumperk » Olympiáda z Anglického jazyka – okresní kolo, kategorie G"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "konverzacni-soutez-v-anglickem-jazyce",
+          "path": "/aktuality/konverzacni-soutez-v-anglickem-jazyce",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/konverzacni-soutez-v-anglickem-jazyce",
+              "title": "Gymnázium Šumperk » Konverzační soutěž v anglickém jazyce"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "prijimaci-zkousky-se-blizi",
+          "path": "/aktuality/prijimaci-zkousky-se-blizi",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/prijimaci-zkousky-se-blizi",
+              "title": "Gymnázium Šumperk » Přijímací zkoušky se blíží!"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "bronz-na-olympiade-v-nemeckem-jazyce",
+          "path": "/aktuality/bronz-na-olympiade-v-nemeckem-jazyce",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/bronz-na-olympiade-v-nemeckem-jazyce",
+              "title": "Gymnázium Šumperk » Bronz na Olympiádě v německém jazyce"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "den-otevrenych-dveri-2",
+          "path": "/aktuality/den-otevrenych-dveri-2",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/den-otevrenych-dveri-2",
+              "title": "Gymnázium Šumperk » Den otevřených dveří"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "konverzacni-soutez-v-nemeckem-jazyce-2",
+          "path": "/aktuality/konverzacni-soutez-v-nemeckem-jazyce-2",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktuality/konverzacni-soutez-v-nemeckem-jazyce-2",
+              "title": "Gymnázium Šumperk » Konverzační soutěž v německém jazyce"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "o-skole",
+      "path": "/o-skole",
+      "pages": [
+        {
+          "url": "https://www.gymspk.cz/o-skole",
+          "title": "Gymnázium Šumperk » O škole"
+        }
+      ],
+      "children": [
+        {
+          "name": "uredni-deska",
+          "path": "/o-skole/uredni-deska",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/o-skole/uredni-deska",
+              "title": "Gymnázium Šumperk » Úřední deska"
+            }
+          ],
+          "children": [
+            {
+              "name": "dokumenty",
+              "path": "/o-skole/uredni-deska/dokumenty",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/uredni-deska/dokumenty",
+                  "title": "Gymnázium Šumperk » Dokumenty"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "prohlaseni-o-pristupnosti",
+              "path": "/o-skole/uredni-deska/prohlaseni-o-pristupnosti",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/uredni-deska/prohlaseni-o-pristupnosti",
+                  "title": "Gymnázium Šumperk » Prohlášení o přístupnosti"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "gdpr",
+              "path": "/o-skole/uredni-deska/gdpr",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/uredni-deska/gdpr",
+                  "title": "Gymnázium Šumperk » GDPR"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "ochrana-oznamovatelu",
+              "path": "/o-skole/uredni-deska/ochrana-oznamovatelu",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/uredni-deska/ochrana-oznamovatelu",
+                  "title": "Gymnázium Šumperk » Ochrana oznamovatelů"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "isic-itic",
+              "path": "/o-skole/uredni-deska/isic-itic",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/uredni-deska/isic-itic",
+                  "title": "Gymnázium Šumperk » ISIC/ITIC"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "lide-ve-skole",
+          "path": "/o-skole/lide-ve-skole",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/o-skole/lide-ve-skole",
+              "title": "Gymnázium Šumperk » Lidé ve škole"
+            }
+          ],
+          "children": [
+            {
+              "name": "kontakty-skola",
+              "path": "/o-skole/lide-ve-skole/kontakty-skola",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/lide-ve-skole/kontakty-skola",
+                  "title": "Gymnázium Šumperk » Kontakty – škola"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "skolni-psycholog",
+              "path": "/o-skole/lide-ve-skole/skolni-psycholog",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/lide-ve-skole/skolni-psycholog",
+                  "title": "Gymnázium Šumperk » Školní psycholog"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "metodik-prevence",
+              "path": "/o-skole/lide-ve-skole/metodik-prevence",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/lide-ve-skole/metodik-prevence",
+                  "title": "Gymnázium Šumperk » Školní metodik prevence"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "vychovny-poradce",
+              "path": "/o-skole/lide-ve-skole/vychovny-poradce",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/lide-ve-skole/vychovny-poradce",
+                  "title": "Gymnázium Šumperk » Výchovný poradce"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "provozni-zamestnanci",
+              "path": "/o-skole/lide-ve-skole/provozni-zamestnanci",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/lide-ve-skole/provozni-zamestnanci",
+                  "title": "Gymnázium Šumperk » Provozní zaměstnanci"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "karierovy-poradce",
+              "path": "/o-skole/lide-ve-skole/karierovy-poradce",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/lide-ve-skole/karierovy-poradce",
+                  "title": "Gymnázium Šumperk » Kariérový poradce"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "ucitele",
+              "path": "/o-skole/lide-ve-skole/ucitele",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/lide-ve-skole/ucitele",
+                  "title": "Gymnázium Šumperk » Učitelé"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "historie-a-galerie",
+          "path": "/o-skole/historie-a-galerie",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/o-skole/historie-a-galerie",
+              "title": "Gymnázium Šumperk » Historie"
+            }
+          ],
+          "children": [
+            {
+              "name": "video-dron",
+              "path": "/o-skole/historie-a-galerie/video-dron",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/historie-a-galerie/video-dron",
+                  "title": "Gymnázium Šumperk » Video budovy"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "skola-v-obrazech",
+              "path": "/o-skole/historie-a-galerie/skola-v-obrazech",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/historie-a-galerie/skola-v-obrazech",
+                  "title": "Gymnázium Šumperk » Škola v obrazech"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "skola",
+          "path": "/o-skole/skola",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/o-skole/skola",
+              "title": "Gymnázium Šumperk » Škola"
+            }
+          ],
+          "children": [
+            {
+              "name": "projekty-eu",
+              "path": "/o-skole/skola/projekty-eu",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/skola/projekty-eu",
+                  "title": "Gymnázium Šumperk » Projekty EU"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "skolska-rada",
+              "path": "/o-skole/skola/skolska-rada",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/skola/skolska-rada",
+                  "title": "Gymnázium Šumperk » Školská rada"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "soucasnost-skoly",
+              "path": "/o-skole/skola/soucasnost-skoly",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/skola/soucasnost-skoly",
+                  "title": "Gymnázium Šumperk » Současnost školy"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "skolni-jidelna",
+              "path": "/o-skole/skola/skolni-jidelna",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/skola/skolni-jidelna",
+                  "title": "Gymnázium Šumperk » Školní jídelna"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "zahranicni-partneri",
+              "path": "/o-skole/skola/zahranicni-partneri",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/o-skole/skola/zahranicni-partneri",
+                  "title": "Gymnázium Šumperk » Zahraniční partneři"
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "historie",
+      "path": "/historie",
+      "pages": [
+        {
+          "url": "https://www.gymspk.cz/historie",
+          "title": "Gymnázium Šumperk » Historie"
+        }
+      ],
+      "children": [
+        {
+          "name": "2019-vyroci-100-let-existence-skoly",
+          "path": "/historie/2019-vyroci-100-let-existence-skoly",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/2019-vyroci-100-let-existence-skoly",
+              "title": "Gymnázium Šumperk » 2019 – Výročí 100 let existence školy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1929-statni-realne-gymnazium",
+          "path": "/historie/1929-statni-realne-gymnazium",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1929-statni-realne-gymnazium",
+              "title": "Gymnázium Šumperk » 1929 – Státní reálné gymnázium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "2005-otevrena-nova-telocvicna-skoly",
+          "path": "/historie/2005-otevrena-nova-telocvicna-skoly",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/2005-otevrena-nova-telocvicna-skoly",
+              "title": "Gymnázium Šumperk » 2005 – Otevřena nová tělocvična školy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1931-otevreni-nove-hlavni-budovy-skoly",
+          "path": "/historie/1931-otevreni-nove-hlavni-budovy-skoly",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1931-otevreni-nove-hlavni-budovy-skoly",
+              "title": "Gymnázium Šumperk » 1931 – Otevření nové hlavní budovy školy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1953-jedenactileta-stredni-skola",
+          "path": "/historie/1953-jedenactileta-stredni-skola",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1953-jedenactileta-stredni-skola",
+              "title": "Gymnázium Šumperk » 1953 – Jedenáctiletá střední škola"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1926-prvni-maturity",
+          "path": "/historie/1926-prvni-maturity",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1926-prvni-maturity",
+              "title": "Gymnázium Šumperk » 1926 – První maturity"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1938-preruseni-cinnosti-skoly",
+          "path": "/historie/1938-preruseni-cinnosti-skoly",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1938-preruseni-cinnosti-skoly",
+              "title": "Gymnázium Šumperk » 1938 – Přerušení činnosti školy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1969-obnova-nazvu-gymnazium-a-realita-normalizace",
+          "path": "/historie/1969-obnova-nazvu-gymnazium-a-realita-normalizace",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1969-obnova-nazvu-gymnazium-a-realita-normalizace",
+              "title": "Gymnázium Šumperk » 1969 – Obnova názvu Gymnázium a realita normalizace"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1919-pocatky-skoly",
+          "path": "/historie/1919-pocatky-skoly",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1919-pocatky-skoly",
+              "title": "Gymnázium Šumperk » 1919 – Počátky školy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1985-dokonceni-pristavby-skoly",
+          "path": "/historie/1985-dokonceni-pristavby-skoly",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1985-dokonceni-pristavby-skoly",
+              "title": "Gymnázium Šumperk » 1985 – Dokončení přístavby školy"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1989-navrat-demokracie-a-leta-devadesata",
+          "path": "/historie/1989-navrat-demokracie-a-leta-devadesata",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1989-navrat-demokracie-a-leta-devadesata",
+              "title": "Gymnázium Šumperk » 1989 – Návrat demokracie a léta devadesátá"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1960-stredni-vseobecne-vzdelavaci-skola-trileta-svvs",
+          "path": "/historie/1960-stredni-vseobecne-vzdelavaci-skola-trileta-svvs",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1960-stredni-vseobecne-vzdelavaci-skola-trileta-svvs",
+              "title": "Gymnázium Šumperk » 1961 – Střední všeobecně vzdělávací škola (tříletá SVVŠ)"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1945-obnova-cinnosti-po-valce",
+          "path": "/historie/1945-obnova-cinnosti-po-valce",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1945-obnova-cinnosti-po-valce",
+              "title": "Gymnázium Šumperk » 1945 – Obnova činnosti po válce"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1993-znovu-vicelete-gymnazium",
+          "path": "/historie/1993-znovu-vicelete-gymnazium",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1993-znovu-vicelete-gymnazium",
+              "title": "Gymnázium Šumperk » 1993 – Znovu víceleté gymnázium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1949-zmena-formy-a-nazvu-skoly-gymnazium-obdobi-krize",
+          "path": "/historie/1949-zmena-formy-a-nazvu-skoly-gymnazium-obdobi-krize",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1949-zmena-formy-a-nazvu-skoly-gymnazium-obdobi-krize",
+              "title": "Gymnázium Šumperk » 1949 – Změna formy a názvu školy – Gymnázium; období krize"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1988-dokonceni-celkove-rekonstrukce-skoly",
+          "path": "/historie/1988-dokonceni-celkove-rekonstrukce-skoly",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/historie/1988-dokonceni-celkove-rekonstrukce-skoly",
+              "title": "Gymnázium Šumperk » 1988 – Dokončení celkové rekonstrukce školy"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "aktivity-skoly",
+      "path": "/aktivity-skoly",
+      "pages": [
+        {
+          "url": "https://www.gymspk.cz/aktivity-skoly",
+          "title": "Gymnázium Šumperk » Aktivity školy"
+        }
+      ],
+      "children": [
+        {
+          "name": "skolni-akce",
+          "path": "/aktivity-skoly/skolni-akce",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktivity-skoly/skolni-akce",
+              "title": "Gymnázium Šumperk » Školní akce"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "zivot-s-g",
+          "path": "/aktivity-skoly/zivot-s-g",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktivity-skoly/zivot-s-g",
+              "title": "Gymnázium Šumperk » Život s G"
+            }
+          ],
+          "children": [
+            {
+              "name": "meteostanice",
+              "path": "/aktivity-skoly/zivot-s-g/meteostanice",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/aktivity-skoly/zivot-s-g/meteostanice",
+                  "title": "Gymnázium Šumperk » Meteostanice"
+                }
+              ],
+              "children": []
+            },
+            {
+              "name": "newslettery",
+              "path": "/aktivity-skoly/zivot-s-g/newslettery",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/aktivity-skoly/zivot-s-g/newslettery",
+                  "title": "Gymnázium Šumperk » Newslettery"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "napric-skolou",
+          "path": "/aktivity-skoly/napric-skolou",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktivity-skoly/napric-skolou",
+              "title": "Gymnázium Šumperk » Napříč školou"
+            }
+          ],
+          "children": [
+            {
+              "name": "skolni-parlament",
+              "path": "/aktivity-skoly/napric-skolou/skolni-parlament",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/aktivity-skoly/napric-skolou/skolni-parlament",
+                  "title": "Gymnázium Šumperk » Školní parlament"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "souteze",
+          "path": "/aktivity-skoly/souteze",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/aktivity-skoly/souteze",
+              "title": "Gymnázium Šumperk » Soutěže"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "sportovni-souteze",
+      "path": "/sportovni-souteze",
+      "pages": [],
+      "children": [
+        {
+          "name": "32619",
+          "path": "/sportovni-souteze/32619",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/sportovni-souteze/32619",
+              "title": "Gymnázium Šumperk » Vánoční volejbalový turnaj smíšených družstev zná vítěze! Obhájila 3.A – Ope tým"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "medailove-umisteni-v-krajskem-kole-prespolniho-behu",
+          "path": "/sportovni-souteze/medailove-umisteni-v-krajskem-kole-prespolniho-behu",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/sportovni-souteze/medailove-umisteni-v-krajskem-kole-prespolniho-behu",
+              "title": "Gymnázium Šumperk » Medailové umístění v krajském kole přespolního běhu"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "florbaliste-treti-v-krajskem-finale",
+          "path": "/sportovni-souteze/florbaliste-treti-v-krajskem-finale",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/sportovni-souteze/florbaliste-treti-v-krajskem-finale",
+              "title": "Gymnázium Šumperk » Florbalisté třetí v krajském finále"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "stredoskolacky-vyhraly-krajske-kolo-subterra-cupu",
+          "path": "/sportovni-souteze/stredoskolacky-vyhraly-krajske-kolo-subterra-cupu",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/sportovni-souteze/stredoskolacky-vyhraly-krajske-kolo-subterra-cupu",
+              "title": "Gymnázium Šumperk » Středoškolačky vyhrály krajské kolo Subterra cupu"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "stafetovy-zavod-v-litovli-ovladli-nasi-bezci",
+          "path": "/sportovni-souteze/stafetovy-zavod-v-litovli-ovladli-nasi-bezci",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/sportovni-souteze/stafetovy-zavod-v-litovli-ovladli-nasi-bezci",
+              "title": "Gymnázium Šumperk » Štafetový závod v Litovli ovládli naši běžci"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "kontakty",
+      "path": "/kontakty",
+      "pages": [
+        {
+          "url": "https://www.gymspk.cz/kontakty",
+          "title": "Gymnázium Šumperk » Kontakty"
+        }
+      ],
+      "children": []
+    },
+    {
+      "name": "ruzne",
+      "path": "/ruzne",
+      "pages": [],
+      "children": [
+        {
+          "name": "maturitni-ples-5-12-2025-foto-a-video",
+          "path": "/ruzne/maturitni-ples-5-12-2025-foto-a-video",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/ruzne/maturitni-ples-5-12-2025-foto-a-video",
+              "title": "Gymnázium Šumperk » Maturitní ples 5.12.2025 – foto a video"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "kalendarium",
+      "path": "/kalendarium",
+      "pages": [
+        {
+          "url": "https://www.gymspk.cz/kalendarium",
+          "title": "Gymnázium Šumperk » Kalendárium"
+        }
+      ],
+      "children": [
+        {
+          "name": "1910",
+          "path": "/kalendarium/1910",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1910",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1920",
+          "path": "/kalendarium/1920",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1920",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1930",
+          "path": "/kalendarium/1930",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1930",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1932",
+          "path": "/kalendarium/1932",
+          "pages": [],
+          "children": [
+            {
+              "name": "838",
+              "path": "/kalendarium/1932/838",
+              "pages": [
+                {
+                  "url": "https://www.gymspk.cz/kalendarium/1932/838",
+                  "title": "Gymnázium Šumperk » Kalendárium"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "1940",
+          "path": "/kalendarium/1940",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1940",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1950",
+          "path": "/kalendarium/1950",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1950",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1960",
+          "path": "/kalendarium/1960",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1960",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1970",
+          "path": "/kalendarium/1970",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1970",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1980",
+          "path": "/kalendarium/1980",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1980",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "1990",
+          "path": "/kalendarium/1990",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/1990",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "2000",
+          "path": "/kalendarium/2000",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/2000",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "2010",
+          "path": "/kalendarium/2010",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/2010",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        },
+        {
+          "name": "2020",
+          "path": "/kalendarium/2020",
+          "pages": [
+            {
+              "url": "https://www.gymspk.cz/kalendarium/2020",
+              "title": "Gymnázium Šumperk » Kalendárium"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "wp-admin",
+      "path": "/wp-admin",
+      "pages": [
+        {
+          "url": "https://www.gymspk.cz/wp-admin",
+          "title": "Přihlásit se ‹ Gymnázium Šumperk — WordPress"
+        }
+      ],
+      "children": []
+    }
+  ]
+}

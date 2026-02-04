@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { FooterNavItem } from "../atom/footer-nav-item";
 import { FooterNavigation } from "../molecule/footer-navigation";
-import { URL_FRONTEND_BLOG, URL_FRONTEND_CASE_STUDIES, URL_FRONTEND_CONTACT, URL_FRONTEND_COOKIES, URL_FRONTEND_DOCUMENTATION, URL_FRONTEND_FAQS, URL_FRONTEND_FEATURES, URL_FRONTEND_GUIDES, URL_FRONTEND_PRICING, URL_FRONTEND_PRIVACY, URL_FRONTEND_TERMS, URL_FRONTEND_INTEGRATIONS, URL_FRONTEND_ABOUT } from "@/app/services/urlServices";
+import { URL_FRONTEND_BLOG, URL_FRONTEND_CASE_STUDIES, URL_FRONTEND_CONTACT, URL_FRONTEND_COOKIES, URL_FRONTEND_DOCUMENTATION, URL_FRONTEND_FAQS, URL_FRONTEND_FEATURES, URL_FRONTEND_GUIDES, URL_FRONTEND_PRICING, URL_FRONTEND_PRIVACY, URL_FRONTEND_TERMS, URL_FRONTEND_INTEGRATIONS, URL_FRONTEND_ABOUT, URL_FRONTEND_ACCESSIBILITY_RULES } from "@/app/services/urlServices";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -104,6 +104,7 @@ export const LoggedOutFooter = () => {
                                 <li><Link href={URL_FRONTEND_CASE_STUDIES} className="hover:text-white transition-colors">Case Studies</Link></li>
                                 <li><Link href={URL_FRONTEND_DOCUMENTATION} className="hover:text-white transition-colors">Documentation</Link></li>
                                 <li><Link href={URL_FRONTEND_GUIDES} className="hover:text-white transition-colors">Guides</Link></li>
+                                <li><Link href={URL_FRONTEND_ACCESSIBILITY_RULES} className="hover:text-white transition-colors">Accessibility rules</Link></li>
                             </ul>
                         </div>
 

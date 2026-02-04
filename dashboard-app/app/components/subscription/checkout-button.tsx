@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { redirectToCheckout, updateSubscription } from '../../services/stripeService';
+import { set } from 'sanity';
 
 interface CheckoutButtonProps {
     type: 'subscribe' | 'update';
@@ -41,18 +42,12 @@ export function CheckoutButton({
         try {
             setLoading(true);
             setError(null);
+            if (!userId || !organizationId || !email) {
+                setError('Missing required user or organization information');
+                throw new Error('Missing required user or organization information');
+            }
 
             if (type === 'subscribe') {
-                console.log('Starting subscription checkout for:', {
-                    userId,
-                    organizationId,
-                    packageName,
-                    billingCycle,
-                    email,
-                    customerName,
-                    organizationStripeCustomerId,
-                });
-
                 await redirectToCheckout({
                     userId,
                     organizationId,
@@ -63,11 +58,10 @@ export function CheckoutButton({
                     organizationStripeCustomerId,
                 });
             } else if (type === 'update') {
-                console.log('Starting update checkout for:', {
-                    subcriptionId,
-                    productId,
-                });
-
+                if (!subcriptionId || !productId) {
+                    setError('Missing required subscription or product information');
+                    throw new Error('Missing required subscription or product information');
+                }
                 await updateSubscription({subscriptionId: subcriptionId, newPriceId: productId})
             }
         } catch (err) {

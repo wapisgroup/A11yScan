@@ -1,12 +1,41 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { reactivateSubscription } from '../../services/stripeService';
+import { useCallback, useMemo, useState } from "react";
+import { reactivateSubscription } from "../../services/stripeService";
 
+/**
+ * CancelScheduledBanner
+ * ---------------------
+ * Presentational + light state component shown when a subscription has been scheduled
+ * for cancellation at the end of the current billing period.
+ *
+ * Responsibilities:
+ * - Explain clearly what will happen at the cancellation date.
+ * - Provide a single CTA to reactivate the subscription.
+ * - Surface transient errors during the reactivation request.
+ *
+ * Notes / Recommendations:
+ * - This component currently uses the native `window.confirm` dialog. For a consistent
+ *   product UI, consider replacing it with your app's WindowProvider confirm modal.
+ * - The `setTimeout` delay is a simple way to wait for Stripe webhooks to update the
+ *   backend. In production, a more robust approach is to poll the subscription status
+ *   or subscribe to the Firestore document via `onSnapshot`.
+ */
+
+/**
+ * Props for {@link CancelScheduledBanner}.
+ */
 interface CancelScheduledBannerProps {
+  /** Stripe subscription id for the current subscription. */
   subscriptionId: string;
+
+  /** Date when the cancellation will take effect (end of current period). */
   cancelDate: Date;
+
+  /** Human-readable current plan name (e.g. "Starter"). */
   currentPlan: string;
+
+  /** Optional callback invoked after reactivation completes. */
   onReactivated?: () => void;
 }
 
@@ -16,11 +45,28 @@ export function CancelScheduledBanner({
   currentPlan,
   onReactivated,
 }: CancelScheduledBannerProps) {
+  // Prevent double submits and show a small loading indicator on the CTA.
   const [reactivating, setReactivating] = useState(false);
+  // Transient error message shown inside the banner.
   const [error, setError] = useState<string | null>(null);
 
-  const handleReactivate = async () => {
-    if (!confirm('Are you sure you want to continue your subscription? You\'ll keep your current plan and billing will continue as normal.')) {
+  /**
+   * Reactivates a subscription that was scheduled to cancel.
+   *
+   * Flow:
+   * 1) Ask user to confirm.
+   * 2) Call server API to remove `cancel_at_period_end`.
+   * 3) Wait briefly for webhook/DB propagation.
+   * 4) Notify parent via `onReactivated`.
+   */
+  const handleReactivate = useCallback(async () => {
+    // NOTE: For consistent UI, replace this with your app-level confirm modal.
+    // eslint-disable-next-line no-alert
+    if (
+      !window.confirm(
+        "Are you sure you want to continue your subscription? You'll keep your current plan and billing will continue as normal."
+      )
+    ) {
       return;
     }
 
@@ -30,22 +76,30 @@ export function CancelScheduledBanner({
 
       await reactivateSubscription(subscriptionId);
 
-      // Wait for webhook to process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simple (but imperfect) delay to allow webhook/DB updates to land.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       onReactivated?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reactivate subscription');
+      setError(err instanceof Error ? err.message : "Failed to reactivate subscription");
     } finally {
       setReactivating(false);
     }
-  };
+  }, [onReactivated, subscriptionId]);
 
-  const formattedDate = cancelDate.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  /**
+   * Display-friendly cancellation date.
+   * Memoized to avoid recomputing on unrelated re-renders.
+   */
+  const formattedDate = useMemo(
+    () =>
+      cancelDate.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }),
+    [cancelDate]
+  );
 
   return (
     <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-lg p-6">
@@ -59,7 +113,7 @@ export function CancelScheduledBanner({
               Subscription Cancellation Scheduled
             </p>
             <p className="text-red-800 text-sm mb-2">
-              Your <span className="font-semibold">{currentPlan}</span> subscription will be cancelled on{' '}
+              Your <span className="font-semibold">{currentPlan}</span> subscription will be cancelled on{" "}
               <span className="font-semibold">{formattedDate}</span>.
             </p>
             
@@ -107,7 +161,7 @@ export function CancelScheduledBanner({
               Reactivating...
             </span>
           ) : (
-            'Keep My Subscription'
+            "Keep My Subscription"
           )}
         </button>
       </div>

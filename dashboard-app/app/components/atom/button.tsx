@@ -31,8 +31,8 @@ export function Button({
 
     const variantClasses: Record<ButtonVariant, string> = {
         primary:
-            "text-white bg-gradient-to-r from-cyan-400 to-purple-600 " +
-            "hover:from-red-500 hover:to-red-500 " +
+            "text-white bg-purple-600 " +
+            "hover:bg-purple-800 " +
             "focus-visible:ring-white",
 
         secondary:
