@@ -22,6 +22,7 @@ const {
 const { startScanHandler } = require('./handlers/fullScan');
 const { addPageHandler } = require('./handlers/addPage');
 const { uploadSitemapHandler } = require('./handlers/uploadSitemap');
+const { stripeWebhook } = require('./handlers/stripeWebhook');
 
 // ============================================================================
 // Callable Functions (preferred for frontend)
@@ -77,3 +78,9 @@ exports.startPageCollectionHttp = functions.https.onRequest(startPageCollectionH
  * WARNING: Do NOT use in production without proper auth checks
  */
 exports.createPageSetHttp = functions.https.onRequest(createPageSetHttpHandler);
+
+/**
+ * Stripe Webhook Handler
+ * Handles payment events from Stripe
+ */
+exports.stripeWebhook = stripeWebhook;

@@ -16,6 +16,7 @@ type OrganisationData = {
   name: string;
   language: string;
   industry: string;
+  vatNumber: string;
   ipRestrictions: string[];
 };
 
@@ -53,6 +54,7 @@ export default function OrganisationPage() {
     name: "",
     language: "en",
     industry: "",
+    vatNumber: "",
     ipRestrictions: [],
   });
   const [newIp, setNewIp] = useState("");
@@ -86,6 +88,7 @@ export default function OrganisationPage() {
           name: data.name || "",
           language: data.language || "en",
           industry: data.industry || "",
+          vatNumber: data.vatNumber || "",
           ipRestrictions: Array.isArray(data.ipRestrictions) ? data.ipRestrictions : [],
         });
         setPrimaryColor(data.primaryColor || "#3B82F6");
@@ -148,6 +151,7 @@ export default function OrganisationPage() {
         name: orgData.name,
         language: orgData.language,
         industry: orgData.industry,
+        vatNumber: orgData.vatNumber,
         ipRestrictions: orgData.ipRestrictions,
       });
       setSuccess("Settings saved successfully!");
@@ -238,68 +242,59 @@ export default function OrganisationPage() {
               </div>
             )}
 
-            {/* Modern Tabs */}
-            <div className="mb-8 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-2 inline-flex gap-2">
-              <button
-                onClick={() => setActiveTab("settings")}
-                className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                  activeTab === "settings"
-                    ? "bg-[#649DAD] text-white shadow-lg"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <PiBuildings className="text-lg" />
+            {/* Tab Navigation */}
+            <div className="mb-6 border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab("settings")}
+                  className={`${
+                    activeTab === "settings"
+                      ? "border-purple-600 text-purple-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                >
                   Organisation
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab("members")}
-                className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                  activeTab === "members"
-                    ? "bg-[#649DAD] text-white shadow-lg"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <PiUsers className="text-lg" />
+                </button>
+                <button
+                  onClick={() => setActiveTab("members")}
+                  className={`${
+                    activeTab === "members"
+                      ? "border-purple-600 text-purple-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                >
                   Members
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab("whitelabel")}
-                className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                  activeTab === "whitelabel"
-                    ? "bg-[#649DAD] text-white shadow-lg"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <PiPalette className="text-lg" />
+                </button>
+                <button
+                  onClick={() => setActiveTab("whitelabel")}
+                  className={`${
+                    activeTab === "whitelabel"
+                      ? "border-purple-600 text-purple-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                >
                   Branding
-                </div>
-              </button>
+                </button>
+              </nav>
             </div>
 
             {/* Tab Content */}
             {activeTab === "settings" && (
-              <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
-                <form onSubmit={handleSaveSettings} className="space-y-8">
+              <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+                <form onSubmit={handleSaveSettings} className="space-y-6">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                      <PiBuildings className="text-[#649DAD] text-2xl" />
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">
                       Basic Information
-                    </h3>
+                    </h2>
                     <div className="space-y-6">
                       <div>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                          <PiBuildings className="text-[#649DAD] text-lg" />
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                           Organisation Name
-                          <span className="text-red-600">*</span>
+                          <span className="text-red-600 ml-1">*</span>
                         </label>
                         <input
                           type="text"
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                           value={orgData.name}
                           onChange={(e) => setOrgData({ ...orgData, name: e.target.value })}
                           required
@@ -308,13 +303,12 @@ export default function OrganisationPage() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                            <PiGlobe className="text-[#649DAD] text-lg" />
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             Language
-                            <span className="text-red-600">*</span>
+                            <span className="text-red-600 ml-1">*</span>
                           </label>
                           <select
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all cursor-pointer"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                             value={orgData.language}
                             onChange={(e) => setOrgData({ ...orgData, language: e.target.value })}
                           >
@@ -327,13 +321,12 @@ export default function OrganisationPage() {
                         </div>
 
                         <div>
-                          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                            <PiBriefcase className="text-[#649DAD] text-lg" />
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             Company Industry
-                            <span className="text-red-600">*</span>
+                            <span className="text-red-600 ml-1">*</span>
                           </label>
                           <select
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all cursor-pointer"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                             value={orgData.industry}
                             onChange={(e) => setOrgData({ ...orgData, industry: e.target.value })}
                             required
@@ -347,14 +340,27 @@ export default function OrganisationPage() {
                           </select>
                         </div>
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          VAT Number
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                          placeholder="e.g., GB123456789"
+                          value={orgData.vatNumber}
+                          onChange={(e) => setOrgData({ ...orgData, vatNumber: e.target.value })}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">For EU businesses, enter your VAT ID</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="border-t border-gray-200 pt-8">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                      <PiShieldCheck className="text-[#649DAD] text-2xl" />
+                  <div className="border-t border-gray-200 pt-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
                       IP Address Restriction
-                    </h3>
+                    </h2>
                     <p className="text-gray-600 text-sm mb-6">
                       Restrict login access to your organisation's account only from specified IP addresses.
                     </p>
@@ -362,7 +368,7 @@ export default function OrganisationPage() {
                     <div className="flex gap-2 mb-4">
                       <input
                         type="text"
-                        className="flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                         placeholder="Enter IP address (e.g., 192.168.1.1)"
                         value={newIp}
                         onChange={(e) => setNewIp(e.target.value)}
@@ -395,25 +401,24 @@ export default function OrganisationPage() {
                   </div>
 
                   <div className="pt-6 border-t border-gray-200">
-                    <Button
+                    <button
                       type="submit"
                       disabled={saving}
-                      variant="primary"
-                      className="px-8"
-                      title={saving ? "Saving..." : "Save Settings"}
-                    />
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {saving ? "Saving..." : "Save Settings"}
+                    </button>
                   </div>
                 </form>
               </div>
             )}
 
           {activeTab === "members" && (
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
               <div className="mb-6">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <PiUsers className="text-[#649DAD] text-2xl" />
+                <h2 className="text-xl font-semibold text-gray-900">
                   Team Members
-                </h3>
+                </h2>
                 <p className="text-gray-600 text-sm mt-2">
                   Manage users who have access to your organisation
                 </p>
@@ -478,26 +483,24 @@ export default function OrganisationPage() {
           )}
 
           {activeTab === "whitelabel" && (
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
-              <form onSubmit={handleSaveWhiteLabel} className="space-y-8">
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <form onSubmit={handleSaveWhiteLabel} className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <PiPalette className="text-[#649DAD] text-2xl" />
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
                     Branding Settings
-                  </h3>
+                  </h2>
                   <p className="text-gray-600 text-sm mb-6">
                     Customize the logo, color scheme, and default form settings for PDF reports.
                   </p>
                 </div>
 
                 <div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <PiImage className="text-[#649DAD] text-xl" />
+                  <h3 className="text-base font-medium text-gray-900 mb-4">
                     Custom Logo
-                  </h4>
+                  </h3>
                   <input
                     type="text"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                     placeholder="Enter logo URL (e.g., https://example.com/logo.png)"
                     value={customLogo}
                     onChange={(e) => setCustomLogo(e.target.value)}
@@ -512,14 +515,13 @@ export default function OrganisationPage() {
                   )}
                 </div>
 
-                <div className="border-t border-gray-200 pt-8">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                    <PiPalette className="text-[#649DAD] text-xl" />
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-base font-medium text-gray-900 mb-6">
                     Custom Colors
-                  </h4>
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">Primary Color</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">Primary Color</label>
                       <div className="flex gap-3 items-center">
                         <input
                           type="color"
@@ -529,7 +531,7 @@ export default function OrganisationPage() {
                         />
                         <input
                           type="text"
-                          className="flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 font-mono focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all"
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-mono focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                           value={primaryColor}
                           onChange={(e) => setPrimaryColor(e.target.value)}
                         />
@@ -541,7 +543,7 @@ export default function OrganisationPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">Secondary Color</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">Secondary Color</label>
                       <div className="flex gap-3 items-center">
                         <input
                           type="color"
@@ -551,7 +553,7 @@ export default function OrganisationPage() {
                         />
                         <input
                           type="text"
-                          className="flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 font-mono focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all"
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-mono focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                           value={secondaryColor}
                           onChange={(e) => setSecondaryColor(e.target.value)}
                         />
@@ -565,13 +567,13 @@ export default function OrganisationPage() {
                 </div>
 
                 <div className="pt-6 border-t border-gray-200">
-                  <Button
+                  <button
                     type="submit"
                     disabled={saving}
-                    variant="primary"
-                    className="px-8"
-                    title={saving ? "Saving..." : "Save Branding Settings"}
-                  />
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? "Saving..." : "Save Branding Settings"}
+                  </button>
                 </div>
               </form>
             </div>

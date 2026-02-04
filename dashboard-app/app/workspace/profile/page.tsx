@@ -60,22 +60,7 @@ export default function ProfilePage() {
     <PrivateRoute>
       <WorkspaceLayout>
         <PageContainer title="My Account">
-          <div className="max-w-3xl mx-auto">
-            {/* Hero Card */}
-            <div className="bg-gradient-to-br from-[#649DAD] to-[#4a7b8a] rounded-2xl p-8 mb-6 shadow-lg">
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-xl">
-                  <PiUserCircle className="text-white text-4xl" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white mb-1">
-                    {user?.firstName || user?.email || "User"}
-                  </h2>
-                  <p className="text-white/80 text-sm">Manage your account settings and preferences</p>
-                </div>
-              </div>
-            </div>
-
+          <div className="max-w-4xl mx-auto">
             {/* Alerts */}
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -89,19 +74,21 @@ export default function ProfilePage() {
             )}
 
             {/* Form Card */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                Personal Information
+              </h2>
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Name Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="firstName" className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                      <PiUserCircle className="text-[#649DAD] text-lg" />
+                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
                       First Name
                     </label>
                     <input
                       id="firstName"
                       type="text"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       required
@@ -109,14 +96,13 @@ export default function ProfilePage() {
                   </div>
 
                   <div>
-                    <label htmlFor="lastName" className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                      <PiUserCircle className="text-[#649DAD] text-lg" />
+                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
                       Last Name
                     </label>
                     <input
                       id="lastName"
                       type="text"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       required
@@ -126,14 +112,13 @@ export default function ProfilePage() {
 
                 {/* Email Field */}
                 <div>
-                  <label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    <PiEnvelope className="text-[#649DAD] text-lg" />
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                     Email
                   </label>
                   <input
                     id="email"
                     type="email"
-                    className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
+                    className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
                     value={email}
                     disabled
                     title="Email cannot be changed"
@@ -145,14 +130,13 @@ export default function ProfilePage() {
 
                 {/* Phone Field */}
                 <div>
-                  <label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    <PiPhone className="text-[#649DAD] text-lg" />
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                     Phone Number
                   </label>
                   <input
                     id="phone"
                     type="tel"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+1 234 567 8900"
@@ -161,13 +145,12 @@ export default function ProfilePage() {
 
                 {/* Language Field */}
                 <div>
-                  <label htmlFor="language" className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                    <PiGlobe className="text-[#649DAD] text-lg" />
+                  <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-2">
                     Language
                   </label>
                   <select
                     id="language"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent transition-all cursor-pointer"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
                   >
@@ -180,14 +163,14 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Action Button */}
-                <div className="pt-4 border-t border-gray-200">
-                  <Button
+                <div className="pt-6 border-t border-gray-200">
+                  <button
                     type="submit"
                     disabled={saving}
-                    variant="primary"
-                    title={saving ? "Saving..." : "Save Changes"}
-                  />
-                    
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
                 </div>
               </form>
             </div>

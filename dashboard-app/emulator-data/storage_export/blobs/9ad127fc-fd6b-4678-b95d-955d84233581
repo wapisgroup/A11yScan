@@ -1,0 +1,30 @@
+{
+  "nodes": [
+    {
+      "id": "https://zbynekstrnad.com",
+      "title": "Zbynek Strnad | Head of Technology / Architect"
+    },
+    {
+      "id": "https://zbynekstrnad.com/",
+      "title": "Zbynek Strnad | Head of Technology / Architect"
+    }
+  ],
+  "edges": [
+    {
+      "source": "https://zbynekstrnad.com",
+      "target": "https://zbynekstrnad.com/"
+    },
+    {
+      "source": "https://zbynekstrnad.com",
+      "target": "https://zbynekstrnad.com/zbynek-strnad-cv-jan-2026.pdf"
+    },
+    {
+      "source": "https://zbynekstrnad.com/",
+      "target": "https://zbynekstrnad.com/"
+    },
+    {
+      "source": "https://zbynekstrnad.com/",
+      "target": "https://zbynekstrnad.com/zbynek-strnad-cv-jan-2026.pdf"
+    }
+  ]
+}

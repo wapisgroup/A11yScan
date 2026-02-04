@@ -25,6 +25,14 @@ service cloud.firestore {
         (resource != null && request.auth.uid == resource.data.owner);
     }
 
+    // Organizations collection (American spelling) - used for Stripe billing
+    // Members can read their organization's billing data
+    match /organizations/{organizationId} {
+      allow read: if request.auth != null && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == organizationId);
+      allow write: if false; // Only Cloud Functions (webhooks) can write
+    }
+
     // Project documents - organisation members can read, owner can write
     match /projects/{projectId} {
       // Allow read operations (both list and get) for authenticated users in the same organisation
@@ -66,6 +74,28 @@ service cloud.firestore {
     // Reports collection - authenticated users can read/write
     match /reports/{reportId} {
       allow read, write: if request.auth != null;
+    }
+
+    // Subscriptions collection - users can read/write their own subscription
+    match /subscriptions/{userId} {
+      // Allow users to read their own subscription
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow users to create/update their own subscription
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      
+      // Only allow delete by the user themselves
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Payment history collection - users can read their own payment history
+    match /paymentHistory/{paymentId} {
+      // Allow users to read their own payment records
+      allow read: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      
+      // Only Cloud Functions can write payment history (webhooks)
+      // In production, you'd use a service account for this
+      allow write: if false;
     }
 
     // Default deny for everything else

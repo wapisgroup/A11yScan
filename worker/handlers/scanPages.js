@@ -25,6 +25,36 @@ async function handleScanPages(db, projectId, runId) {
         throw new Error('Project not found: ' + projectId);
     }
 
+    // Get project owner for usage tracking
+    const projectData = projSnap.data();
+    const projectOwner = projectData?.owner;
+
+    // Check and reset usage counters if needed (do this once at the start)
+    if (projectOwner) {
+        try {
+            const subscriptionRef = db.collection('subscriptions').doc(projectOwner);
+            const subscriptionSnap = await subscriptionRef.get();
+            
+            if (subscriptionSnap.exists) {
+                const subscription = subscriptionSnap.data();
+                const now = new Date();
+                const needsReset = shouldResetUsageCounters(subscription, now);
+                
+                if (needsReset) {
+                    console.log('Resetting usage counters for new billing period');
+                    await subscriptionRef.update({
+                        'currentUsage.scansThisMonth': 0,
+                        'currentUsage.apiCallsToday': 0,
+                        'currentUsage.usagePeriodStart': admin.firestore.Timestamp.fromDate(now),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to check/reset usage counters:', error);
+        }
+    }
+
     // Update run status -> running
     const runRef = projectRef.collection('runs').doc(runId);
     await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
@@ -289,6 +319,20 @@ async function handleScanPages(db, projectId, runId) {
 
             await scansCol.add(scanDoc);
 
+            // Track this page scan in subscription usage
+            if (projectOwner) {
+                try {
+                    const subscriptionRef = db.collection('subscriptions').doc(projectOwner);
+                    await subscriptionRef.update({
+                        'currentUsage.scansThisMonth': admin.firestore.FieldValue.increment(1),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                } catch (error) {
+                    console.error('Failed to track page scan in usage:', error);
+                    // Don't fail the scan if usage tracking fails
+                }
+            }
+
             // update run counters
             scannedCount++;
 
@@ -349,6 +393,34 @@ async function handleScanPages(db, projectId, runId) {
 
     console.log('ScanPages job finished', projectId, runId, 'scanned:', scannedCount, 'agg:', agg);
     return { ok: true, scanned: scannedCount, agg };
+}
+
+/**
+ * Check if usage counters should be reset based on billing period
+ */
+function shouldResetUsageCounters(subscription, now) {
+    // If no usage period start is set, we should reset
+    if (!subscription.currentUsage?.usagePeriodStart) {
+        return true;
+    }
+    
+    const periodStart = subscription.currentUsage.usagePeriodStart.toDate();
+    const currentPeriodStart = subscription.currentPeriodStart?.toDate();
+    
+    // If we have a current period start from Stripe and it's different from our usage period, reset
+    if (currentPeriodStart && periodStart < currentPeriodStart) {
+        return true;
+    }
+    
+    // For daily counters (apiCallsToday), reset if it's a new day
+    const periodStartDay = new Date(periodStart).setHours(0, 0, 0, 0);
+    const nowDay = new Date(now).setHours(0, 0, 0, 0);
+    
+    if (periodStartDay < nowDay) {
+        return true;
+    }
+    
+    return false;
 }
 
 module.exports = { handleScanPages };

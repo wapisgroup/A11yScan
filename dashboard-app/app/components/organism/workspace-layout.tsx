@@ -60,9 +60,9 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
         <aside className="fixed left-0 top-0 h-screen w-64 bg-gradient-to-b from-[#0a0e1a] via-[#0e1628] to-[#0a0e1a] border-r border-[#1e293b] flex flex-col shadow-2xl z-50">
           {/* Logo Section */}
           <div className="px-6 pt-8 pb-6 border-b border-[#1e293b]/50">
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-start">
               <img 
-                src="/web-logo-02.svg" 
+                src="/logo-white.svg" 
                 alt="Ablelytics" 
                 className="h-10 w-auto brightness-0 invert opacity-90 hover:opacity-100 transition-opacity"
               />

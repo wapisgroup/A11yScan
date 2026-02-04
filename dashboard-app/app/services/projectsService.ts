@@ -265,6 +265,15 @@ export async function createProject({ name, domain }: CreateProjectInput): Promi
 
   const ref = await addDoc(collection(db, "projects"), payload);
 
+  // Track project creation in subscription usage
+  try {
+    const { incrementUsage } = await import('./subscriptionService');
+    await incrementUsage(uid, 'activeProjects', 1);
+  } catch (error) {
+    console.error('Failed to track project creation in usage:', error);
+    // Don't fail the project creation if usage tracking fails
+  }
+
   return {
     id: ref.id,
     name: projectName || null,
