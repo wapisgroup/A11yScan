@@ -1,10 +1,7 @@
 "use server";
 
 import path from 'path';
-// @ts-ignore - CommonJS module
-
-
-
+import { AccessibilityRulesService } from '@wapisgroup/accessibility-rules';
 
 export type RuleData = {
   ruleId: string;
@@ -18,11 +15,13 @@ export type RuleData = {
 
 export async function getRuleData(ruleId: string): Promise<RuleData | null> {
   try {
-    const rulesService = new AccessibilityRulesService(
-      path.join(process.cwd(), '../accessibility-rules/rules')
-    );
+
+    console.log("Initializing AccessibilityRulesService");
+    const rulesService = new AccessibilityRulesService();
     
+    console.log("Fetching rule for ID:", ruleId);
     const rule = await rulesService.getRule(ruleId);
+    console.log("rule",rule)
     return rule as RuleData;
   } catch (error) {
     console.error('Error fetching rule:', error);

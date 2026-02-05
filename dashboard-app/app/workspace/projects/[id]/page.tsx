@@ -37,17 +37,18 @@ import { ReportsTab } from "@/components/tabs/project-detail-tab-reports";
 
 import { useProjectDetailPageState } from "@/state-services/project-detail-state";
 import { startFullScan, startPageCollection } from "@/services/projectDetailService";
+import { PageWrapper } from "@/components/molecule/page-wrapper";
 
 /**
  * HeaderButtons
  * -------------
  * Small header action group rendered in the PageContainer header.
  */
-const HeaderButtons = ({ 
-  projectId, 
-  onCollectPages, 
-  onStartFullScan 
-}: { 
+const HeaderButtons = ({
+  projectId,
+  onCollectPages,
+  onStartFullScan
+}: {
   projectId: string;
   onCollectPages: () => void;
   onStartFullScan: () => void;
@@ -105,7 +106,7 @@ export default function ProjectDetailPage() {
 
   const handleNoPageModalSubmit = async (option: "discover-and-test" | "discover-and-choose" | "add-manually") => {
     setShowNoPageModal(false);
-    
+
     if (option === "discover-and-test") {
       // Collect pages (user can manually start scan after pages are discovered)
       await startPageCollection(id);
@@ -138,55 +139,57 @@ export default function ProjectDetailPage() {
   return (
     <PrivateRoute>
       <WorkspaceLayout>
-      <PageContainer
-        excludePadding
-        excludeHeaderBorder
-        title={
-          <>
-            <h2 className="as-h3-text">{project?.name || "Project"}</h2>
-            <div className="as-p3-text">{project?.domain}</div>
-          </>
-        }
-        buttons={<HeaderButtons projectId={id} onCollectPages={handleCollectPages} onStartFullScan={handleStartFullScan} />}
-      >
-        <div className="w-full">
-          <div className="flex flex-col gap-medium">
-            <div className="px-[var(--spacing-m)]">
-              <ProjectDetailStats projectId={id} />
+        <PageWrapper title={project?.name || "Project"} breadcrumbs={[{ title: "Projects", href: "/workspace/projects" }, { title: project?.name || "Project" }]}>
+          <PageContainer
+            excludePadding
+            excludeHeaderBorder
+            title={
+              <>
+                {/* <h2 className="as-h3-text">{project?.name || "Project"}</h2> */}
+                <div className="as-p3-text">{project?.domain}</div>
+              </>
+            }
+            buttons={<HeaderButtons projectId={id} onCollectPages={handleCollectPages} onStartFullScan={handleStartFullScan} />}
+          >
+            <div className="w-full">
+              <div className="flex flex-col gap-medium">
+                <div className="px-[var(--spacing-m)]">
+                  <ProjectDetailStats projectId={id} />
+                </div>
+
+                {/* Tabs */}
+                <div className="px-[var(--spacing-m)] py-[var(--spacing-m)] flex gap-small border-t border-b border-white/6">
+                  {tabs.map((t) => (
+                    <TabButton
+                      key={t}
+                      tabKey={t}
+                      onClick={(next) => state.setTab(next)}
+                      selected={tab === t}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Tab content */}
+              <div className="bg-[#F5F7FB] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl">
+                {tab === "overview" && <OverviewTab project={project} setTab={state.setTabSafe} />}
+                {tab === "runs" && <RunsTab project={project} />}
+                {tab === "pages" && <PagesTab project={project} onPageCountChange={setPageCount} />}
+                {tab === "pageSets" && <PageSetsTab project={project} />}
+                {tab === "reports" && <ReportsTab projectId={project.id} />}
+                {tab === "settings" && <SettingsTab project={project} />}
+              </div>
             </div>
+          </PageContainer>
+        </PageWrapper>
 
-            {/* Tabs */}
-            <div className="px-[var(--spacing-m)] py-[var(--spacing-m)] flex gap-small border-t border-b border-white/6">
-              {tabs.map((t) => (
-                <TabButton
-                  key={t}
-                  tabKey={t}
-                  onClick={(next) => state.setTab(next)}
-                  selected={tab === t}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Tab content */}
-          <div className="bg-[#F5F7FB] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl">
-            {tab === "overview" && <OverviewTab project={project} setTab={state.setTabSafe} />}
-            {tab === "runs" && <RunsTab project={project} />}
-            {tab === "pages" && <PagesTab project={project} onPageCountChange={setPageCount} />}
-            {tab === "pageSets" && <PageSetsTab project={project} />}
-            {tab === "reports" && <ReportsTab projectId={project.id} />}
-            {tab === "settings" && <SettingsTab project={project} />}
-          </div>
-        </div>
-      </PageContainer>
-
-      {/* No Pages Modal */}
-      <NoPagesScanModal
-        open={showNoPageModal}
-        onClose={() => setShowNoPageModal(false)}
-        onSubmit={handleNoPageModalSubmit}
-      />
-    </WorkspaceLayout>
-  </PrivateRoute>
+        {/* No Pages Modal */}
+        <NoPagesScanModal
+          open={showNoPageModal}
+          onClose={() => setShowNoPageModal(false)}
+          onSubmit={handleNoPageModalSubmit}
+        />
+      </WorkspaceLayout>
+    </PrivateRoute>
   );
 }

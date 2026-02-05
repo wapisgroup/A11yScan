@@ -20,7 +20,7 @@ accessibility-rules/
 ├── PUBLISHING.md        # Complete publishing guide
 └── README.md           # Documentation
 ```
-
+◊
 ## Current Status
 
 ### ✅ Completed

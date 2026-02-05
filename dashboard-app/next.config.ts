@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Transpile the @wapisgroup/accessibility-rules package
+  transpilePackages: ['@wapisgroup/accessibility-rules'],
 };
 
 export default nextConfig;

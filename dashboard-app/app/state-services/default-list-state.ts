@@ -75,7 +75,7 @@ export type DefaultPageState<D> = {
  *
  * Kept small to match the current UI design and layout.
  */
-const DEFAULT_PAGE_SIZE = 3;
+const DEFAULT_PAGE_SIZE = 10;
 
 /**
  * useProjectsPageState

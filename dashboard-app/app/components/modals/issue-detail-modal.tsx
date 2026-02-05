@@ -14,7 +14,8 @@ import { PiX, PiCode, PiFileText, PiLightbulb, PiWarning, PiInfo, PiCheckCircle,
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-import { getRuleData, type RuleData } from '@/actions/getRuleData';
+import type { RuleData } from '@/actions/getRuleData';
+
 
 export type IssueData = {
   ruleId?: string | null;
@@ -63,16 +64,36 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
       return;
     }
 
-    setLoadingRule(true);
-    getRuleData(issue.ruleId)
-      .then(data => {
-        setRuleData(data);
-        setLoadingRule(false);
-      })
-      .catch(err => {
-        console.error('Failed to load rule data:', err);
-        setLoadingRule(false);
-      });
+    let cancelled = false;
+
+    const fetchRule = async () => {
+      try {
+        setLoadingRule(true);
+        const res = await fetch(`/api/accessibility-rules/${encodeURIComponent(issue.ruleId)}`);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch rule (${res.status})`);
+        }
+        const data = (await res.json()) as RuleData | null;
+        if (!cancelled) {
+          setRuleData(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load rule data:', err);
+          setRuleData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingRule(false);
+        }
+      }
+    };
+
+    void fetchRule();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, issue?.ruleId]);
 
   // Reset to first tab and first occurrence when modal opens
@@ -113,7 +134,6 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
           {/* Header */}
           <div 
             className="flex items-start justify-between gap-4 p-6 border-b border-[var(--color-border-light)]"
-            style={{ backgroundColor: '#ffffff' }}
           >
             <div className="flex-1">
               <h2 className="as-h4-text primary-text-color mb-2">
@@ -428,7 +448,7 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--color-border-light)] bg-[var(--color-bg-light)]">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--color-border-light)] bg-[var(--color-bg-light)] rounded-b-2xl">
           <button
             onClick={onClose}
             className="px-6 py-2 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border-light)] hover:bg-[var(--color-bg-light)] transition-colors as-p2-text primary-text-color"

@@ -1,14 +1,35 @@
+
 /**
- * handleScanPages
- * -------------
- * Executes an accessibility scan for the pages referenced by a run document.
+ * @file scanPages.js
+ * @module worker/handlers/scanPages
  *
- * Behavior:
- * - Reads run.pagesIds
- * - For each page, runs axe-core via puppeteer when available
- * - Falls back to lightweight HTML heuristics if puppeteer/axe isn't available
- * - Writes scan results into `projects/{projectId}/scans`
- * - Updates per-page summaries and run aggregate stats
+ * @description
+ * Worker handler to execute accessibility scans for all pages referenced by a given run document,
+ * writing results to Firestore and updating usage statistics.
+ *
+ * ## Firestore schema assumptions:
+ * - Projects are stored at: `projects/{projectId}`
+ * - Each project has subcollections:
+ *    - `pages` (documents with field `url`)
+ *    - `runs` (each run references an array of `pagesIds`)
+ *    - `scans` (one document per scan result, keyed by page/run)
+ * - Usage counters are tracked in: `subscriptions/{ownerId}/currentUsage`
+ *
+ * ## Side effects:
+ * - Writes a scan result document for each page in `projects/{projectId}/scans`
+ * - Updates per-page summary and metadata in `projects/{projectId}/pages/{pageId}`
+ * - Aggregates and updates run stats in `projects/{projectId}/runs/{runId}`
+ * - Increments usage counters in `subscriptions/{ownerId}`
+ *
+ * ## Concurrency model:
+ * - Limits number of concurrent scans using p-limit, default concurrency 3 (configurable via env)
+ *
+ * ## Puppeteer/axe vs fallback:
+ * - Uses Puppeteer and axe-core for full browser-based accessibility checks when available
+ * - Falls back to static HTML heuristics using fetchHtml + cheerio if Puppeteer or axe fails
+ *
+ * ## Security note:
+ * - Page snapshots are sanitized in the browser context before being persisted, removing scripts, noscript, and dangerous attributes
  */
 
 const admin = require('firebase-admin');
@@ -16,9 +37,75 @@ const cheerio = require('cheerio');
 const pLimit = require('p-limit');
 const { fetchHtml } = require('../helpers/generic');
 
+/**
+ * Uploads HTML content to Cloud Storage and returns a download URL.
+ * @param {string} projectId - The project ID
+ * @param {string} runId - The run ID
+ * @param {string} pageId - The page ID
+ * @param {string} html - The HTML content to upload
+ * @returns {Promise<string>} - The download URL (signed URL in production, public URL in emulator)
+ */
+async function uploadHtmlToStorage(projectId, runId, pageId, html) {
+    try {
+        const bucket = admin.storage().bucket();
+        const filePath = `scans/${projectId}/${runId}/${pageId}/snapshot.html`;
+        const file = bucket.file(filePath);
+        
+        // Upload the HTML
+        await file.save(html, {
+            contentType: 'text/html',
+            metadata: {
+                cacheControl: 'public, max-age=604800', // 7 days
+            },
+        });
+        
+        // In emulator mode, return a simple public URL (signed URLs require real credentials)
+        if (process.env.EMULATOR_MODE === '1') {
+            const bucketName = bucket.name;
+            const storageHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || 'localhost:9199';
+            const projectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
+            console.log('storage url:',`http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`)
+            return `http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
+        }
+        
+        // In production, use signed URL valid for 7 days
+        const [url] = await file.getSignedUrl({
+            action: 'read',
+            expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+        
+        return url;
+    } catch (error) {
+        console.error('Failed to upload HTML to storage:', error);
+        return null;
+    }
+}
+
+/**
+ * Scans all pages referenced by a run, writes scan results, and updates usage and stats.
+ *
+ * @param {FirebaseFirestore.Firestore} db - The Firestore database instance
+ * @param {string} projectId - The project ID (must exist in `projects/{projectId}`)
+ * @param {string} runId - The run document ID (must exist in `projects/{projectId}/runs/{runId}`)
+ * @returns {Promise<{ok: boolean, scanned: number, agg: Object}>} - Object with scan summary
+ * @throws {Error} If the project or run is not found
+ *
+ * ## High-level flow:
+ * 1. Lookup project and run, validate existence.
+ * 2. Optionally reset usage counters if needed (based on subscription period).
+ * 3. Mark run as 'running'.
+ * 4. Initialize Puppeteer/axe-core if possible; fall back to static checks if not.
+ * 5. Scan each page (concurrently, up to limit):
+ *      - Load page document and fetch/render page.
+ *      - Run axe-core (if using Puppeteer) or static heuristics.
+ *      - Capture and sanitize page snapshot and node highlights.
+ *      - Write scan result, update page doc, update run stats, increment usage.
+ * 6. Finalize run: mark as 'done', persist aggregate stats, close browser.
+ */
 async function handleScanPages(db, projectId, runId) {
     console.log('handleScanPages', projectId, runId);
-    // locate project and ensure it exists
+    // === Project lookup phase ===
+    // Locate project and ensure it exists
     const projectRef = db.collection('projects').doc(projectId);
     const projSnap = await projectRef.get();
     if (!projSnap.exists) {
@@ -29,7 +116,8 @@ async function handleScanPages(db, projectId, runId) {
     const projectData = projSnap.data();
     const projectOwner = projectData?.owner;
 
-    // Check and reset usage counters if needed (do this once at the start)
+    // === Usage counters reset logic ===
+    // Check and reset usage counters if needed (do this once at the start of scan)
     if (projectOwner) {
         try {
             const subscriptionRef = db.collection('subscriptions').doc(projectOwner);
@@ -55,7 +143,8 @@ async function handleScanPages(db, projectId, runId) {
         }
     }
 
-    // Update run status -> running
+    // === Run status transition ===
+    // Mark the run as 'running' and set start timestamp
     const runRef = projectRef.collection('runs').doc(runId);
     await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
@@ -73,10 +162,14 @@ async function handleScanPages(db, projectId, runId) {
         return { ok: true, scanned: 0 };
     }
 
+    // === Concurrency limiter setup ===
+    // Limit the number of concurrent page scans (default 3, configurable)
     const concurrency = Number(process.env.SCAN_CONCURRENCY) || 3;
     const limit = pLimit(concurrency);
 
-    // Try initialize Puppeteer + axe-core; fall back to HTML heuristics if unavailable
+    // === Puppeteer/axe initialization and fallback ===
+    // Try to initialize Puppeteer + axe-core for browser-based scans.
+    // If unavailable, fall back to static HTML heuristics.
     let usePuppeteer = false;
     let puppeteer = null;
     let axe = null;
@@ -95,24 +188,47 @@ async function handleScanPages(db, projectId, runId) {
         browser = null;
     }
 
-    // aggregate stats
+    // === Aggregate stats for the run ===
     const agg = { critical: 0, serious: 0, moderate: 0, minor: 0 };
     let scannedCount = 0;
 
-    // helper to classify and push issue
-    function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description) {
+    /**
+     * Pushes a normalized issue object into the issues array and increments aggregate counters.
+     *
+     * @param {Array} issues - The array to push the issue into
+     * @param {string} impact - Impact level: 'critical', 'serious', 'moderate', or 'minor'
+     * @param {string} message - Human-readable issue description
+     * @param {string} [selector] - CSS selector or node identifier (optional)
+     * @param {string} [ruleId] - Rule identifier (optional)
+     * @param {string} [helpUrl] - Reference URL for more info (optional)
+     * @param {string} [description] - Additional description (optional)
+     * @param {Array} [tags] - Array of standards tags (e.g., ['wcag2a', 'wcag411']) (optional)
+     * @param {string} [failureSummary] - Specific failure explanation for this node (optional)
+     * @param {string} [html] - HTML snippet of the problematic element (optional)
+     * @param {Array} [target] - CSS selector array from axe (optional)
+     *
+     * The issue object has the shape:
+     *   { impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target }
+     * Also increments the corresponding counter in agg.
+     */
+    function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target) {
         issues.push({ 
             impact, 
             message, 
             selector: selector || null,
             ruleId: ruleId || null,
             helpUrl: helpUrl || null,
-            description: description || null
+            description: description || null,
+            tags: tags || [],
+            failureSummary: failureSummary || null,
+            html: html || null,
+            target: target || []
         });
         if (agg[impact] !== undefined) agg[impact]++;
     }
 
-    // process pages concurrently with limit
+    // === Per-page scan flow (concurrent) ===
+    // Each page is processed independently, including fetch/render, axe/static checks, snapshotting, and persistence.
     await Promise.all(pagesIds.map(pageId => limit(async () => {
         try {
             // Per-page metadata (snapshot, node rectangles, etc.).
@@ -135,23 +251,230 @@ async function handleScanPages(db, projectId, runId) {
                 let pageP = null;
                 try {
                     pageP = await browser.newPage();
+                    
+                    // Set viewport to a standard desktop size to ensure consistent rendering and layout
                     await pageP.setViewport({ width: 1200, height: 900 });
                     await pageP.setDefaultNavigationTimeout(30000);
+                    
+                    // Inject cookies if configured in project settings
+                    // MUST be done BEFORE navigation or by navigating to domain first
+                    if (projectData?.config?.cookies && Array.isArray(projectData.config.cookies) && projectData.config.cookies.length > 0) {
+                        try {
+                            // Parse the page URL to get the domain
+                            const urlObj = new URL(pageUrl);
+                            const pageDomain = urlObj.hostname;
+                            const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+                            
+                            console.log(`========== COOKIE INJECTION DEBUG ==========`);
+                            console.log(`Target URL: ${pageUrl}`);
+                            console.log(`Base domain: ${baseUrl}`);
+                            console.log(`Cookies to inject: ${projectData.config.cookies.length}`);
+                            
+                            // Navigate to base URL first to establish domain context
+                            console.log(`Navigating to base URL: ${baseUrl}`);
+                            await pageP.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch((err) => {
+                                console.log('Initial navigation for cookies failed:', err.message);
+                            });
+                            
+                            // Set each cookie
+                            for (let i = 0; i < projectData.config.cookies.length; i++) {
+                                const cookie = projectData.config.cookies[i];
+                                console.log(`\n--- Cookie ${i + 1} ---`);
+                                console.log(`Raw cookie data:`, cookie);
+                                
+                                // Clean up domain if it contains protocol or path
+                                let cookieDomain = cookie.domain || pageDomain;
+                                
+                                // Remove protocol if present (https://, http://)
+                                cookieDomain = cookieDomain.replace(/^https?:\/\//, '');
+                                
+                                // Remove path if present (everything after /)
+                                cookieDomain = cookieDomain.split('/')[0];
+                                
+                                // Remove www. prefix to allow cookie on all subdomains
+                                if (cookieDomain.startsWith('www.')) {
+                                    cookieDomain = cookieDomain.substring(4); // Remove 'www.'
+                                }
+                                
+                                // Add leading dot for subdomain sharing (unless already present)
+                                if (!cookieDomain.startsWith('.')) {
+                                    cookieDomain = '.' + cookieDomain;
+                                }
+                                
+                                const cookieObj = {
+                                    name: cookie.name,
+                                    value: cookie.value,
+                                    domain: cookieDomain,
+                                    path: '/',
+                                };
+                                
+                                console.log(`Cleaned cookie object:`, cookieObj);
+                                
+                                try {
+                                    await pageP.setCookie(cookieObj);
+                                    console.log(`✓ Cookie set successfully: ${cookie.name}`);
+                                } catch (cookieErr) {
+                                    console.error(`✗ Failed to set cookie ${cookie.name}:`, cookieErr.message);
+                                }
+                            }
+                            
+                            // Verify cookies were set
+                            console.log(`\n--- Verifying cookies after setCookie ---`);
+                            const cookiesAfterSet = await pageP.cookies();
+                            console.log(`Total cookies in browser: ${cookiesAfterSet.length}`);
+                            cookiesAfterSet.forEach(c => {
+                                console.log(`  - ${c.name}=${c.value.substring(0, 50)}... (domain: ${c.domain})`);
+                            });
+                            
+                            console.log(`========== END COOKIE INJECTION DEBUG ==========\n`);
+                        } catch (cookieErr) {
+                            console.warn('Failed to inject cookies:', cookieErr);
+                        }
+                    }
+                    
+                    // Use 'networkidle2' to wait for network to be mostly idle, so page is fully loaded
                     const resp = await pageP.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 30000 }).catch(e => null);
-                    if (resp) httpStatus = resp.status();
 
-                    // inject axe-core into page context
+                    if (resp) httpStatus = resp.status();
+                    
+                    // Remove cookie banners if configured
+                    if (projectData?.config?.removeCookieBanners && projectData.config.removeCookieBanners !== 'none') {
+                        try {
+                            const mode = projectData.config.removeCookieBanners;
+                            console.log(`\n--- Removing cookie banners (mode: ${mode}) ---`);
+                            
+                            const removed = await pageP.evaluate((bannerMode) => {
+                                const removedElements = [];
+                                
+                                // CookieYes selectors
+                                const cookieYesSelectors = [
+                                    '#cookieyes-consent',
+                                    '.cookieyes-banner',
+                                    '[id*="cookieyes"]',
+                                    '[class*="cookieyes"]',
+                                    '.cky-consent-container',
+                                    '.cky-overlay'
+                                ];
+                                
+                                // Common cookie banner selectors
+                                const commonSelectors = [
+                                    // CookieYes
+                                    ...cookieYesSelectors,
+                                    // OneTrust
+                                    '#consent-management-box',
+                                    '#onetrust-banner-sdk',
+                                    '#onetrust-consent-sdk',
+                                    '.onetrust-pc-dark-filter',
+                                    '[id*="onetrust"]',
+                                    // Cookiebot
+                                    '#CybotCookiebotDialog',
+                                    '#CookiebotWidget',
+                                    '[id*="cookiebot"]',
+                                    // Generic
+                                    '[class*="cookie-banner"]',
+                                    '[class*="cookie-consent"]',
+                                    '[class*="gdpr-banner"]',
+                                    '[class*="gdpr-consent"]',
+                                    '[id*="cookie-banner"]',
+                                    '[id*="cookie-consent"]',
+                                    '[aria-label*="cookie" i]',
+                                    '[aria-label*="consent" i]',
+                                ];
+                                
+                                const selectorsToUse = bannerMode === 'cookieyes' ? cookieYesSelectors : commonSelectors;
+                                
+                                selectorsToUse.forEach(selector => {
+                                    try {
+                                        const elements = document.querySelectorAll(selector);
+                                        elements.forEach(el => {
+                                           
+                                            if (el && el.parentNode) {
+                                                removedElements.push({
+                                                    tag: el.tagName,
+                                                    id: el.id || '',
+                                                    class: el.className || '',
+                                                    selector: selector
+                                                });
+                                                el.remove();
+                                            }
+                                        });
+                                    } catch (e) {
+                                        // Ignore selector errors
+                                    }
+                                });
+                                
+                                // Also remove backdrop/overlay elements
+                                const overlaySelectors = [
+                                    '[class*="cookie"][class*="overlay"]',
+                                    '[class*="consent"][class*="overlay"]',
+                                    '[class*="cookie"][class*="backdrop"]',
+                                    'body > div[style*="z-index"][style*="position: fixed"]',
+                                ];
+                                
+                                if (bannerMode === 'all') {
+                                    overlaySelectors.forEach(selector => {
+                                        try {
+                                            document.querySelectorAll(selector).forEach(el => {
+                                                if (el && el.parentNode && el.textContent.toLowerCase().includes('cookie')) {
+                                                    removedElements.push({ tag: el.tagName, selector: selector });
+                                                    el.remove();
+                                                }
+                                            });
+                                        } catch (e) {}
+                                    });
+                                }
+                                
+                                // Re-enable scrolling if it was disabled
+                                document.body.style.overflow = '';
+                                document.documentElement.style.overflow = '';
+                                
+                                return removedElements;
+                            }, mode);
+                            
+                            console.log(`✓ Removed ${removed.length} cookie banner elements`);
+                            if (removed.length > 0) {
+                                removed.forEach((el, i) => {
+                                    console.log(`  ${i + 1}. <${el.tag}> ${el.id ? `id="${el.id}"` : ''} ${el.class ? `class="${el.class.substring(0, 40)}..."` : ''}`);
+                                });
+                            }
+                            console.log(`--- End banner removal ---\n`);
+                        } catch (bannerErr) {
+                            console.warn('Failed to remove cookie banners:', bannerErr);
+                        }
+                    }
+                    
+                    // Verify cookies after page load
+                    if (projectData?.config?.cookies && Array.isArray(projectData.config.cookies) && projectData.config.cookies.length > 0) {
+                        console.log(`\n--- Verifying cookies after page load ---`);
+                        const cookiesAfterLoad = await pageP.cookies();
+                        console.log(`Total cookies after page load: ${cookiesAfterLoad.length}`);
+                        cookiesAfterLoad.forEach(c => {
+                            console.log(`  - ${c.name}=${c.value.substring(0, 50)}... (domain: ${c.domain}, path: ${c.path})`);
+                        });
+                        
+                        // Check if our specific cookies are present
+                        for (const expectedCookie of projectData.config.cookies) {
+                            const found = cookiesAfterLoad.find(c => c.name === expectedCookie.name);
+                            if (found) {
+                                console.log(`✓ Cookie "${expectedCookie.name}" is present in browser`);
+                            } else {
+                                console.log(`✗ Cookie "${expectedCookie.name}" NOT FOUND in browser!`);
+                            }
+                        }
+                        console.log(`--- End cookie verification ---\n`);
+                    }
+                    // Inject axe-core into page context and run accessibility checks
                     if (axe && axe.source) {
                         await pageP.addScriptTag({ content: axe.source });
-                        // run axe
+                        // Run axe with WCAG 2.0, 2.1, and best-practice checks for comprehensive coverage
                         const axeResults = await pageP.evaluate(async () => {
                             try {
-                                return await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } });
+                                return await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'best-practice'] } });
                             } catch (e) {
                                 return { error: String(e) };
                             }
                         });
-
+                        
                         if (axeResults && axeResults.violations) {
                             axeResults.violations.forEach(v => {
                                 const impact = v.impact || 'moderate';
@@ -159,26 +482,33 @@ async function handleScanPages(db, projectId, runId) {
                                 const message = v.help || v.description || ruleId;
                                 const helpUrl = v.helpUrl || null;
                                 const description = v.description || null;
+                                const tags = v.tags || [];
                                 
                                 // one issue per node
                                 v.nodes.forEach(node => {
+                                    // Use either the node's html or the joined target selectors for highlighting
                                     const selector = (node && (node.html || node.target && node.target.join(','))) || null;
-                                    pushIssue(issues, impact, message, selector, ruleId, helpUrl, description);
+                                    const failureSummary = (node && node.failureSummary) || null;
+                                    const html = (node && node.html) || null;
+                                    const target = (node && node.target) || null;
+                                    pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target);
                                 });
                             });
                         } else if (axeResults && axeResults.error) {
                             pushIssue(issues, 'serious', 'Axe run error: ' + axeResults.error);
                         }
 
-                        // capture a sanitized page snapshot and node info (selectors + rects) for in-UI highlighting
+                        // === Page snapshot and node highlight capture ===
                         try {
                             // Get the rendered HTML content and sanitize it inside the page context
+                            // Remove scripts, noscript, and dangerous attributes before persisting
+                            console.log('Before sanitizedHtml');
                             const sanitizedHtml = await pageP.evaluate(() => {
                                 try {
                                     const clone = document.documentElement.cloneNode(true);
-                                    // remove scripts & noscript
+                                    // Remove scripts & noscript for safety
                                     clone.querySelectorAll('script, noscript').forEach(n => n.remove());
-                                    // remove potentially dangerous attributes
+                                    // Remove potentially dangerous event attributes and javascript: hrefs
                                     const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT, null, false);
                                     const eventAttrs = ['onabort', 'onblur', 'onchange', 'onclick', 'onerror', 'onfocus', 'oninput', 'onload', 'onmouseover', 'onsubmit', 'onresize', 'onunload'];
                                     while (walker.nextNode()) {
@@ -194,9 +524,12 @@ async function handleScanPages(db, projectId, runId) {
                                     return null;
                                 }
                             });
+                            console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
 
-                            // compute bounding rects and normalize selectors for each axe node in a single evaluate (faster)
+                            // Compute bounding rects and normalized selectors for each axe node in a single evaluate (faster)
+                            // Selectors are chosen from axe node.target (prefer), or by matching html
                             const nodesForEvaluation = (axeResults && axeResults.violations) ? axeResults.violations.flatMap(v => v.nodes || []).map(n => ({ target: n.target, html: n.html })) : [];
+                            console.log('Nodes for evaluation count:', nodesForEvaluation.length);
                             const issueNodes = nodesForEvaluation.length > 0 ? await pageP.evaluate((nodes) => {
                                 function getPrimarySelector(n) { if (n && n.target && n.target.length > 0) return n.target[0]; return null; }
                                 const results = [];
@@ -232,25 +565,40 @@ async function handleScanPages(db, projectId, runId) {
                                                 }
                                                 return '/' + parts.join('/');
                                             }
-                                            results.push({ selector, xpath: getXPathForElement(el), outerHTML: el.outerHTML, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
+                                            // Truncate outerHTML to avoid Firestore nested entity limits (500 chars is enough for matching)
+                                            const truncatedHtml = el.outerHTML ? el.outerHTML.substring(0, 500) : null;
+                                            results.push({ selector, xpath: getXPathForElement(el), outerHTML: truncatedHtml, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
                                         }
                                     } catch (e) {
-                                        results.push({ selector: selector || null, xpath: null, outerHTML: n.html || null, rect: null });
+                                        // Truncate HTML for fallback case too
+                                        const truncatedHtml = n.html ? n.html.substring(0, 500) : null;
+                                        results.push({ selector: selector || null, xpath: null, outerHTML: truncatedHtml, rect: null });
                                     }
                                 });
                                 return results;
                             }, nodesForEvaluation) : [];
 
-
-                            // attach snapshot + node info to scanDoc for later storage
-                            if (sanitizedHtml) pageInfo.pageSnapshot = sanitizedHtml;
+                            // Upload HTML to Storage instead of storing in Firestore
+                            if (sanitizedHtml) {
+                                const storageUrl = await uploadHtmlToStorage(projectId, runId, pageId, sanitizedHtml);
+                                if (storageUrl) {
+                                    pageInfo.pageSnapshotUrl = storageUrl;
+                                } else {
+                                    // Fallback: store truncated HTML if storage upload fails
+                                    console.warn('Storage upload failed, storing truncated HTML in Firestore');
+                                    pageInfo.pageSnapshot = sanitizedHtml.substring(0, 500000); // Max 50KB
+                                }
+                            }
                             if (issueNodes && issueNodes.length) pageInfo.nodeInfo = issueNodes;
+
                         } catch (e) {
                             console.warn('Failed to capture sanitized snapshot / node rects', e);
                         }
+
+                        
                     }
 
-                    // also collect simple checks: title and html[lang]
+                    // Also collect simple checks: title and html[lang]
                     try {
                         const meta = await pageP.evaluate(() => ({ title: document.title || '', lang: document.documentElement.lang || '' }));
                         if (!meta.title || meta.title.trim() === '') pushIssue(issues, 'critical', 'Missing or empty <title> element');
@@ -299,8 +647,12 @@ async function handleScanPages(db, projectId, runId) {
                 }
             }
 
-            // store scan result per page in projects/{projectId}/scans
+            // === Persistence: store scan result per page in projects/{projectId}/scans ===
             const scansCol = projectRef.collection('scans');
+            
+            // Extract pageSnapshot, pageSnapshotUrl and nodeInfo to top level
+            const { pageSnapshot, pageSnapshotUrl, nodeInfo, ...restPageInfo } = pageInfo;
+            
             const scanDoc = {
                 pageId: pageId,
                 pageUrl: pageUrl,
@@ -313,7 +665,11 @@ async function handleScanPages(db, projectId, runId) {
                     minor: issues.filter(i => i.impact === 'minor').length,
                 },
                 issues,
-                pageInfo,
+                // Store HTML snapshot URL from Cloud Storage (preferred) or truncated HTML (fallback)
+                pageSnapshotUrl: pageSnapshotUrl || null,
+                pageSnapshot: pageSnapshot || null,
+                nodeInfo: nodeInfo || [],
+                pageInfo: Object.keys(restPageInfo).length > 0 ? restPageInfo : null,
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             };
 
@@ -333,10 +689,10 @@ async function handleScanPages(db, projectId, runId) {
                 }
             }
 
-            // update run counters
+            // Update run counters
             scannedCount++;
 
-            // update page document with latest scan summary and metadata
+            // Update page document with latest scan summary and metadata
             try {
                 await pageRef.update({
                     lastRunId: runId,
@@ -356,7 +712,7 @@ async function handleScanPages(db, projectId, runId) {
                 console.warn('Failed to update page document with scan summary for', pageId, e && e.message ? e.message : e);
             }
 
-            // update aggregated counters on the run document
+            // Update aggregated counters on the run document
             await runRef.update({
                 pagesScanned: admin.firestore.FieldValue.increment(1),
                 'stats.critical': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'critical').length),
@@ -377,10 +733,11 @@ async function handleScanPages(db, projectId, runId) {
         }
     })));
 
-    // close browser if used
+    // === Cleanup and finalization ===
+    // Close browser if used
     try { if (browser) await browser.close(); } catch (e) { console.warn('Failed to close browser', e); }
 
-    // finalize run: mark done and attach aggregated stats
+    // Finalize run: mark done and attach aggregated stats
     await runRef.update({
         status: 'done',
         finishedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -396,7 +753,19 @@ async function handleScanPages(db, projectId, runId) {
 }
 
 /**
- * Check if usage counters should be reset based on billing period
+ * Determines if usage counters should be reset for a subscription.
+ *
+ * @param {Object} subscription - The subscription object from Firestore.
+ *   Expects:
+ *     - currentUsage.usagePeriodStart: Firestore Timestamp (start of current usage period)
+ *     - currentPeriodStart: Firestore Timestamp (Stripe-provided billing period start, optional)
+ * @param {Date} now - Current time
+ * @returns {boolean} True if counters should be reset (new billing period or new day for daily counters)
+ *
+ * Reset rules:
+ *   - If usagePeriodStart is missing, always reset.
+ *   - If Stripe's currentPeriodStart is present and later than our usagePeriodStart, reset.
+ *   - For daily counters (apiCallsToday), reset if usagePeriodStart is before today.
  */
 function shouldResetUsageCounters(subscription, now) {
     // If no usage period start is set, we should reset

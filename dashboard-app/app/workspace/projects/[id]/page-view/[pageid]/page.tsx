@@ -21,6 +21,7 @@ import { useParams } from "next/navigation";
 import { db } from "@/utils/firebase";
 import { PrivateRoute } from "@/utils/private-router";
 import IssuesList from "@/components/atom/issue-list";
+import IssueDetailModal, { type IssueData } from "@/components/modals/issue-detail-modal";
 
 /** Next.js route params for `/workspace/projects/[id]/page-view/[pageid]` */
 type ParamsShape = {
@@ -44,8 +45,14 @@ export type HighlightNode = {
   message?: string | null;
   issue?: string | null;
   help?: string | null;
+  helpUrl?: string | null;
   description?: string | null;
   outerHTML?: string | null;
+  ruleId?: string | null;
+  impact?: string | null;
+  tags?: string[] | null;
+  failureSummary?: string | null;
+  target?: string[] | string | null;
   [key: string]: unknown;
 };
 
@@ -84,6 +91,9 @@ export default function PageViewer(): React.JSX.Element {
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [scan, setScan] = useState<ScanDoc | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<IssueData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
 
   // Subscribe to the scan document in realtime.
   useEffect(() => {
@@ -111,17 +121,79 @@ export default function PageViewer(): React.JSX.Element {
 
   /** Prefer nested pageInfo.nodeInfo when available. */
   const nodes: HighlightNode[] = useMemo(() => {
-    const n = (scan?.pageInfo?.nodeInfo ?? scan?.nodeInfo ?? []) as HighlightNode[];
-    return Array.isArray(n) ? n : [];
+    const nodeInfo = (scan?.pageInfo?.nodeInfo ?? scan?.nodeInfo ?? []) as HighlightNode[];
+    const issues = (scan?.issues ?? []) as any[];
+    
+    if (!Array.isArray(nodeInfo) || nodeInfo.length === 0) return [];
+    
+    // Merge nodeInfo (DOM data) with issues (severity/message data) by matching selectors
+    return nodeInfo.map((node, index) => {
+      // Try to find matching issue by selector or by index
+      const matchingIssue = issues.find(issue => 
+        (node.selector && issue.selector === node.selector) ||
+        (node.outerHTML && issue.html && issue.html === node.outerHTML)
+      ) || issues[index];
+      
+      if (matchingIssue) {
+        return {
+          ...node,
+          impact: matchingIssue.impact,
+          message: matchingIssue.message,
+          description: matchingIssue.description,
+          ruleId: matchingIssue.ruleId,
+          helpUrl: matchingIssue.helpUrl,
+          tags: matchingIssue.tags,
+          failureSummary: matchingIssue.failureSummary,
+        };
+      }
+      
+      return node;
+    });
   }, [scan]);
 
   /** Prefer inline snapshot HTML over URL, fallback to URL fetch. */
   const snapshot = useMemo(() => {
+    console.log('scan', scan); 
+
+    const inlineHtml = (scan?.pageInfo?.pageSnapshot ?? scan?.pageSnapshot ?? null) as string | null;
+    const url = (scan?.pageSnapshotUrl ?? null) as string | null;
+
+    console.log('inlineHtml',inlineHtml);
+    
+    // Debug logging
+    console.log('Snapshot debug:', {
+      hasScan: !!scan,
+      hasPageInfo: !!scan?.pageInfo,
+      hasPageSnapshot: !!scan?.pageInfo?.pageSnapshot,
+      hasScanPageSnapshot: !!scan?.pageSnapshot,
+      hasUrl: !!url,
+      inlineHtmlLength: inlineHtml?.length || 0,
+    });
+     
+
     return {
-      inlineHtml: (scan?.pageInfo?.pageSnapshot ?? scan?.pageSnapshot ?? null) as string | null,
-      url: (scan?.pageSnapshotUrl ?? null) as string | null,
+      inlineHtml,
+      url,
     };
   }, [scan]);
+
+  // Handle issue selection - both highlight in iframe and open modal
+  const handleIssueSelect = (node: HighlightNode, index: number) => {
+    // Extract issue data for modal
+    setSelectedIssue({
+      ruleId: (node.ruleId as string) || null,
+      impact: (node.impact as string) || undefined,
+      message: (node.message || node.description) as string || undefined,
+      description: node.description as string || null,
+      helpUrl: (node.help || node.helpUrl) as string || null,
+      html: node.outerHTML as string || null,
+      selector: node.selector as string || null,
+      target: (node.target as string[] | string) || null,
+      failureSummary: (node.failureSummary as string) || null,
+      tags: (node.tags as string[]) || [],
+    });
+    setIsModalOpen(true);
+  };
 
   // Build wrapper HTML with overlay CSS and a message listener script.
   const buildSrcDoc = (pageHtml: string): string => {
@@ -161,30 +233,6 @@ export default function PageViewer(): React.JSX.Element {
 
                 if (el) {
                   el.classList.add('a11y-highlight');
-
-                  if (item.rect) {
-                    var box = document.createElement('div');
-                    box.className = '__a11y_overlay_box';
-                    box.style.position = 'absolute';
-                    box.style.top = (item.rect.top) + 'px';
-                    box.style.left = (item.rect.left) + 'px';
-                    box.style.width = (item.rect.width) + 'px';
-                    box.style.height = (item.rect.height) + 'px';
-                    box.style.border = '3px solid rgba(255,0,0,0.9)';
-                    box.style.boxShadow = '0 0 0 3px rgba(255,0,0,0.15)';
-                    box.style.zIndex = 2147483647;
-                    box.style.pointerEvents = 'none';
-                    document.body.appendChild(box);
-                  }
-
-                  var tip = document.createElement('div');
-                  tip.className = '__a11y_overlay_box a11y-tooltip';
-                  tip.innerText = (item.message || item.description || 'Accessibility issue');
-                  var rtop = (item.rect ? item.rect.top + window.scrollY : el.getBoundingClientRect().top + window.scrollY);
-                  var rleft = (item.rect ? item.rect.left + window.scrollX : el.getBoundingClientRect().left + window.scrollX);
-                  tip.style.top = Math.max(8, rtop - 36) + 'px';
-                  tip.style.left = Math.max(8, rleft) + 'px';
-                  document.body.appendChild(tip);
                 } else {
                   console.warn('Highlight failed to find element for', item.selector || item.xpath, item);
                 }
@@ -203,7 +251,7 @@ export default function PageViewer(): React.JSX.Element {
         } catch (e) { }
       })();
     `;
-
+     
     // Inject CSS + script into <head>
     return pageHtml.replace(
       /<head([^>]*)>/i,
@@ -214,7 +262,25 @@ export default function PageViewer(): React.JSX.Element {
   // Load snapshot into the iframe and send highlight nodes.
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!scan || !iframe) return;
+    
+    // Early exit if no scan data yet
+    if (!scan) {
+      console.log('Snapshot load skipped: no scan data');
+      return;
+    }
+
+    // Wait for iframe to be ready
+    if (!iframe) {
+      console.log('Snapshot load skipped: iframe not ready, will retry when iframe mounts');
+      return;
+    }
+    
+    console.log('Loading snapshot...', { 
+      hasInlineHtml: !!snapshot.inlineHtml, 
+      inlineHtmlLength: snapshot.inlineHtml?.length,
+      hasUrl: !!snapshot.url,
+      url: snapshot.url 
+    });
 
     const sendNodesToIframe = () => {
       try {
@@ -250,13 +316,14 @@ export default function PageViewer(): React.JSX.Element {
 
     window.addEventListener("message", onMessage);
 
-    // Set srcdoc
-    if (!snapshot.inlineHtml && !snapshot.url) {
+    console.log(snapshot);
+
+    // Load HTML snapshot - prioritize Cloud Storage URL over inline HTML
+    if (!snapshot.url && !snapshot.inlineHtml) {
       // eslint-disable-next-line no-console
       console.warn("No snapshot found in scan");
-    } else if (snapshot.inlineHtml) {
-      iframe.srcdoc = buildSrcDoc(snapshot.inlineHtml);
     } else if (snapshot.url) {
+      // Prefer loading from Cloud Storage
       fetch(snapshot.url)
         .then((r) => r.text())
         .then((html) => {
@@ -264,8 +331,15 @@ export default function PageViewer(): React.JSX.Element {
         })
         .catch((err) => {
           // eslint-disable-next-line no-console
-          console.warn("Failed to fetch snapshot", err);
+          console.warn("Failed to fetch snapshot from storage, trying inline HTML", err);
+          // Fallback to inline HTML if storage fetch fails
+          if (snapshot.inlineHtml) {
+            iframe.srcdoc = buildSrcDoc(snapshot.inlineHtml);
+          }
         });
+    } else if (snapshot.inlineHtml) {
+      // Fallback: use inline HTML if no storage URL
+      iframe.srcdoc = buildSrcDoc(snapshot.inlineHtml);
     }
 
     // Fallback: send nodes after load in case the handshake arrives late.
@@ -282,25 +356,39 @@ export default function PageViewer(): React.JSX.Element {
         // ignore
       }
     };
-  }, [scan, nodes, snapshot]);
+  }, [scan, nodes, snapshot, iframeReady]);
 
   return (
     <PrivateRoute>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 12, height: "100%" }}>
-        <div>
-          <iframe
-            ref={iframeRef}
-            title="page-snapshot"
-            style={{ width: "100%", height: "100%", border: 0 }}
-            sandbox="allow-scripts allow-forms"
-          />
+      <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
+        {/* Main Content - Page Preview */}
+        <div className="flex-1 flex flex-col border-r border-[var(--color-border-light)]">
+          <div className="flex-1 bg-white">
+            <iframe
+              ref={(el) => {
+                iframeRef.current = el;
+                if (el && !iframeReady) {
+                  setIframeReady(true);
+                }
+              }}
+              title="page-snapshot"
+              className="w-full h-full border-0"
+              sandbox="allow-scripts allow-forms"
+            />
+          </div>
         </div>
 
-        <aside>
-          <h3>Issues</h3>
-          <IssuesList nodes={nodes} iframeRef={iframeRef} />
+        {/* Sidebar - Issues List */}
+        <aside className="w-[420px] flex flex-col bg-[var(--color-bg)] shadow-lg">
+          <IssuesList nodes={nodes} iframeRef={iframeRef} onSelect={handleIssueSelect} />
         </aside>
       </div>
+
+      <IssueDetailModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        issue={selectedIssue}
+      />
     </PrivateRoute>
   );
 }

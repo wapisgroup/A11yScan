@@ -7,11 +7,19 @@ import { PiCheckCircle, PiWarningCircle, PiInfo } from "react-icons/pi";
 import { PageContainer } from "../molecule/page-container";
 import { LoadingState } from "../atom/LoadingState";
 
+type Cookie = {
+  name: string;
+  value: string;
+  domain?: string;
+};
+
 type ProjectConfig = {
   maxPages?: number;
   crawlDelayMs?: number;
   robotsRespect?: boolean;
   storeArtifacts?: boolean;
+  cookies?: Cookie[];
+  removeCookieBanners?: 'none' | 'cookieyes' | 'all';
 };
 
 type Project = {
@@ -27,6 +35,8 @@ export function SettingsTab({ project }: SettingsTabProps) {
   const projectId = project?.id;
   const config = project?.config;
 
+  console.log("Project config:", project);
+
   const [status, setStatus] = useState<{ kind: "idle" | "ok" | "error"; message?: string }>({
     kind: "idle",
   });
@@ -37,9 +47,13 @@ export function SettingsTab({ project }: SettingsTabProps) {
       crawlDelayMs: config?.crawlDelayMs ?? 100,
       robotsRespect: config?.robotsRespect ?? true,
       storeArtifacts: config?.storeArtifacts ?? true,
+      cookies: config?.cookies ?? [],
+      removeCookieBanners: config?.removeCookieBanners ?? 'none',
     }),
     [config]
   );
+
+  const [cookieInput, setCookieInput] = useState({ name: '', value: '', domain: '' });
 
   async function updateProjectConfig(updated: Partial<ProjectConfig>) {
     if (!projectId) return;
@@ -60,6 +74,25 @@ export function SettingsTab({ project }: SettingsTabProps) {
       const msg = err instanceof Error ? err.message : String(err);
       setStatus({ kind: "error", message: "Save failed: " + msg });
     }
+  }
+
+  function addCookie() {
+    if (!cookieInput.name || !cookieInput.value) return;
+    
+    const newCookie: Cookie = {
+      name: cookieInput.name.trim(),
+      value: cookieInput.value.trim(),
+      ...(cookieInput.domain && { domain: cookieInput.domain.trim() }),
+    };
+    
+    const updatedCookies = [...defaults.cookies, newCookie];
+    void updateProjectConfig({ cookies: updatedCookies });
+    setCookieInput({ name: '', value: '', domain: '' });
+  }
+
+  function removeCookie(index: number) {
+    const updatedCookies = defaults.cookies.filter((_, i) => i !== index);
+    void updateProjectConfig({ cookies: updatedCookies });
   }
 
   if (!projectId) {
@@ -222,6 +255,142 @@ export function SettingsTab({ project }: SettingsTabProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Cookie Banner Handling */}
+        <div className="bg-white p-[var(--spacing-m)] rounded-lg border border-[var(--color-border-light)] shadow-sm flex flex-col gap-medium">
+          <div className="flex flex-col gap-1">
+            <h4 className="as-h4-text primary-text-color">Cookie Banner Handling</h4>
+            <p className="as-p2-text secondary-text-color">
+              Automatically remove cookie consent banners from scanned pages
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-small">
+            <label className="as-p2-text primary-text-color">Banner Removal Mode</label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-small">
+              <button
+                type="button"
+                onClick={() => void updateProjectConfig({ removeCookieBanners: 'none' })}
+                className={`px-4 py-3 rounded-lg as-p2-text transition-all text-left ${
+                  defaults.removeCookieBanners === 'none'
+                    ? "bg-brand text-white shadow-sm"
+                    : "bg-gray-100 secondary-text-color hover:bg-gray-200"
+                }`}
+              >
+                <div className="font-medium">None</div>
+                <div className="as-p3-text mt-1 opacity-80">Keep all banners</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => void updateProjectConfig({ removeCookieBanners: 'cookieyes' })}
+                className={`px-4 py-3 rounded-lg as-p2-text transition-all text-left ${
+                  defaults.removeCookieBanners === 'cookieyes'
+                    ? "bg-brand text-white shadow-sm"
+                    : "bg-gray-100 secondary-text-color hover:bg-gray-200"
+                }`}
+              >
+                <div className="font-medium">CookieYes</div>
+                <div className="as-p3-text mt-1 opacity-80">Remove CookieYes banners</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => void updateProjectConfig({ removeCookieBanners: 'all' })}
+                className={`px-4 py-3 rounded-lg as-p2-text transition-all text-left ${
+                  defaults.removeCookieBanners === 'all'
+                    ? "bg-brand text-white shadow-sm"
+                    : "bg-gray-100 secondary-text-color hover:bg-gray-200"
+                }`}
+              >
+                <div className="font-medium">All Common</div>
+                <div className="as-p3-text mt-1 opacity-80">Remove all known banners</div>
+              </button>
+            </div>
+            <p className="as-p3-text secondary-text-color mt-2">
+              💡 Recommended: Use "All Common" to remove banners from CookieYes, OneTrust, Cookiebot, and other providers
+            </p>
+          </div>
+        </div>
+
+        {/* Cookies Configuration */}
+        <div className="bg-white p-[var(--spacing-m)] rounded-lg border border-[var(--color-border-light)] shadow-sm flex flex-col gap-medium">
+          <div className="flex flex-col gap-1">
+            <h4 className="as-h4-text primary-text-color">Cookie Injection</h4>
+            <p className="as-p2-text secondary-text-color">
+              Add cookies to inject into the browser during scanning (useful for bypassing GDPR banners)
+            </p>
+            <p className="as-p3-text text-amber-600 mt-1">
+              💡 Domain should be just the hostname (e.g., "pearson-pensions.com" or ".example.com"), not "https://www.example.com"
+            </p>
+          </div>
+
+          {/* Cookie Input Form */}
+          <div className="flex flex-col gap-small">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-small">
+              <input
+                type="text"
+                placeholder="Cookie name (e.g., cookieyes-consent)"
+                value={cookieInput.name}
+                onChange={(e) => setCookieInput({ ...cookieInput, name: e.target.value })}
+                className="px-3 py-2 rounded-lg bg-white border border-gray-300 primary-text-color input-focus as-p2-text"
+              />
+              <input
+                type="text"
+                placeholder="Cookie value (e.g., consent:yes)"
+                value={cookieInput.value}
+                onChange={(e) => setCookieInput({ ...cookieInput, value: e.target.value })}
+                className="px-3 py-2 rounded-lg bg-white border border-gray-300 primary-text-color input-focus as-p2-text"
+              />
+              <input
+                type="text"
+                placeholder="Domain (e.g., pearson-pensions.com)"
+                value={cookieInput.domain}
+                onChange={(e) => setCookieInput({ ...cookieInput, domain: e.target.value })}
+                className="px-3 py-2 rounded-lg bg-white border border-gray-300 primary-text-color input-focus as-p2-text"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={addCookie}
+              disabled={!cookieInput.name || !cookieInput.value}
+              className="self-start px-4 py-2 rounded-lg bg-brand text-white as-p2-text disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand/90 transition-all"
+            >
+              Add Cookie
+            </button>
+          </div>
+
+          {/* Cookie List */}
+          {defaults.cookies.length > 0 && (
+            <div className="flex flex-col gap-small">
+              <h5 className="as-p2-text font-medium primary-text-color">Configured Cookies</h5>
+              <div className="space-y-2">
+                {defaults.cookies.map((cookie, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex flex-col gap-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="as-p2-text font-medium primary-text-color">{cookie.name}</span>
+                        <span className="as-p3-text secondary-text-color">=</span>
+                        <span className="as-p2-text secondary-text-color max-w-[600px] truncate">{cookie.value}</span>
+                      </div>
+                      {cookie.domain && (
+                        <span className="as-p3-text tertiary-text-color">Domain: {cookie.domain}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCookie(idx)}
+                      className="px-3 py-1 rounded-lg bg-red-100 text-red-600 as-p3-text hover:bg-red-200 transition-all"
+                    > 
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Info Box */}

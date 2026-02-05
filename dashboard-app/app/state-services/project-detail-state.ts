@@ -6,6 +6,7 @@ import { doc, onSnapshot, type DocumentData } from "firebase/firestore";
 import { db } from "@/utils/firebase";
 import type { Project } from "@/types/project";
 import type { ProjectTabKey } from "@/types/project";
+import { config } from "process";
 
 /**
  * Supported tabs for the Project Detail page.
@@ -104,6 +105,7 @@ export const useProjectDetailPageState = (
           sitemapUrl: (data.sitemapUrl ?? null) as string | null,
           sitemapTreeUrl: (data.sitemapTreeUrl ?? null) as string | null,
           sitemapGraphUrl: (data.sitemapGraphUrl ?? null) as string | null,
+          config: (data.config ?? {}) as Record<string, any>,
         } as Project);
 
         setLoading(false);

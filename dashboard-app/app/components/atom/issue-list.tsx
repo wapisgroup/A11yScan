@@ -5,19 +5,18 @@
  * ----------
  * Renders a keyboard-accessible list of accessibility issue nodes and
  * communicates with the page-view iframe via `postMessage`.
- *
- * Behavior:
- * - Click or press Enter/Space to highlight an issue in the iframe.
- * - ArrowUp/ArrowDown navigates the focused item.
- * - Escape clears highlights in the iframe.
- * - "Copy" copies the best available selector/xpath/html snippet.
- *
- * Notes:
- * - This component is UI-only (no Firestore). It assumes the iframe is already loaded.
- * - It sends `{ type: 'HIGHLIGHT', nodes: [...] }` messages to the iframe.
  */
 
 import React, { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { 
+  PiWarning, 
+  PiCheckCircle, 
+  PiInfo, 
+  PiXCircle, 
+  PiCopy, 
+  PiCodeBold,
+  PiCursorClick 
+} from "react-icons/pi";
 
 export type Rect = {
   top: number;
@@ -98,6 +97,15 @@ export default function IssuesList({ nodes = [], iframeRef, onSelect }: IssuesLi
     [nodes, onSelect, sendHighlight]
   );
 
+  const handleHover = useCallback(
+    (idx: number) => {
+      const node = nodes[idx];
+      if (!node) return;
+      sendHighlight(node);
+    },
+    [nodes, sendHighlight]
+  );
+
   const clearHighlights = useCallback(() => {
     try {
       iframeRef.current?.contentWindow?.postMessage({ type: "CLEAR_HIGHLIGHTS" }, "*");
@@ -134,73 +142,124 @@ export default function IssuesList({ nodes = [], iframeRef, onSelect }: IssuesLi
   }, [focused]);
 
   if (!nodes || nodes.length === 0) {
-    return <div className="text-slate-500">No issues to show.</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <PiCheckCircle className="w-16 h-16 text-green-500 mb-4 opacity-20" />
+        <p className="as-h5-text secondary-text-color">No issues found</p>
+        <p className="as-p3-text tertiary-text-color mt-1">This page has no accessibility violations</p>
+      </div>
+    );
   }
 
   return (
-    <div
-      ref={listRef}
-      role="listbox"
-      aria-label="Accessibility issues"
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      style={{ maxHeight: "60vh", overflow: "auto" }}
-    >
-      {nodes.map((n, idx) => {
-        const impact = String(n.impact || "moderate").toLowerCase();
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-bg)]">
+        <div className="flex items-center justify-between">
+          <h3 className="as-h5-text primary-text-color">Issues Found</h3>
+          <span className="px-2 py-1 rounded-full bg-[var(--color-error)]/10 text-[var(--color-error)] as-p3-text font-medium">
+            {nodes.length}
+          </span>
+        </div>
+        <p className="as-p3-text tertiary-text-color mt-1">Click to highlight on page</p>
+      </div>
 
-        return (
-          <div
-            key={idx}
-            data-idx={idx}
-            role="option"
-            aria-selected={focused === idx}
-            tabIndex={-1}
-            onClick={() => handleClick(idx)}
-            onFocus={() => setFocused(idx)}
-            className={`p-3 border-b cursor-pointer ${focused === idx ? "ring-2 ring-blue-300" : ""}`}
-            style={{ display: "flex", gap: 12, alignItems: "flex-start" }}
-          >
-            <div style={{ minWidth: 10, textTransform: "capitalize", fontWeight: 600 }}>
-              <ImpactBadge impact={impact} />
-            </div>
+      {/* List */}
+      <div
+        ref={listRef}
+        role="listbox"
+        aria-label="Accessibility issues"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        className="flex-1 overflow-y-auto"
+      >
+        {nodes.map((n, idx) => {
+          const impact = String(n.impact || "moderate").toLowerCase();
+          const isActive = focused === idx;
 
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>
-                {n.message || n.description || "Accessibility issue"}
-              </div>
-              <div style={{ fontSize: 12, color: "#666" }}>
-                {n.selector
-                  ? n.selector
-                  : n.outerHTML
-                    ? String(n.outerHTML).slice(0, 120) + "…"
-                    : ""}
-              </div>
-              <div style={{ fontSize: 12, color: "#999", marginTop: 6 }}>
-                {n.xpath && <span style={{ marginRight: 8 }}>xpath</span>}
-                {n.rect && (
-                  <span style={{ marginRight: 8 }}>
-                    rect {Math.round(n.rect.left)}x{Math.round(n.rect.top)}
-                  </span>
-                )}
-              </div>
-            </div>
+          return (
+            <div
+              key={idx}
+              data-idx={idx}
+              role="option"
+              aria-selected={isActive}
+              tabIndex={-1}
+              onClick={() => handleClick(idx)}
+              onMouseEnter={() => handleHover(idx)}
+              onMouseLeave={clearHighlights}
+              onFocus={() => setFocused(idx)}
+              className={`
+                group relative px-4 py-3 border-b border-[var(--color-border-light)] 
+                cursor-pointer transition-all duration-150
+                hover:bg-[var(--color-bg-light)] hover:border-l-4 hover:border-l-brand
+                ${isActive ? 'bg-brand/5 border-l-4 border-l-brand' : ''}
+              `}
+            >
+              {/* Impact Badge & Content */}
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 pt-0.5">
+                  <ImpactBadge impact={impact} />
+                </div>
 
-            <div style={{ minWidth: 120, textAlign: "right" }}>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copySelector(n);
-                }}
-                aria-label="Copy selector"
-              >
-                Copy
-              </button>
+                <div className="flex-1 min-w-0">
+                  {/* Message */}
+                  <div className="flex items-start gap-2 mb-2">
+                    <PiCursorClick className="flex-shrink-0 w-4 h-4 mt-0.5 opacity-40 group-hover:opacity-100 transition-opacity" />
+                    <h4 className="as-p2-text primary-text-color font-medium leading-snug">
+                      {n.message || n.description || "Accessibility issue"}
+                    </h4>
+                  </div>
+
+                  {/* Selector */}
+                  {n.selector && (
+                    <div className="flex items-start gap-2 mb-2">
+                      <PiCodeBold className="flex-shrink-0 w-3.5 h-3.5 mt-0.5 tertiary-text-color" />
+                      <code className="as-p3-text font-mono tertiary-text-color break-all">
+                        {n.selector}
+                      </code>
+                    </div>
+                  )}
+
+                  {/* Metadata */}
+                  <div className="flex items-center gap-3 mt-2">
+                    {n.xpath && (
+                      <span className="as-p4-text tertiary-text-color">
+                        XPath available
+                      </span>
+                    )}
+                    {n.rect && (
+                      <span className="as-p4-text tertiary-text-color">
+                        {Math.round(n.rect.width)}×{Math.round(n.rect.height)}px
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Copy Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copySelector(n);
+                  }}
+                  className="flex-shrink-0 p-2 rounded-lg hover:bg-[var(--color-bg-light)] 
+                    border border-transparent hover:border-[var(--color-border-light)]
+                    transition-all duration-150 group/copy"
+                  aria-label="Copy selector"
+                  title="Copy selector"
+                >
+                  <PiCopy className="w-4 h-4 secondary-text-color group-hover/copy:text-brand" />
+                </button>
+              </div>
+
+              {/* Active Indicator */}
+              {isActive && (
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-brand rounded-l-full" />
+              )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -208,28 +267,47 @@ export default function IssuesList({ nodes = [], iframeRef, onSelect }: IssuesLi
 type ImpactBadgeProps = { impact: string };
 
 function ImpactBadge({ impact }: ImpactBadgeProps) {
-  const color =
-    impact === "critical"
-      ? "#c53030"
-      : impact === "serious"
-        ? "#dd6b20"
-        : impact === "moderate"
-          ? "#3182ce"
-          : "#718096";
+  const config = {
+    critical: {
+      color: 'var(--color-error)',
+      bg: 'var(--color-error)',
+      icon: PiXCircle,
+      label: 'Critical'
+    },
+    serious: {
+      color: 'var(--color-warning)',
+      bg: 'var(--color-warning)',
+      icon: PiWarning,
+      label: 'Serious'
+    },
+    moderate: {
+      color: 'var(--color-info)',
+      bg: 'var(--color-info)',
+      icon: PiInfo,
+      label: 'Moderate'
+    },
+    minor: {
+      color: 'var(--color-success)',
+      bg: 'var(--color-success)',
+      icon: PiCheckCircle,
+      label: 'Minor'
+    }
+  };
+
+  const severity = config[impact as keyof typeof config] || config.moderate;
+  const Icon = severity.icon;
 
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "2px 8px",
-        background: color,
-        color: "white",
-        borderRadius: 6,
-        fontSize: 12,
+    <div 
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full as-p4-text font-medium"
+      style={{ 
+        backgroundColor: `${severity.bg}15`,
+        color: severity.color,
       }}
     >
-      {impact}
-    </span>
+      <Icon className="w-3.5 h-3.5" />
+      <span className="capitalize">{severity.label}</span>
+    </div>
   );
 }
 
