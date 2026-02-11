@@ -28,11 +28,11 @@ export const PricingPageFAQCta = () => {
             <WhiteBox extraClass="gap-medium" largeRounded>
                 <div className="flex flex-col gap-medium">
                     <h4 className="as-h4-text primary-color-text">Ready to get started?</h4>
-                    <p className="as-p2-text seconddary-color-text">Create your first project and run a free scan today. No credit card required for the free plan.</p>
+                    <p className="as-p2-text seconddary-color-text">Create your first project and run a scan today. No credit card required for the free trial.</p>
                 </div>
                 <div className="flex gap-medium">
                     <Link href={startTrial}>
-                    <Button variant="primary" title={`Start free`} />
+                    <Button variant="primary" title={`Start free trial`} />
                     </Link>
                     <Link href={contactSales}>
                     <Button variant="secondary" title={`Contact sales`} />

@@ -27,6 +27,14 @@ const buildPagesQuery = (projectId: string): Query<DocumentData> => {
   return query(collection(db, "projects", projectId, "pages"));
 };
 
+const sortPagesByUrl = (pages: PageDoc[]): PageDoc[] => {
+  return [...pages].sort((a, b) => {
+    const urlA = String(a.url || "").toLowerCase();
+    const urlB = String(b.url || "").toLowerCase();
+    return urlA.localeCompare(urlB);
+  });
+};
+
 /**
  * Loads all pages for a project (one-time fetch).
  *
@@ -40,7 +48,7 @@ export async function loadProjectPages(projectId: string): Promise<PageDoc[]> {
   const q = buildPagesQuery(projectId);
   const snap = await getDocs(q);
 
-  return snap.docs.map((d) => {
+  const pages = snap.docs.map((d) => {
     const data = d.data() as DocumentData;
     return {
       id: d.id,
@@ -50,6 +58,8 @@ export async function loadProjectPages(projectId: string): Promise<PageDoc[]> {
       ...data,
     } as PageDoc;
   });
+
+  return sortPagesByUrl(pages);
 }
 
 
@@ -82,7 +92,7 @@ export function subscribeProjectPages(
         // Exclude soft-hidden runs
         .filter((r) => (r as any).hidden !== true);
 
-      onNext(runs);
+      onNext(sortPagesByUrl(runs));
     },
     (error) => {
       if (onError) {

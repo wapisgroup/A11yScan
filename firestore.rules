@@ -76,6 +76,31 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Schedules collection - org members can read/write their schedules
+    match /schedules/{scheduleId} {
+      allow read: if request.auth != null && (
+        // Allow access to schedules created by the user
+        resource.data.createdBy == request.auth.uid ||
+        // Allow access to schedules within the user's organization
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == resource.data.organizationId)
+      );
+
+      allow create: if request.auth != null &&
+        request.resource.data.createdBy == request.auth.uid &&
+        (
+          request.resource.data.organizationId == null ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == request.resource.data.organizationId)
+        );
+
+      allow update, delete: if request.auth != null && (
+        resource.data.createdBy == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == resource.data.organizationId)
+      );
+    }
+
     // Subscriptions collection - users can read/write their own subscription
     match /subscriptions/{userId} {
       // Allow users to read their own subscription

@@ -81,7 +81,7 @@ export async function loadPageReports(
         const pageData = pageDoc.data();
         const lastScanned = pageData.lastScan?.toDate?.() || pageData.updatedAt?.toDate?.();
         
-        const summary = await getPageIssueSummary(projectId, pageDoc.id, pageData);
+        const summary = await getPageIssueSummary(projectId, pageDoc.id, pageData, true);
         const totalIssues = summary.critical + summary.serious + summary.moderate + summary.minor;
         
         reportsList.push({
@@ -114,7 +114,8 @@ export async function loadPageReports(
 async function getPageIssueSummary(
   projectId: string,
   pageId: string,
-  pageData: any
+  pageData: any,
+  skipScanLookup = false
 ): Promise<IssueSummary> {
   let summary: IssueSummary = { critical: 0, serious: 0, moderate: 0, minor: 0 };
   
@@ -142,8 +143,8 @@ async function getPageIssueSummary(
       else if (impact === 'moderate') summary.moderate++;
       else if (impact === 'minor') summary.minor++;
     });
-  } else {
-    // Try to get latest scan
+  } else if (!skipScanLookup) {
+    // Try to get latest scan (optional fallback)
     try {
       const scansQuery = query(
         collection(db, "projects", projectId, "scans"),

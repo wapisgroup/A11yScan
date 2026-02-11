@@ -4,14 +4,18 @@ import { LoggedOutFooter } from "../components/organism/logged-out-footer";
 import { LoggedOutHeader } from "../components/organism/logged-out-header";
 import { LoggedOutLayout } from "../components/organism/logged-out-layout";
 import { MainSections } from "../components/molecule/main-sections";
-import { withTitlePostfix } from "../libs/metadata";
-import { Metadata } from "next";
+import { buildPageMetadata } from "../libs/metadata";
 import { RevealSection } from "../components/molecule/reveal-section";
 import Link from "next/link";
 import { URL_FRONTEND_CONTACT } from "@/app/services/urlServices";
 import { startTrial } from "../services/urlServices";
 
-export const metadata: Metadata = withTitlePostfix(["Pricing"]);
+export const metadata = buildPageMetadata({
+    title: "Pricing",
+    description:
+        "Compare Ablelytics plans for accessibility testing, reporting, and monitoring. Start a 14-day free trial.",
+    path: "/pricing"
+});
 
 export default function PricingPage() {
     return (
@@ -36,109 +40,59 @@ export default function PricingPage() {
 
                 {/* Pricing tiers */}
                 <RevealSection custom={1}>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-                        {/* Free Tier */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+                        {/* Basic */}
                         <div className="bg-white rounded-2xl border-2 border-slate-200 p-8 flex flex-col">
                             <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Free</h3>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Basic</h3>
                                 <div className="flex items-baseline gap-2 mb-4">
-                                    <span className="text-5xl font-bold text-slate-900">$0</span>
+                                    <span className="text-4xl font-bold text-slate-900">$49</span>
                                     <span className="text-slate-600">/month</span>
                                 </div>
-                                <p className="text-slate-600">Perfect for trying out Ablelytics</p>
+                                <p className="text-slate-600">Perfect for freelancers and small projects</p>
                             </div>
-                            
+
                             <ul className="space-y-4 mb-8 flex-grow">
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">Up to 50 pages per scan</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">1 project</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">WCAG 2.1 Level A & AA testing</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">PDF reports</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">7-day report history</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-slate-400 mt-1">✗</span>
-                                    <span className="text-slate-400">Scheduled scans</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-slate-400 mt-1">✗</span>
-                                    <span className="text-slate-400">API access</span>
-                                </li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">3 active projects</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">50 scans per month</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">100 pages per scan</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">30-day report history</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Scheduled scans (1 active)</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">PDF reports</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Axe-core + Ablelytics-core engines</span></li>
                             </ul>
-                            
+
                             <Link href={startTrial} className="w-full">
                                 <button className="w-full px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg transition-colors">
-                                    Get Started
+                                    Start Free Trial
                                 </button>
                             </Link>
                         </div>
 
-                        {/* Pro Tier - Most Popular */}
+                        {/* Starter */}
                         <div className="bg-white rounded-2xl border-4 border-purple-500 p-8 flex flex-col relative shadow-2xl scale-105">
                             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-purple-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
                                 MOST POPULAR
                             </div>
                             <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Pro</h3>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Starter</h3>
                                 <div className="flex items-baseline gap-2 mb-4">
-                                    <span className="text-5xl font-bold text-slate-900">$99</span>
+                                    <span className="text-4xl font-bold text-slate-900">$149</span>
                                     <span className="text-slate-600">/month</span>
                                 </div>
-                                <p className="text-slate-600">For professionals and small teams</p>
+                                <p className="text-slate-600">For growing teams and agencies</p>
                             </div>
-                            
+
                             <ul className="space-y-4 mb-8 flex-grow">
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>Up to 500 pages per scan</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>Unlimited projects</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">WCAG 2.1 Level A, AA & AAA</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">Professional PDF reports</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">90-day report history</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>Scheduled automated scans</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>API access & webhooks</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">Email notifications</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">Priority support</span>
-                                </li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700"><strong>10 active projects</strong></span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">200 scans per month</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">500 pages per scan</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">90-day report history</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700"><strong>AI heuristics with monthly limits</strong></span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">White-label reports</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">API access + Slack notifications</span></li>
                             </ul>
-                            
+
                             <Link href={startTrial} className="w-full">
                                 <button className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors">
                                     Start Free Trial
@@ -146,55 +100,52 @@ export default function PricingPage() {
                             </Link>
                         </div>
 
-                        {/* Enterprise Tier */}
+                        {/* Professional */}
+                        <div className="bg-white rounded-2xl border-2 border-slate-200 p-8 flex flex-col">
+                            <div className="mb-6">
+                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Professional</h3>
+                                <div className="flex items-baseline gap-2 mb-4">
+                                    <span className="text-4xl font-bold text-slate-900">$399</span>
+                                    <span className="text-slate-600">/month</span>
+                                </div>
+                                <p className="text-slate-600">For enterprises and large agencies</p>
+                            </div>
+
+                            <ul className="space-y-4 mb-8 flex-grow">
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700"><strong>Unlimited projects</strong></span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">1,000 scans per month</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">2,000 pages per scan</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">365-day report history</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">CI/CD + webhooks</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Advanced analytics + bulk ops</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">AI heuristics with higher limits</span></li>
+                            </ul>
+
+                            <Link href={startTrial} className="w-full">
+                                <button className="w-full px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors">
+                                    Start Free Trial
+                                </button>
+                            </Link>
+                        </div>
+
+                        {/* Enterprise */}
                         <div className="bg-white rounded-2xl border-2 border-slate-200 p-8 flex flex-col">
                             <div className="mb-6">
                                 <h3 className="text-2xl font-bold text-slate-900 mb-2">Enterprise</h3>
                                 <div className="flex items-baseline gap-2 mb-4">
                                     <span className="text-3xl font-bold text-slate-900">Custom</span>
                                 </div>
-                                <p className="text-slate-600">For large organizations</p>
+                                <p className="text-slate-600">Tailored solutions for large organizations</p>
                             </div>
-                            
+
                             <ul className="space-y-4 mb-8 flex-grow">
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>Unlimited pages</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>Unlimited projects</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">Everything in Pro, plus:</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>SSO / SAML authentication</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>Custom SLA & uptime guarantee</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700"><strong>Dedicated Slack channel</strong></span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">White-label reports</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">On-premise deployment option</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-slate-700">Custom integrations</span>
-                                </li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700"><strong>Unlimited scans & pages</strong></span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">SSO, SAML, and on-prem options</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Dedicated account manager</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Custom integrations + SLAs</span></li>
+                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Manual testing add-on</span></li>
                             </ul>
-                            
+
                             <Link href={URL_FRONTEND_CONTACT} className="w-full">
                                 <button className="w-full px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors">
                                     Contact Sales
@@ -232,7 +183,15 @@ export default function PricingPage() {
                                     Do you offer annual billing?
                                 </h3>
                                 <p className="text-slate-600">
-                                    Yes! Annual plans get 2 months free (equivalent to 16.7% discount). Contact sales for annual Enterprise pricing.
+                                    Yes! Annual plans get a 20% discount. Contact sales for annual Enterprise pricing.
+                                </p>
+                            </div>
+                            <div className="bg-white rounded-lg border border-slate-200 p-6">
+                                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                                    Are AI testing requests limited?
+                                </h3>
+                                <p className="text-slate-600">
+                                    Yes. AI heuristics and AI fix suggestions are metered by plan. Starter includes monthly AI credits, Professional includes higher limits, and Enterprise can customize limits.
                                 </p>
                             </div>
                             <div className="bg-white rounded-lg border border-slate-200 p-6">

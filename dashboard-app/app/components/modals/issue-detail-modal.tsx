@@ -28,6 +28,11 @@ export type IssueData = {
   target?: string[] | string | null;
   failureSummary?: string | null;
   tags?: string[];
+  engine?: string | null;
+  confidence?: number | null;
+  needsReview?: boolean | null;
+  evidence?: string[] | null;
+  aiHowToFix?: string | null;
   allOccurrences?: IssueData[]; // For swiper functionality
 };
 
@@ -42,6 +47,9 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
   const [ruleData, setRuleData] = useState<RuleData | null>(null);
   const [loadingRule, setLoadingRule] = useState(false);
   const [currentOccurrenceIndex, setCurrentOccurrenceIndex] = useState(0);
+  const [aiFixLoading, setAiFixLoading] = useState(false);
+  const [aiFixError, setAiFixError] = useState<string | null>(null);
+  const [aiFixSuggestion, setAiFixSuggestion] = useState<string | null>(null);
 
   // Get all occurrences or just the single issue
   const allOccurrences = issue?.allOccurrences || (issue ? [issue] : []);
@@ -101,6 +109,9 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
     if (isOpen) {
       setActiveTab('code');
       setCurrentOccurrenceIndex(0);
+      setAiFixError(null);
+      setAiFixSuggestion(null);
+      setAiFixLoading(false);
     }
   }, [isOpen]);
 
@@ -111,6 +122,55 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
       ? currentIssue.target.join(' | ')
       : String(currentIssue.target)
     : currentIssue?.selector || '';
+
+  const engineLabel = currentIssue?.engine || issue.engine || null;
+  const confidenceValue = typeof currentIssue?.confidence === 'number'
+    ? currentIssue.confidence
+    : typeof issue.confidence === 'number'
+      ? issue.confidence
+      : null;
+  const needsReview = Boolean(currentIssue?.needsReview ?? issue.needsReview);
+
+  const requestAiFix = async () => {
+    if (!currentIssue) return;
+    try {
+      setAiFixLoading(true);
+      setAiFixError(null);
+      const res = await fetch('/api/ai-fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          issue: {
+            message: currentIssue.message,
+            ruleId: currentIssue.ruleId,
+            engine: currentIssue.engine,
+            selector: currentIssue.selector,
+            html: currentIssue.html,
+            tags: currentIssue.tags,
+            evidence: currentIssue.evidence
+          }
+        })
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      setAiFixSuggestion(data?.howToFix || '');
+    } catch (err) {
+      setAiFixError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAiFixLoading(false);
+    }
+  };
+
+  const publicWebsiteDomain = process.env.NEXT_PUBLIC_PUBLIC_WEBSITE_DOMAIN || '';
+  const trimmedPublicDomain = publicWebsiteDomain.replace(/\/$/, '');
+  const ruleDetailsUrl = issue.ruleId && trimmedPublicDomain
+    ? `${trimmedPublicDomain}/accessibility-rules/${issue.ruleId}`
+    : null;
 
   return (
     <>
@@ -145,6 +205,31 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
                   <code className="px-2 py-1 rounded bg-[var(--color-bg-light)] as-p3-text secondary-text-color font-mono">
                     {issue.ruleId}
                   </code>
+                )}
+                {engineLabel && (
+                  <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 as-p3-text">
+                    Engine: {engineLabel}
+                  </span>
+                )}
+                {needsReview && (
+                  <span className="px-2 py-1 rounded bg-amber-50 text-amber-700 as-p3-text">
+                    Needs review
+                  </span>
+                )}
+                {confidenceValue !== null && (
+                  <span className="px-2 py-1 rounded bg-slate-100 text-slate-700 as-p3-text">
+                    Confidence: {Math.round(confidenceValue * 100)}%
+                  </span>
+                )}
+                {ruleDetailsUrl && (
+                  <a
+                    href={ruleDetailsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2 py-1 rounded bg-brand/10 text-brand as-p3-text hover:bg-brand/20 transition-colors"
+                  >
+                    View rule
+                  </a>
                 )}
                 {issue.tags && issue.tags.length > 0 && (
                   <div className="flex gap-1">
@@ -272,6 +357,17 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
                 </div>
               )}
 
+              {currentIssue?.evidence && currentIssue.evidence.length > 0 && (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                  <h3 className="as-p1-text primary-text-color font-medium mb-2">AI Evidence</h3>
+                  <ul className="list-disc pl-5 as-p2-text secondary-text-color">
+                    {currentIssue.evidence.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* HTML Code - Specific to each occurrence */}
               {currentIssue?.html && (
                 <div>
@@ -377,6 +473,118 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
           {/* Tab 3: How to Fix */}
           {activeTab === 'fix' && (
             <div className="space-y-6">
+              {aiFixError && (
+                <div className="p-4 bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/20 rounded-lg">
+                  <p className="as-p2-text secondary-text-color">{aiFixError}</p>
+                </div>
+              )}
+
+              {currentIssue?.aiHowToFix && (
+                <div className="p-4 bg-violet-50 border border-violet-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <PiLightbulb size={20} className="text-violet-500 flex-shrink-0 mt-1" />
+                    <div className="prose prose-sm max-w-none">
+                      <h4 className="as-p1-text primary-text-color font-medium mb-2">
+                        AI Fix Suggestion
+                      </h4>
+                      <ReactMarkdown
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <SyntaxHighlighter
+                                style={vscDarkPlus}
+                                language={match[1]}
+                                PreTag="div"
+                                customStyle={{
+                                  margin: 0,
+                                  borderRadius: '0.5rem',
+                                  fontSize: '0.875rem',
+                                }}
+                                {...props}
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            ) : (
+                              <code className="text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded text-sm" {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                        }}
+                      >
+                        {currentIssue.aiHowToFix}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!currentIssue?.aiHowToFix && aiFixSuggestion && (
+                <div className="p-4 bg-violet-50 border border-violet-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <PiLightbulb size={20} className="text-violet-500 flex-shrink-0 mt-1" />
+                    <div className="prose prose-sm max-w-none">
+                      <h4 className="as-p1-text primary-text-color font-medium mb-2">
+                        AI Fix Suggestion
+                      </h4>
+                      <ReactMarkdown
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <SyntaxHighlighter
+                                style={vscDarkPlus}
+                                language={match[1]}
+                                PreTag="div"
+                                customStyle={{
+                                  margin: 0,
+                                  borderRadius: '0.5rem',
+                                  fontSize: '0.875rem',
+                                }}
+                                {...props}
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            ) : (
+                              <code className="text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded text-sm" {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                        }}
+                      >
+                        {aiFixSuggestion}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!currentIssue?.aiHowToFix && !aiFixSuggestion && (
+                <div className="p-4 bg-[var(--color-bg-light)] border border-[var(--color-border-light)] rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <PiLightbulb size={20} className="text-brand flex-shrink-0 mt-1" />
+                    <div>
+                      <h4 className="as-p1-text primary-text-color font-medium mb-2">
+                        Generate AI Fix Suggestion
+                      </h4>
+                      <p className="as-p2-text secondary-text-color mb-3">
+                        Use AI to propose a tailored fix based on this issue’s code and context.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={requestAiFix}
+                        disabled={aiFixLoading}
+                        className="px-4 py-2 rounded-lg bg-brand text-white hover:bg-brand/90 disabled:opacity-60"
+                      >
+                        {aiFixLoading ? 'Generating…' : 'Generate AI Fix'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {ruleData?.howToFix ? (
                 <div className="prose prose-sm max-w-none">
                   <ReactMarkdown
@@ -428,21 +636,22 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
                 </div>
               )}
 
-              {/* AI Fix Suggestion Placeholder */}
-              <div className="p-4 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <PiLightbulb size={20} className="text-violet-500 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="as-p1-text primary-text-color font-medium mb-1">
-                      AI-Powered Fix Suggestions (Coming Soon)
-                    </h4>
-                    <p className="as-p3-text secondary-text-color">
-                      We're working on AI-powered fix suggestions that will analyze your specific code
-                      and provide tailored recommendations.
-                    </p>
+              {!currentIssue?.aiHowToFix && (
+                <div className="p-4 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <PiLightbulb size={20} className="text-violet-500 flex-shrink-0 mt-1" />
+                    <div>
+                      <h4 className="as-p1-text primary-text-color font-medium mb-1">
+                        AI-Powered Fix Suggestions (Coming Soon)
+                      </h4>
+                      <p className="as-p3-text secondary-text-color">
+                        We're working on AI-powered fix suggestions that will analyze your specific code
+                        and provide tailored recommendations.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>

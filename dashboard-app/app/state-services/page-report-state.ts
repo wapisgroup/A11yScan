@@ -34,6 +34,11 @@ type Issue = {
   tags?: string[];
   failureSummary?: string | null;
   html?: string | null;
+  engine?: string | null;
+  confidence?: number | null;
+  needsReview?: boolean | null;
+  evidence?: string[] | null;
+  aiHowToFix?: string | null;
   [key: string]: unknown;
 };
 

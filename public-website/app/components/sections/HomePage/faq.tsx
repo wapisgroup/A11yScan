@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FAQItem } from "../../atom/faq-item";
-import { URL_FRONTEND_CONTACT, URL_FRONTEND_DOCUMENTATION } from "@/app/services/urlServices";
+import { URL_FRONTEND_CONTACT, URL_DOCUMENTATION } from "@/app/services/urlServices";
 
 export function HomePageFAQsSection() {
     const [openFaq, setOpenFaq] = useState<number>(-1);
@@ -27,7 +27,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`What accessibility standards does Ablelytics test against?`}
                 >
-                    Ablelytics tests against WCAG 2.1 Level A, AA, and AAA success criteria. We also cover ADA Title III requirements, Section 508 compliance (US Federal), and EN 301 549 (EU). Our testing engine uses Axe-core, the industry-standard accessibility testing library trusted by governments and Fortune 500 companies.
+                    Ablelytics tests against WCAG 2.1 Level A, AA, and AAA success criteria. We also cover ADA Title III requirements, Section 508 compliance (US Federal), and EN 301 549 (EU). Our testing stack combines Axe-core with Ablelytics-core and Ablelytics-AI for broader coverage.
                 </FAQItem>
 
                 <FAQItem
@@ -54,7 +54,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`How many pages can I scan at once?`}
                 >
-                    This depends on your plan. The Free tier allows up to 50 pages per scan. Pro plans support 500 pages, and Enterprise plans have no limits. You can configure crawl depth, include/exclude patterns, and maximum pages to control what gets scanned. Large sites typically complete in 15-30 minutes.
+                    This depends on your plan. Basic supports 100 pages per scan, Starter supports 500, Professional supports 2,000, and Enterprise has custom limits. You can configure crawl depth, include/exclude patterns, and maximum pages to control what gets scanned.
                 </FAQItem>
 
                 <FAQItem
@@ -108,7 +108,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`What kind of support do you offer?`}
                 >
-                    All plans include email support with 24-48 hour response times. Pro plans get priority support with 12-hour response. Enterprise customers receive dedicated Slack channels, video call support, and custom onboarding. We also have comprehensive documentation and video tutorials available to all users.
+                    All plans include email support with 24-48 hour response times. Starter and Professional plans get priority support with 12-hour response. Enterprise customers receive dedicated Slack channels, video call support, and custom onboarding. We also have comprehensive documentation and video tutorials available to all users.
                 </FAQItem>
 
                 <FAQItem
@@ -126,7 +126,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`Can I try Ablelytics before committing to a paid plan?`}
                 >
-                    Yes! We offer a 14-day free trial with access to all Pro features — no credit card required. You can scan up to 50 pages during the trial period. If you need to test more pages or evaluate Enterprise features, contact us for an extended trial.
+                    Yes! We offer a 14-day free trial with access to Starter features — no credit card required. If you need higher limits or Enterprise features, contact us for an extended trial.
                 </FAQItem>
             </div>
 
@@ -144,7 +144,7 @@ export function HomePageFAQsSection() {
                         Contact Sales
                     </a>
                     <a 
-                        href={URL_FRONTEND_DOCUMENTATION} 
+                        href={URL_DOCUMENTATION} 
                         className="px-6 py-3 bg-white hover:bg-slate-50 text-slate-900 font-semibold rounded-lg border border-slate-300 transition-colors"
                     >
                         View Documentation

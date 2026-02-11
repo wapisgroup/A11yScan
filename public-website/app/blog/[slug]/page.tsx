@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { LoggedOutHeader } from '../../components/organism/logged-out-header'
 import { LoggedOutLayout } from '../../components/organism/logged-out-layout'
 import { LoggedOutFooter } from '../../components/organism/logged-out-footer'
+import { buildPageMetadata } from "../../libs/metadata";
 
 export const revalidate = 60
 
@@ -50,15 +51,29 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const post = await getBlogPost(slug)
 
   if (!post) {
-    return {
-      title: 'Post Not Found',
-    }
+    return buildPageMetadata({
+      title: "Post Not Found",
+      description: "The requested blog post could not be found.",
+      path: `/blog/${slug}`
+    })
   }
 
-  return {
+  const imageUrl = post.mainImage
+    ? urlFor(post.mainImage)
+        .width(1200)
+        .height(630)
+        .format('webp')
+        .quality(80)
+        .url()
+    : undefined
+
+  return buildPageMetadata({
     title: post.title,
-    description: post.excerpt,
-  }
+    description: post.excerpt || post.title,
+    path: `/blog/${slug}`,
+    image: imageUrl,
+    type: "article"
+  })
 }
 
 // Portable Text components for rich text rendering

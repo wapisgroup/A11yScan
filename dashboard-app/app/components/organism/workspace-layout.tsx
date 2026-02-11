@@ -10,8 +10,9 @@ import {
   URL_APP_PROJECTS,
   URL_APP_REPORTS,
   URL_APP_SCANS,
+  URL_APP_SCHEDULES,
 } from "@/utils/urls";
-import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight } from "react-icons/pi";
+import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight, PiCalendar } from "react-icons/pi";
 import { FiUser, FiLogOut, FiSettings, FiCreditCard } from "react-icons/fi";
 import { useToast } from "../providers/window-provider";
 import { subscribeToJobsWithToasts } from "@/services/jobsService";
@@ -46,6 +47,7 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     { href: URL_APP_DASHBOARD, label: "Dashboard", icon: <PiCirclesFourLight /> },
     { href: URL_APP_PROJECTS, label: "Projects", icon: <PiFolderOpenLight /> },
     { href: URL_APP_SCANS, label: "Scans", icon: <PiNotepadLight /> },
+    { href: URL_APP_SCHEDULES, label: "Schedules", icon: <PiCalendar /> },
     { href: URL_APP_REPORTS, label: "Reports", icon: <PiNotepadLight /> },
   ];
 

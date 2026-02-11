@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { FooterNavItem } from "../atom/footer-nav-item";
 import { FooterNavigation } from "../molecule/footer-navigation";
-import { URL_FRONTEND_BLOG, URL_FRONTEND_CASE_STUDIES, URL_FRONTEND_CONTACT, URL_FRONTEND_COOKIES, URL_FRONTEND_DOCUMENTATION, URL_FRONTEND_FAQS, URL_FRONTEND_FEATURES, URL_FRONTEND_GUIDES, URL_FRONTEND_PRICING, URL_FRONTEND_PRIVACY, URL_FRONTEND_TERMS, URL_FRONTEND_INTEGRATIONS, URL_FRONTEND_ABOUT, URL_FRONTEND_ACCESSIBILITY_RULES } from "@/app/services/urlServices";
+import { URL_FRONTEND_BLOG, URL_FRONTEND_CASE_STUDIES, URL_FRONTEND_CONTACT, URL_FRONTEND_COOKIES, URL_FRONTEND_FAQS, URL_FRONTEND_FEATURES, URL_FRONTEND_GUIDES, URL_FRONTEND_PRICING, URL_FRONTEND_PRIVACY, URL_FRONTEND_TERMS, URL_FRONTEND_INTEGRATIONS, URL_FRONTEND_ABOUT, URL_FRONTEND_ACCESSIBILITY_RULES, URL_FRONTEND_SOLUTIONS, URL_DOCUMENTATION } from "@/app/services/urlServices";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -93,6 +93,7 @@ export const LoggedOutFooter = () => {
                                 <li><Link href={URL_FRONTEND_FEATURES} className="hover:text-white transition-colors">Features</Link></li>
                                 <li><Link href={URL_FRONTEND_PRICING} className="hover:text-white transition-colors">Pricing</Link></li>
                                 <li><Link href={URL_FRONTEND_FAQS} className="hover:text-white transition-colors">FAQ</Link></li>
+                                <li><Link href={URL_FRONTEND_SOLUTIONS} className="hover:text-white transition-colors">Solutions</Link></li>
                                 <li><Link href={URL_FRONTEND_INTEGRATIONS} className="hover:text-white transition-colors">Integrations</Link></li>
                             </ul>
                         </div>
@@ -101,8 +102,8 @@ export const LoggedOutFooter = () => {
                             <h3 className="text-white font-semibold mb-4">Resources</h3>
                             <ul className="space-y-3 text-sm">
                                 <li><Link href={URL_FRONTEND_BLOG} className="hover:text-white transition-colors">Blog</Link></li>
-                                <li><Link href={URL_FRONTEND_CASE_STUDIES} className="hover:text-white transition-colors">Case Studies</Link></li>
-                                <li><Link href={URL_FRONTEND_DOCUMENTATION} className="hover:text-white transition-colors">Documentation</Link></li>
+                                {/* <li><Link href={URL_FRONTEND_CASE_STUDIES} className="hover:text-white transition-colors">Case Studies</Link></li> */}
+                                <li><Link href={URL_DOCUMENTATION} className="hover:text-white transition-colors">Documentation</Link></li>
                                 <li><Link href={URL_FRONTEND_GUIDES} className="hover:text-white transition-colors">Guides</Link></li>
                                 <li><Link href={URL_FRONTEND_ACCESSIBILITY_RULES} className="hover:text-white transition-colors">Accessibility rules</Link></li>
                             </ul>
@@ -112,7 +113,7 @@ export const LoggedOutFooter = () => {
                             <h3 className="text-white font-semibold mb-4">Company</h3>
                             <ul className="space-y-3 text-sm">
                                 <li><Link href={URL_FRONTEND_CONTACT} className="hover:text-white transition-colors">Contact</Link></li>
-                                <li><Link href={URL_FRONTEND_ABOUT} className="hover:text-white transition-colors">About Us</Link></li>
+                                {/* <li><Link href={URL_FRONTEND_ABOUT} className="hover:text-white transition-colors">About Us</Link></li> */}
                                 <li><Link href={URL_FRONTEND_PRIVACY} className="hover:text-white transition-colors">Privacy</Link></li>
                                 <li><Link href={URL_FRONTEND_TERMS} className="hover:text-white transition-colors">Terms</Link></li>
                             </ul>

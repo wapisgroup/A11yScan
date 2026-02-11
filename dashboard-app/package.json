@@ -13,6 +13,7 @@
     "export:public": "cd public-website && npm run export",
     "start": "next start",
     "dev:emulators": "firebase emulators:start --only firestore,storage,functions,auth --import=./emulator-data --export-on-exit=./emulator-data",
+  
     "deploy:main": "npm run export:main && firebase deploy --only hosting:main-app",
     "deploy:public": "npm run export:public && firebase deploy --only hosting:public-website",
     "deploy:backend": "firebase deploy --only functions,firestore:rules,storage:rules",
@@ -50,6 +51,7 @@
     "autoprefixer": "^10.4.23",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "firebase-tools": "^15.5.1",
     "npm-run-all": "^4.1.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",

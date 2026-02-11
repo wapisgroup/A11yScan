@@ -53,6 +53,11 @@ export type HighlightNode = {
   tags?: string[] | null;
   failureSummary?: string | null;
   target?: string[] | string | null;
+  engine?: string | null;
+  confidence?: number | null;
+  needsReview?: boolean | null;
+  evidence?: string[] | null;
+  aiHowToFix?: string | null;
   [key: string]: unknown;
 };
 
@@ -144,6 +149,11 @@ export default function PageViewer(): React.JSX.Element {
           helpUrl: matchingIssue.helpUrl,
           tags: matchingIssue.tags,
           failureSummary: matchingIssue.failureSummary,
+          engine: matchingIssue.engine,
+          confidence: typeof matchingIssue.confidence === 'number' ? matchingIssue.confidence : null,
+          needsReview: matchingIssue.needsReview ?? null,
+          evidence: matchingIssue.evidence || [],
+          aiHowToFix: matchingIssue.aiHowToFix || null,
         };
       }
       
@@ -191,6 +201,11 @@ export default function PageViewer(): React.JSX.Element {
       target: (node.target as string[] | string) || null,
       failureSummary: (node.failureSummary as string) || null,
       tags: (node.tags as string[]) || [],
+      engine: (node.engine as string) || null,
+      confidence: typeof node.confidence === 'number' ? node.confidence : null,
+      needsReview: node.needsReview ?? null,
+      evidence: (node.evidence as string[]) || [],
+      aiHowToFix: (node.aiHowToFix as string) || null,
     });
     setIsModalOpen(true);
   };

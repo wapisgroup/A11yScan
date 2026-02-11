@@ -5,6 +5,7 @@ const { Storage } = require('@google-cloud/storage');
 const path = require('path');
 const { crawlAndTest } = require('./crawler');
 const { computeSummary } = require('./utils');
+const { notifyScanFinished, getSlackConfigFromOrg } = require('./helpers/slack');
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -73,6 +74,32 @@ app.post('/', async (req, res) => {
         });
 
         console.log(`Job ${runId} finished, report ${gsUrl}`);
+
+        try {
+            let projectName = domain || projectId;
+            let slackConfig = null;
+            try {
+                const projectSnap = await db.collection('projects').doc(projectId).get();
+                if (projectSnap.exists) {
+                    const projectData = projectSnap.data() || {};
+                    projectName = projectData.name || projectData.domain || projectName;
+                    slackConfig = await getSlackConfigFromOrg(db, projectData.organisationId);
+                }
+            } catch (e) {
+                console.warn('Failed to load project for Slack notification:', e && e.message ? e.message : e);
+            }
+
+            if (slackConfig) {
+                await notifyScanFinished({
+                    projectId,
+                    projectName,
+                    pagesScanned: Array.isArray(results) ? results.length : undefined,
+                    agg: stats,
+                }, slackConfig);
+            }
+        } catch (e) {
+            console.warn('Slack notification failed:', e && e.message ? e.message : e);
+        }
     } catch (err) {
         console.error('Job error', err);
         await runRef.update({ status: 'failed', error: String(err) });

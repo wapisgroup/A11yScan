@@ -5,8 +5,16 @@ import { urlFor } from '@/lib/sanity'
 import { LoggedOutHeader } from '../components/organism/logged-out-header'
 import { LoggedOutLayout } from '../components/organism/logged-out-layout'
 import { LoggedOutFooter } from '../components/organism/logged-out-footer'
+import { buildPageMetadata } from "../libs/metadata";
 
 export const revalidate = 60
+
+export const metadata = buildPageMetadata({
+  title: "Blog",
+  description:
+    "Insights, tutorials, and updates about web accessibility and compliance.",
+  path: "/blog"
+});
 
 async function getBlogPosts(): Promise<BlogPost[]> {
   try {

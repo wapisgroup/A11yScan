@@ -25,7 +25,7 @@ export function HomePageFeaturesSection() {
                 />
                 <FeatureBox 
                     title={`🎯 Real Browser Testing`} 
-                    text={`Test with actual Chrome browser engine using Axe-core and Puppeteer. Get accurate results that match what users experience — not theoretical static analysis.`}
+                    text={`Test with actual Chrome browser engine using Axe-core plus Ablelytics-core. Get accurate results that match what users experience — not theoretical static analysis.`}
                 />
                 <FeatureBox 
                     title={`📊 Professional Reports`} 
@@ -75,12 +75,13 @@ export function HomePageFeaturesSection() {
                         <div>
                             <h3 className="text-xl font-bold text-slate-900 mb-2">Detailed Issue Analysis</h3>
                             <p className="text-slate-600 mb-4">
-                                Every issue includes CSS selectors, affected pages, WCAG criteria, severity level, and fix recommendations. No guesswork required.
+                                Every issue includes CSS selectors, affected pages, WCAG criteria, severity level, and AI-assisted fix recommendations. No guesswork required.
                             </p>
                             <ul className="text-sm text-slate-600 space-y-2">
                                 <li>✓ Precise element identification</li>
                                 <li>✓ WCAG 2.1 Level A, AA, AAA coverage</li>
                                 <li>✓ Remediation best practices</li>
+                                <li>✓ AI fix suggestions for quick wins</li>
                             </ul>
                         </div>
                     </div>

@@ -2,6 +2,7 @@ import { client } from '@/lib/sanity'
 import { Page } from '@/lib/types'
 import { ComponentRenderer } from '@/app/components/ComponentRenderer'
 import { notFound } from 'next/navigation'
+import { buildPageMetadata } from "../../libs/metadata";
 
 export const revalidate = 60
 
@@ -36,15 +37,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const page = await getPage(slug)
 
   if (!page) {
-    return {
-      title: 'Page Not Found',
-    }
+    return buildPageMetadata({
+      title: "Page Not Found",
+      description: "The requested page could not be found.",
+      path: `/pages/${slug}`
+    })
   }
 
-  return {
+  return buildPageMetadata({
     title: page.title,
-    description: page.description || '',
-  }
+    description: page.description || undefined,
+    path: `/pages/${slug}`
+  })
 }
 
 export default async function DynamicPage({ params }: { params: Promise<{ slug: string }> }) {

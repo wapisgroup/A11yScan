@@ -10,8 +10,9 @@ import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { OrganisationSettingsTab } from "@/components/tabs/organisation-settings-tab";
 import { MembersTab } from "@/components/tabs/organisation-members-tab";
 import { BrandingTab } from "@/components/tabs/organisation-branding-tab";
+import { OrganisationIntegrationsTab } from "@/components/tabs/organisation-integrations-tab";
 
-type TabType = "settings" | "members" | "whitelabel";
+type TabType = "settings" | "members" | "whitelabel" | "integrations";
 
 type OrganisationData = {
   name: string;
@@ -19,6 +20,11 @@ type OrganisationData = {
   industry: string;
   vatNumber: string;
   ipRestrictions: string[];
+};
+type SlackIntegrationData = {
+  enabled: boolean;
+  webhookUrl: string;
+  channel: string;
 };
 
 type Member = {
@@ -57,6 +63,13 @@ export default function OrganisationPage() {
   const [primaryColor, setPrimaryColor] = useState("#3B82F6");
   const [secondaryColor, setSecondaryColor] = useState("#10B981");
 
+  // Integrations data
+  const [slackIntegration, setSlackIntegration] = useState<SlackIntegrationData>({
+    enabled: false,
+    webhookUrl: "",
+    channel: "#ablelytics",
+  });
+
   useEffect(() => {
     loadOrganisationData();
   }, [user]);
@@ -84,6 +97,12 @@ export default function OrganisationPage() {
         setPrimaryColor(data.primaryColor || "#3B82F6");
         setSecondaryColor(data.secondaryColor || "#10B981");
         setCustomLogo(data.customLogo || "");
+        const slackData = data.integrations?.slack || {};
+        setSlackIntegration({
+          enabled: Boolean(slackData.enabled),
+          webhookUrl: slackData.webhookUrl || "",
+          channel: slackData.channel || "#ablelytics",
+        });
       }
 
       // Load members - including the current user
@@ -177,6 +196,34 @@ export default function OrganisationPage() {
     }
   };
 
+  const handleSaveIntegrations = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!organisationId) return;
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const orgRef = doc(db, "organisations", organisationId);
+      await updateDoc(orgRef, {
+        integrations: {
+          slack: {
+            enabled: slackIntegration.enabled,
+            webhookUrl: slackIntegration.webhookUrl,
+            channel: slackIntegration.channel,
+          },
+        },
+      });
+      setSuccess("Integrations saved successfully!");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save integrations");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <PrivateRoute>
@@ -256,6 +303,15 @@ export default function OrganisationPage() {
                 >
                   Branding
                 </button>
+                <button
+                  onClick={() => setActiveTab("integrations")}
+                  className={`${activeTab === "integrations"
+                    ? "border-purple-600 text-purple-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                >
+                  Integrations
+                </button>
               </nav>
             </div>
 
@@ -283,6 +339,15 @@ export default function OrganisationPage() {
                 setSecondaryColor={setSecondaryColor}
                 saving={saving}
                 onSave={handleSaveWhiteLabel}
+              />
+            )}
+
+            {activeTab === "integrations" && (
+              <OrganisationIntegrationsTab
+                slackIntegration={slackIntegration}
+                setSlackIntegration={setSlackIntegration}
+                saving={saving}
+                onSave={handleSaveIntegrations}
               />
             )}
           

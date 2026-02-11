@@ -33,9 +33,103 @@
  */
 
 const admin = require('firebase-admin');
+const { notifyScanFinished, getSlackConfigFromOrg } = require('../helpers/slack');
 const cheerio = require('cheerio');
 const pLimit = require('p-limit');
 const { fetchHtml } = require('../helpers/generic');
+const { AblelyticsCoreTests } = require('../helpers/ablelytics-core-tests');
+const { AblelyticsAiHeuristics } = require('../helpers/ai-heuristics');
+
+async function removeCookieBanners(pageP, mode) {
+    const removed = await pageP.evaluate((bannerMode) => {
+        const removedElements = [];
+
+        // CookieYes selectors
+        const cookieYesSelectors = [
+            '#cookieyes-consent',
+            '.cookieyes-banner',
+            '[id*="cookieyes"]',
+            '[class*="cookieyes"]',
+            '.cky-consent-container',
+            '.cky-overlay'
+        ];
+
+        // Common cookie banner selectors
+        const commonSelectors = [
+            // CookieYes
+            ...cookieYesSelectors,
+            // OneTrust
+            '#consent-management-box',
+            '#onetrust-banner-sdk',
+            '#onetrust-consent-sdk',
+            '.onetrust-pc-dark-filter',
+            '[id*="onetrust"]',
+            // Cookiebot
+            '#CybotCookiebotDialog',
+            '#CookiebotWidget',
+            '[id*="cookiebot"]',
+            // Generic
+            '[class*="cookie-banner"]',
+            '[class*="cookie-consent"]',
+            '[class*="gdpr-banner"]',
+            '[class*="gdpr-consent"]',
+            '[id*="cookie-banner"]',
+            '[id*="cookie-consent"]',
+            '[aria-label*="cookie" i]',
+            '[aria-label*="consent" i]',
+        ];
+
+        const selectorsToUse = bannerMode === 'cookieyes' ? cookieYesSelectors : commonSelectors;
+
+        selectorsToUse.forEach(selector => {
+            try {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => {
+                    if (el && el.parentNode) {
+                        removedElements.push({
+                            tag: el.tagName,
+                            id: el.id || '',
+                            class: el.className || '',
+                            selector: selector
+                        });
+                        el.remove();
+                    }
+                });
+            } catch (e) {
+                // Ignore selector errors
+            }
+        });
+
+        // Also remove backdrop/overlay elements
+        const overlaySelectors = [
+            '[class*="cookie"][class*="overlay"]',
+            '[class*="consent"][class*="overlay"]',
+            '[class*="cookie"][class*="backdrop"]',
+            'body > div[style*="z-index"][style*="position: fixed"]',
+        ];
+
+        if (bannerMode === 'all') {
+            overlaySelectors.forEach(selector => {
+                try {
+                    document.querySelectorAll(selector).forEach(el => {
+                        if (el && el.parentNode && el.textContent.toLowerCase().includes('cookie')) {
+                            removedElements.push({ tag: el.tagName, selector: selector });
+                            el.remove();
+                        }
+                    });
+                } catch (e) {}
+            });
+        }
+
+        // Re-enable scrolling if it was disabled
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+
+        return removedElements;
+    }, mode);
+
+    return removed;
+}
 
 /**
  * Uploads HTML content to Cloud Storage and returns a download URL.
@@ -211,7 +305,7 @@ async function handleScanPages(db, projectId, runId) {
      *   { impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target }
      * Also increments the corresponding counter in agg.
      */
-    function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target) {
+    function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target, engine, confidence, needsReview, evidence, aiHowToFix) {
         issues.push({ 
             impact, 
             message, 
@@ -222,7 +316,12 @@ async function handleScanPages(db, projectId, runId) {
             tags: tags || [],
             failureSummary: failureSummary || null,
             html: html || null,
-            target: target || []
+            target: target || [],
+            engine: engine || null,
+            confidence: typeof confidence === 'number' ? confidence : null,
+            needsReview: typeof needsReview === 'boolean' ? needsReview : null,
+            evidence: Array.isArray(evidence) ? evidence : [],
+            aiHowToFix: aiHowToFix || null
         });
         if (agg[impact] !== undefined) agg[impact]++;
     }
@@ -246,6 +345,9 @@ async function handleScanPages(db, projectId, runId) {
 
             const issues = [];
             let httpStatus = null;
+            const removeCookieBannersEnabled = Boolean(
+                projectData?.config?.removeCookieBanners && projectData.config.removeCookieBanners !== 'none'
+            );
 
             if (usePuppeteer && browser) {
                 let pageP = null;
@@ -338,99 +440,11 @@ async function handleScanPages(db, projectId, runId) {
                     if (resp) httpStatus = resp.status();
                     
                     // Remove cookie banners if configured
-                    if (projectData?.config?.removeCookieBanners && projectData.config.removeCookieBanners !== 'none') {
+                    if (removeCookieBannersEnabled) {
                         try {
                             const mode = projectData.config.removeCookieBanners;
                             console.log(`\n--- Removing cookie banners (mode: ${mode}) ---`);
-                            
-                            const removed = await pageP.evaluate((bannerMode) => {
-                                const removedElements = [];
-                                
-                                // CookieYes selectors
-                                const cookieYesSelectors = [
-                                    '#cookieyes-consent',
-                                    '.cookieyes-banner',
-                                    '[id*="cookieyes"]',
-                                    '[class*="cookieyes"]',
-                                    '.cky-consent-container',
-                                    '.cky-overlay'
-                                ];
-                                
-                                // Common cookie banner selectors
-                                const commonSelectors = [
-                                    // CookieYes
-                                    ...cookieYesSelectors,
-                                    // OneTrust
-                                    '#consent-management-box',
-                                    '#onetrust-banner-sdk',
-                                    '#onetrust-consent-sdk',
-                                    '.onetrust-pc-dark-filter',
-                                    '[id*="onetrust"]',
-                                    // Cookiebot
-                                    '#CybotCookiebotDialog',
-                                    '#CookiebotWidget',
-                                    '[id*="cookiebot"]',
-                                    // Generic
-                                    '[class*="cookie-banner"]',
-                                    '[class*="cookie-consent"]',
-                                    '[class*="gdpr-banner"]',
-                                    '[class*="gdpr-consent"]',
-                                    '[id*="cookie-banner"]',
-                                    '[id*="cookie-consent"]',
-                                    '[aria-label*="cookie" i]',
-                                    '[aria-label*="consent" i]',
-                                ];
-                                
-                                const selectorsToUse = bannerMode === 'cookieyes' ? cookieYesSelectors : commonSelectors;
-                                
-                                selectorsToUse.forEach(selector => {
-                                    try {
-                                        const elements = document.querySelectorAll(selector);
-                                        elements.forEach(el => {
-                                           
-                                            if (el && el.parentNode) {
-                                                removedElements.push({
-                                                    tag: el.tagName,
-                                                    id: el.id || '',
-                                                    class: el.className || '',
-                                                    selector: selector
-                                                });
-                                                el.remove();
-                                            }
-                                        });
-                                    } catch (e) {
-                                        // Ignore selector errors
-                                    }
-                                });
-                                
-                                // Also remove backdrop/overlay elements
-                                const overlaySelectors = [
-                                    '[class*="cookie"][class*="overlay"]',
-                                    '[class*="consent"][class*="overlay"]',
-                                    '[class*="cookie"][class*="backdrop"]',
-                                    'body > div[style*="z-index"][style*="position: fixed"]',
-                                ];
-                                
-                                if (bannerMode === 'all') {
-                                    overlaySelectors.forEach(selector => {
-                                        try {
-                                            document.querySelectorAll(selector).forEach(el => {
-                                                if (el && el.parentNode && el.textContent.toLowerCase().includes('cookie')) {
-                                                    removedElements.push({ tag: el.tagName, selector: selector });
-                                                    el.remove();
-                                                }
-                                            });
-                                        } catch (e) {}
-                                    });
-                                }
-                                
-                                // Re-enable scrolling if it was disabled
-                                document.body.style.overflow = '';
-                                document.documentElement.style.overflow = '';
-                                
-                                return removedElements;
-                            }, mode);
-                            
+                            const removed = await removeCookieBanners(pageP, mode);
                             console.log(`✓ Removed ${removed.length} cookie banner elements`);
                             if (removed.length > 0) {
                                 removed.forEach((el, i) => {
@@ -463,6 +477,16 @@ async function handleScanPages(db, projectId, runId) {
                         }
                         console.log(`--- End cookie verification ---\n`);
                     }
+                    // Ensure cookie banners are removed right before axe runs
+                    if (removeCookieBannersEnabled) {
+                        try {
+                            await pageP.waitForTimeout(300);
+                            await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
+                        } catch (bannerErr) {
+                            console.warn('Failed to re-remove cookie banners before axe:', bannerErr);
+                        }
+                    }
+
                     // Inject axe-core into page context and run accessibility checks
                     if (axe && axe.source) {
                         await pageP.addScriptTag({ content: axe.source });
@@ -491,11 +515,21 @@ async function handleScanPages(db, projectId, runId) {
                                     const failureSummary = (node && node.failureSummary) || null;
                                     const html = (node && node.html) || null;
                                     const target = (node && node.target) || null;
-                                    pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target);
+                                    pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target, 'axe-core');
                                 });
                             });
                         } else if (axeResults && axeResults.error) {
-                            pushIssue(issues, 'serious', 'Axe run error: ' + axeResults.error);
+                            pushIssue(issues, 'serious', 'Axe run error: ' + axeResults.error, null, null, null, null, [], null, null, null, 'axe-core');
+                        }
+
+                        // Ensure cookie banners are removed right before snapshot
+                        if (removeCookieBannersEnabled) {
+                            try {
+                                await pageP.waitForTimeout(200);
+                                await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
+                            } catch (bannerErr) {
+                                console.warn('Failed to re-remove cookie banners before snapshot:', bannerErr);
+                            }
                         }
 
                         // === Page snapshot and node highlight capture ===
@@ -598,17 +632,213 @@ async function handleScanPages(db, projectId, runId) {
                         
                     }
 
+                    // Ablelytics core tests (Puppeteer/Playwright compatible checks)
+                    let coreIssues = [];
+                    try {
+                        if (removeCookieBannersEnabled) {
+                            try {
+                                await pageP.waitForTimeout(400);
+                                await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
+                            } catch (bannerErr) {
+                                console.warn('Failed to re-remove cookie banners:', bannerErr);
+                            }
+                        }
+                        const coreTests = new AblelyticsCoreTests(pageP, { includeMultiPageChecks: false });
+                        coreIssues = await coreTests.runAll();
+                        coreIssues.forEach((issue) => {
+                            pushIssue(
+                                issues,
+                                issue.impact,
+                                issue.message,
+                                issue.selector,
+                                issue.ruleId,
+                                issue.helpUrl,
+                                issue.description,
+                                issue.tags,
+                                issue.failureSummary,
+                                issue.html,
+                                issue.target,
+                                issue.engine || 'ablelytics-core'
+                            );
+                        });
+                    } catch (coreErr) {
+                        console.warn('Ablelytics core tests failed:', coreErr && coreErr.message ? coreErr.message : coreErr);
+                    }
+
+                    if (coreIssues.length > 0) {
+                        try {
+                            const coreNodesForEvaluation = coreIssues
+                                .filter((issue) => issue.selector || issue.html)
+                                .map((issue) => ({ selector: issue.selector || null, html: issue.html || null }));
+
+                            const coreIssueNodes = coreNodesForEvaluation.length > 0 ? await pageP.evaluate((nodes) => {
+                                const results = [];
+                                nodes.forEach((n) => {
+                                    const selector = n.selector || null;
+                                    try {
+                                        let el = null;
+                                        if (selector) el = document.querySelector(selector);
+                                        if (!el && n.html) {
+                                            const all = Array.from(document.querySelectorAll('*'));
+                                            el = all.find(e => {
+                                                try { return e.outerHTML && e.outerHTML.indexOf(n.html.slice(0, 120)) !== -1; } catch (e) { return false; }
+                                            }) || null;
+                                        }
+                                        if (!el) {
+                                            results.push({ selector, xpath: null, outerHTML: n.html || null, rect: null });
+                                        } else {
+                                            const r = el.getBoundingClientRect();
+                                            function getXPathForElement(elm) {
+                                                if (elm.id) return `id("${elm.id}")`;
+                                                const parts = [];
+                                                while (elm && elm.nodeType === Node.ELEMENT_NODE) {
+                                                    let nb = 1;
+                                                    let sib = elm.previousSibling;
+                                                    while (sib) {
+                                                        if (sib.nodeType === Node.DOCUMENT_TYPE_NODE) { sib = sib.previousSibling; continue; }
+                                                        if (sib.nodeType === Node.ELEMENT_NODE && sib.nodeName === elm.nodeName) nb++;
+                                                        sib = sib.previousSibling;
+                                                    }
+                                                    const tagName = elm.nodeName.toLowerCase();
+                                                    parts.unshift(`${tagName}[${nb}]`);
+                                                    elm = elm.parentNode;
+                                                }
+                                                return '/' + parts.join('/');
+                                            }
+                                            const truncatedHtml = el.outerHTML ? el.outerHTML.substring(0, 500) : null;
+                                            results.push({ selector, xpath: getXPathForElement(el), outerHTML: truncatedHtml, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
+                                        }
+                                    } catch (e) {
+                                        const truncatedHtml = n.html ? n.html.substring(0, 500) : null;
+                                        results.push({ selector: selector || null, xpath: null, outerHTML: truncatedHtml, rect: null });
+                                    }
+                                });
+                                return results;
+                            }, coreNodesForEvaluation) : [];
+
+                            if (coreIssueNodes.length > 0) {
+                                const existingNodes = Array.isArray(pageInfo.nodeInfo) ? pageInfo.nodeInfo : [];
+                                const mergedNodes = [...existingNodes];
+                                coreIssueNodes.forEach((node) => {
+                                    const key = `${node.selector || ''}|||${node.outerHTML || ''}`;
+                                    const exists = mergedNodes.some((n) => `${n.selector || ''}|||${n.outerHTML || ''}` === key);
+                                    if (!exists) mergedNodes.push(node);
+                                });
+                                pageInfo.nodeInfo = mergedNodes;
+                            }
+                        } catch (coreNodeErr) {
+                            console.warn('Failed to map core issue nodes:', coreNodeErr && coreNodeErr.message ? coreNodeErr.message : coreNodeErr);
+                        }
+                    }
+
+                    // AI heuristics checks (content intent / meaning)
+                    let aiIssues = [];
+                    if (String(process.env.ENABLE_AI_HEURISTICS || '').toLowerCase() === '1') {
+                        try {
+                            const aiTests = new AblelyticsAiHeuristics(pageP);
+                            aiIssues = await aiTests.runAll();
+                            aiIssues.forEach((issue) => {
+                                pushIssue(
+                                    issues,
+                                    issue.impact,
+                                    issue.message,
+                                    issue.selector,
+                                    issue.ruleId,
+                                    issue.helpUrl,
+                                    issue.description,
+                                    issue.tags,
+                                    issue.failureSummary,
+                                    issue.html,
+                                    issue.target,
+                                    issue.engine || 'ai-heuristics',
+                                    issue.confidence,
+                                    issue.needsReview,
+                                    issue.evidence,
+                                    issue.aiHowToFix
+                                );
+                            });
+                        } catch (aiErr) {
+                            console.warn('AI heuristics failed:', aiErr && aiErr.message ? aiErr.message : aiErr);
+                        }
+                    }
+
+                    if (aiIssues.length > 0) {
+                        try {
+                            const aiNodesForEvaluation = aiIssues
+                                .filter((issue) => issue.selector || issue.html)
+                                .map((issue) => ({ selector: issue.selector || null, html: issue.html || null }));
+
+                            const aiIssueNodes = aiNodesForEvaluation.length > 0 ? await pageP.evaluate((nodes) => {
+                                const results = [];
+                                nodes.forEach((n) => {
+                                    const selector = n.selector || null;
+                                    try {
+                                        let el = null;
+                                        if (selector) el = document.querySelector(selector);
+                                        if (!el && n.html) {
+                                            const all = Array.from(document.querySelectorAll('*'));
+                                            el = all.find(e => {
+                                                try { return e.outerHTML && e.outerHTML.indexOf(n.html.slice(0, 120)) !== -1; } catch (e) { return false; }
+                                            }) || null;
+                                        }
+                                        if (!el) {
+                                            results.push({ selector, xpath: null, outerHTML: n.html || null, rect: null });
+                                        } else {
+                                            const r = el.getBoundingClientRect();
+                                            function getXPathForElement(elm) {
+                                                if (elm.id) return `id(\"${elm.id}\")`;
+                                                const parts = [];
+                                                while (elm && elm.nodeType === Node.ELEMENT_NODE) {
+                                                    let nb = 1;
+                                                    let sib = elm.previousSibling;
+                                                    while (sib) {
+                                                        if (sib.nodeType === Node.DOCUMENT_TYPE_NODE) { sib = sib.previousSibling; continue; }
+                                                        if (sib.nodeType === Node.ELEMENT_NODE && sib.nodeName === elm.nodeName) nb++;
+                                                        sib = sib.previousSibling;
+                                                    }
+                                                    const tagName = elm.nodeName.toLowerCase();
+                                                    parts.unshift(`${tagName}[${nb}]`);
+                                                    elm = elm.parentNode;
+                                                }
+                                                return '/' + parts.join('/');
+                                            }
+                                            const truncatedHtml = el.outerHTML ? el.outerHTML.substring(0, 500) : null;
+                                            results.push({ selector, xpath: getXPathForElement(el), outerHTML: truncatedHtml, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
+                                        }
+                                    } catch (e) {
+                                        const truncatedHtml = n.html ? n.html.substring(0, 500) : null;
+                                        results.push({ selector: selector || null, xpath: null, outerHTML: truncatedHtml, rect: null });
+                                    }
+                                });
+                                return results;
+                            }, aiNodesForEvaluation) : [];
+
+                            if (aiIssueNodes.length > 0) {
+                                const existingNodes = Array.isArray(pageInfo.nodeInfo) ? pageInfo.nodeInfo : [];
+                                const mergedNodes = [...existingNodes];
+                                aiIssueNodes.forEach((node) => {
+                                    const key = `${node.selector || ''}|||${node.outerHTML || ''}`;
+                                    const exists = mergedNodes.some((n) => `${n.selector || ''}|||${n.outerHTML || ''}` === key);
+                                    if (!exists) mergedNodes.push(node);
+                                });
+                                pageInfo.nodeInfo = mergedNodes;
+                            }
+                        } catch (aiNodeErr) {
+                            console.warn('Failed to map AI issue nodes:', aiNodeErr && aiNodeErr.message ? aiNodeErr.message : aiNodeErr);
+                        }
+                    }
+
                     // Also collect simple checks: title and html[lang]
                     try {
                         const meta = await pageP.evaluate(() => ({ title: document.title || '', lang: document.documentElement.lang || '' }));
-                        if (!meta.title || meta.title.trim() === '') pushIssue(issues, 'critical', 'Missing or empty <title> element');
-                        if (!meta.lang || meta.lang.trim() === '') pushIssue(issues, 'critical', 'Missing html[lang] attribute');
+                        if (!meta.title || meta.title.trim() === '') pushIssue(issues, 'critical', 'Missing or empty <title> element', null, null, null, null, [], null, null, null, 'ablelytics-core');
+                        if (!meta.lang || meta.lang.trim() === '') pushIssue(issues, 'critical', 'Missing html[lang] attribute', null, null, null, null, [], null, null, null, 'ablelytics-core');
                     } catch (e) {
                         // ignore
                     }
 
                 } catch (err) {
-                    pushIssue(issues, 'critical', `Failed to render page in headless browser: ${String(err)}`);
+                    pushIssue(issues, 'critical', `Failed to render page in headless browser: ${String(err)}`, null, null, null, null, [], null, null, null, 'ablelytics-core');
                 } finally {
                     try { if (pageP) await pageP.close(); } catch (e) { }
                 }
@@ -617,17 +847,17 @@ async function handleScanPages(db, projectId, runId) {
                 const pageData = await fetchHtml(pageUrl);
                 httpStatus = pageData ? pageData.status : null;
                 if (!pageData || !pageData.text) {
-                    pushIssue(issues, 'critical', `Failed to fetch page (status: ${httpStatus})`);
+                    pushIssue(issues, 'critical', `Failed to fetch page (status: ${httpStatus})`, null, null, null, null, [], null, null, null, 'ablelytics-core');
                 } else {
                     const $ = cheerio.load(pageData.text);
                     const title = ($('title').first().text() || '').trim();
-                    if (!title) pushIssue(issues, 'critical', 'Missing or empty <title> element');
+                    if (!title) pushIssue(issues, 'critical', 'Missing or empty <title> element', null, null, null, null, [], null, null, null, 'ablelytics-core');
                     const htmlLang = $('html').attr('lang');
-                    if (!htmlLang) pushIssue(issues, 'critical', 'Missing html[lang] attribute');
+                    if (!htmlLang) pushIssue(issues, 'critical', 'Missing html[lang] attribute', null, null, null, null, [], null, null, null, 'ablelytics-core');
 
                     $('img').each((i, el) => {
                         const alt = ($(el).attr('alt') || '').trim();
-                        if (!alt) pushIssue(issues, 'serious', 'Image with missing or empty alt attribute', $(el).toString());
+                        if (!alt) pushIssue(issues, 'serious', 'Image with missing or empty alt attribute', $(el).toString(), null, null, null, [], null, null, null, 'ablelytics-core');
                     });
 
                     $('a').each((i, el) => {
@@ -637,13 +867,13 @@ async function handleScanPages(db, projectId, runId) {
                         const titleAttr = $el.attr('title');
                         const hasImgWithAlt = $el.find('img[alt]').length > 0;
                         if (!text && !aria && !titleAttr && !hasImgWithAlt) {
-                            pushIssue(issues, 'serious', 'Link with no accessible name (no text, title or aria-label)', $el.toString());
+                            pushIssue(issues, 'serious', 'Link with no accessible name (no text, title or aria-label)', $el.toString(), null, null, null, [], null, null, null, 'ablelytics-core');
                         }
                     });
 
-                    if ($('h1').length === 0) pushIssue(issues, 'moderate', 'No <h1> heading present on page');
+                    if ($('h1').length === 0) pushIssue(issues, 'moderate', 'No <h1> heading present on page', null, null, null, null, [], null, null, null, 'ablelytics-core');
                     const desc = $('meta[name="description"]').attr('content');
-                    if (!desc) pushIssue(issues, 'minor', 'Missing meta description');
+                    if (!desc) pushIssue(issues, 'minor', 'Missing meta description', null, null, null, null, [], null, null, null, 'ablelytics-core');
                 }
             }
 
@@ -749,6 +979,21 @@ async function handleScanPages(db, projectId, runId) {
     });
 
     console.log('ScanPages job finished', projectId, runId, 'scanned:', scannedCount, 'agg:', agg);
+
+    try {
+        const slackConfig = await getSlackConfigFromOrg(db, projectData?.organisationId);
+        if (slackConfig) {
+            await notifyScanFinished({
+                projectId,
+                projectName: (projectData && (projectData.name || projectData.domain)) || projectId,
+                pagesScanned: scannedCount,
+                agg,
+            }, slackConfig);
+        }
+    } catch (e) {
+        console.warn('Slack notification failed:', e && e.message ? e.message : e);
+    }
+
     return { ok: true, scanned: scannedCount, agg };
 }
 

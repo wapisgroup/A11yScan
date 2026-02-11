@@ -13,10 +13,10 @@ export const URL_FRONTEND_CONTACT = "/contact"
 export const URL_FRONTEND_INTEGRATIONS = "/integrations"
 export const URL_FRONTEND_WHY_ACCESSIBILITY = "/why-accessibility"
 export const URL_FRONTEND_ABOUT = "/about"
+export const URL_FRONTEND_SOLUTIONS = "/solutions"
 
 export const URL_FRONTEND_CASE_STUDIES = "/case_studies"
 export const URL_FRONTEND_BLOG = "/blog"
-export const URL_FRONTEND_DOCUMENTATION = "/documentation"
 export const URL_FRONTEND_GUIDES = "/guides"
 export const URL_FRONTEND_ACCESSIBILITY_RULES = "/accessibility-rules"
 
@@ -36,12 +36,13 @@ export const URL_DOCUMENTATION_API = `${URL_DOCUMENTATION}/api`
 
 
 export const URL_APP_WORKSPACE = "/workspace"
-export const URL_AUTH_LOGIN = `https://app.ablelytics.com/login`
-export const URL_AUTH_REGISTER = `https://app.ablelytics.com/register`
+export const URL_AUTH_LOGIN = `/login`
+export const URL_AUTH_REGISTER = `/signup`
 
 
 export const main_menu_urls = [
     {url: URL_FRONTEND_FEATURES, title:'Features'},
+    {url: URL_FRONTEND_SOLUTIONS, title:'Solutions'},
     {url: URL_FRONTEND_PRICING, title:'Pricing'},
     {url: URL_FRONTEND_FAQS, title:'FAQs'},
     {url: URL_FRONTEND_CONTACT, title:'Contact'},

@@ -12,11 +12,12 @@
   "dependencies": {
     "@axe-core/puppeteer": "^4.1.0",
     "@google-cloud/storage": "^6.9.0",
+    "@wapisgroup/accessibility-rules": "^1.0.4",
     "axe-core": "^4.10.3",
     "cheerio": "^1.1.2",
     "express": "^4.18.2",
     "firebase-admin": "^11.10.0",
-    "pdfkit": "^0.15.0",
+    "pdfmake": "^0.2.10",
     "puppeteer": "^24.16.2"
   },
   "devDependencies": {

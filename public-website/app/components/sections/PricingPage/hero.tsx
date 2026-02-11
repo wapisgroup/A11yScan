@@ -11,11 +11,11 @@ export const PricingPageHero = () => {
     return (
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-large items-center">
             <div className="flex flex-col gap-large">
-                <TitleText title={`Simple pricing for teams of every size`}>Scan whole websites, prioritize fixes by impact, and deliver client-ready PDF reports. Pick a plan that suits your workflow — start free, scale as you grow.</TitleText>
+                <TitleText title={`Simple pricing for teams of every size`}>Scan whole websites, prioritize fixes by impact, and deliver client-ready PDF reports. Pick a plan that suits your workflow — start a free trial, scale as you grow.</TitleText>
 
                 <div className="flex flex-wrap gap-small">
                     <Link href={startTrial}>
-                    <Button variant="primary" title={`Start free`}  />
+                    <Button variant="primary" title={`Start free trial`}  />
                     </Link>
                     <Link href={contactSales}>
                     <Button variant="neutral" title={`Contact sales`} />

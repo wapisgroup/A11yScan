@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+@layer components {
+  .container-pad {
+    @apply max-w-7xl mx-auto px-4 md:px-6 lg:px-8;
+  }
+
+  .docs-shell {
+    @apply grid gap-8 lg:grid-cols-[260px_1fr] xl:grid-cols-[280px_1fr];
+  }
+
+  .doc-card {
+    @apply bg-white border border-slate-200 rounded-2xl p-6 shadow-soft hover:shadow-lg transition-shadow;
+  }
+
+  .doc-chip {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border;
+  }
+
+  .doc-link {
+    @apply text-slate-700 hover:text-slate-900 hover:underline underline-offset-4;
+  }
+
+  .doc-sidebar-link {
+    @apply block rounded-lg px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors;
+  }
+
+  .doc-sidebar-link-active {
+    @apply bg-slate-900 text-white hover:text-white hover:bg-slate-900;
+  }
+
+  .doc-callout {
+    @apply rounded-xl border px-4 py-3 text-sm;
+  }
+
+  .doc-callout-info {
+    @apply bg-indigo-50 border-indigo-200 text-indigo-900;
+  }
+
+  .doc-callout-warn {
+    @apply bg-amber-50 border-amber-200 text-amber-900;
+  }
+
+  .doc-table {
+    @apply w-full text-sm border-collapse;
+  }
+
+  .doc-table th {
+    @apply text-left font-semibold text-slate-700 border-b border-slate-200 pb-2;
+  }
+
+  .doc-table td {
+    @apply py-2 border-b border-slate-100 text-slate-600;
+  }
+
+  .doc-badge {
+    @apply inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700;
+  }
+
+  .doc-code {
+    @apply font-mono text-xs bg-slate-100 px-2 py-1 rounded;
+  }
+
+  .doc-prose {
+    @apply prose prose-slate max-w-none;
+  }
+
+  .doc-prose a {
+    @apply text-indigo-700 no-underline hover:underline;
+  }
+}

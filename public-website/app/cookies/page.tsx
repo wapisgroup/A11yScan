@@ -5,10 +5,14 @@ import {LoggedOutLayout} from "../components/organism/logged-out-layout";
 import { MainSections } from '../components/molecule/main-sections';
 import { TitleText } from '../components/molecule/title-text';
 import { TextBlock } from '../components/molecule/text-blocks';
-import { withTitlePostfix } from "../libs/metadata";
-import { Metadata } from "next";
+import { buildPageMetadata } from "../libs/metadata";
 
-export const metadata: Metadata = withTitlePostfix(["Cookies"]);
+export const metadata = buildPageMetadata({
+    title: "Cookies Policy",
+    description:
+        "Details on how Ablelytics uses cookies, analytics, and consent controls.",
+    path: "/cookies"
+});
 
 export default function CookiesPage() {
     return (

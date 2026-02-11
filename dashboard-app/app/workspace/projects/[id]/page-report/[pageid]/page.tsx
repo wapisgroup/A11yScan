@@ -52,6 +52,11 @@ type Issue = {
   tags?: string[];
   failureSummary?: string | null;
   html?: string | null;
+  engine?: string | null;
+  confidence?: number | null;
+  needsReview?: boolean | null;
+  evidence?: string[] | null;
+  aiHowToFix?: string | null;
   [key: string]: unknown;
 };
 
@@ -181,6 +186,11 @@ export default function PageReport(): React.JSX.Element {
       target: issue.target || null,
       failureSummary: issue.failureSummary || null,
       tags: issue.tags || [],
+      engine: issue.engine || null,
+      confidence: typeof issue.confidence === 'number' ? issue.confidence : null,
+      needsReview: issue.needsReview ?? null,
+      evidence: issue.evidence || [],
+      aiHowToFix: issue.aiHowToFix || null,
       // Add all issues for swiper functionality
       allOccurrences: issuesToShow.map(i => ({
         ruleId: i.ruleId || null,
@@ -193,6 +203,11 @@ export default function PageReport(): React.JSX.Element {
         target: i.target || null,
         failureSummary: i.failureSummary || null,
         tags: i.tags || [],
+        engine: i.engine || null,
+        confidence: typeof i.confidence === 'number' ? i.confidence : null,
+        needsReview: i.needsReview ?? null,
+        evidence: i.evidence || [],
+        aiHowToFix: i.aiHowToFix || null,
       })),
     });
     setIsModalOpen(true);
@@ -479,6 +494,22 @@ export default function PageReport(): React.JSX.Element {
                                         <code className="px-2 py-0.5 rounded bg-[var(--color-bg-light)] font-mono text-xs">
                                           {issue.ruleId}
                                         </code>
+                                      </>
+                                    )}
+                                    {issue.engine && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs">
+                                          {issue.engine}
+                                        </span>
+                                      </>
+                                    )}
+                                    {issue.needsReview && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-xs">
+                                          Needs review
+                                        </span>
                                       </>
                                     )}
                                     {issue.tags && issue.tags.length > 0 && (

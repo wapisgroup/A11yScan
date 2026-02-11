@@ -16,6 +16,7 @@ const pLimit = require('p-limit');
 const url = require('url');
 const crypto = require('crypto');
 const { fetchHtml, normalizeUrl, escapeXml } = require('../helpers/generic');
+const { notifyPageCollectionFinished, getSlackConfigFromOrg } = require('../helpers/slack');
 
 const MAX_PAGES_DEFAULT = Number(process.env.MAX_PAGES) || 2000;
 const CRAWL_DELAY_MS = Number(process.env.CRAWL_DELAY_MS) || 100; // polite delay
@@ -135,6 +136,8 @@ async function handlePageCollectionJob(db, projectId, runId) {
     // Upload to Cloud Storage
     const bucketName = process.env.BUCKET_NAME || (admin.instanceId ? null : null); // we will default to admin.app().options.storageBucket
     let bucket = null;
+    let sitemapUrl = null;
+    let sitemapGraphUrl = null;
     if (process.env.GOOGLE_CLOUD_PROJECT) {
         // try to get default bucket
         const defaultBucketName = admin.app().options?.storageBucket || process.env.STORAGE_BUCKET;
@@ -147,24 +150,22 @@ async function handlePageCollectionJob(db, projectId, runId) {
             await bucket.file(xmlPath).save(sitemapXml, { contentType: 'application/xml' });
             await bucket.file(jsonPath).save(JSON.stringify(graph, null, 2), { contentType: 'application/json' });
 
-            let xmlUrl, jsonUrl;
-
             // In emulator mode, use public URLs instead of signed URLs
             if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
                 const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST.replace(/^https?:\/\//, '');
-                xmlUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(xmlPath)}?alt=media`;
-                jsonUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(jsonPath)}?alt=media`;
-                console.log('[Storage] Using emulator URLs:', { xmlUrl, jsonUrl });
+                sitemapUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(xmlPath)}?alt=media`;
+                sitemapGraphUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(jsonPath)}?alt=media`;
+                console.log('[Storage] Using emulator URLs:', { sitemapUrl, sitemapGraphUrl });
             } else {
                 // Production: use signed URLs
-                [xmlUrl] = await bucket.file(xmlPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 }); // 7 days
-                [jsonUrl] = await bucket.file(jsonPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 });
+                [sitemapUrl] = await bucket.file(xmlPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 }); // 7 days
+                [sitemapGraphUrl] = await bucket.file(jsonPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 });
             }
 
             // Store urls on project
             await projectRef.update({
-                sitemapUrl: xmlUrl,
-                sitemapGraphUrl: jsonUrl
+                sitemapUrl,
+                sitemapGraphUrl
             });
         }
     }
@@ -173,6 +174,17 @@ async function handlePageCollectionJob(db, projectId, runId) {
     await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp(), pagesTotal: nodes.length });
 
     console.log('Sitemap job finished', projectId, runId, 'pages:', nodes.length);
+
+    const slackConfig = await getSlackConfigFromOrg(db, project.organisationId);
+    if (slackConfig) {
+        await notifyPageCollectionFinished({
+            projectId,
+            projectName: project.name || project.domain || projectId,
+            pagesTotal: nodes.length,
+            sitemapUrl,
+            sitemapGraphUrl,
+        }, slackConfig);
+    }
 }
 
 module.exports = { handlePageCollectionJob };

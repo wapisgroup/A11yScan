@@ -20,6 +20,7 @@ type ProjectConfig = {
   storeArtifacts?: boolean;
   cookies?: Cookie[];
   removeCookieBanners?: 'none' | 'cookieyes' | 'all';
+  complianceProfiles?: string[];
 };
 
 type Project = {
@@ -49,11 +50,35 @@ export function SettingsTab({ project }: SettingsTabProps) {
       storeArtifacts: config?.storeArtifacts ?? true,
       cookies: config?.cookies ?? [],
       removeCookieBanners: config?.removeCookieBanners ?? 'none',
+      complianceProfiles: config?.complianceProfiles ?? ['ada_title_ii_wcag21'],
     }),
     [config]
   );
 
   const [cookieInput, setCookieInput] = useState({ name: '', value: '', domain: '' });
+
+  const complianceProfiles = [
+    {
+      id: 'ada_title_ii_wcag21',
+      label: 'ADA Title II (WCAG 2.1 A/AA)',
+      description: 'US DOJ Title II rule aligned to WCAG 2.1 A/AA.'
+    },
+    {
+      id: 'section_508_wcag20',
+      label: 'Section 508 (WCAG 2.0 A/AA)',
+      description: 'US Section 508 standards aligned to WCAG 2.0 A/AA.'
+    },
+    {
+      id: 'en_301_549_web',
+      label: 'EN 301 549 (WCAG 2.1 A/AA)',
+      description: 'EU EN 301 549 web requirements aligned to WCAG 2.1 A/AA.'
+    },
+    {
+      id: 'wcag22',
+      label: 'WCAG 2.2 Level A/AA',
+      description: 'Includes WCAG 2.2 A/AA success criteria.'
+    }
+  ];
 
   async function updateProjectConfig(updated: Partial<ProjectConfig>) {
     if (!projectId) return;
@@ -254,6 +279,48 @@ export function SettingsTab({ project }: SettingsTabProps) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Compliance Profiles */}
+        <div className="bg-white p-[var(--spacing-m)] rounded-lg border border-[var(--color-border-light)] shadow-sm flex flex-col gap-medium">
+          <div className="flex flex-col gap-1">
+            <h4 className="as-h4-text primary-text-color">Compliance Profiles</h4>
+            <p className="as-p2-text secondary-text-color">
+              Select the compliance profiles used for reports and success criteria summaries.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-small">
+            {complianceProfiles.map((profile) => {
+              const selected = defaults.complianceProfiles.includes(profile.id);
+              return (
+                <label
+                  key={profile.id}
+                  className="flex items-start gap-small p-3 rounded-lg border border-gray-200 hover:border-gray-300 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={(event) => {
+                      const updated = event.target.checked
+                        ? [...defaults.complianceProfiles, profile.id]
+                        : defaults.complianceProfiles.filter((id) => id !== profile.id);
+                      void updateProjectConfig({ complianceProfiles: updated });
+                    }}
+                    className="mt-1"
+                  />
+                  <div className="flex flex-col">
+                    <span className="as-p2-text primary-text-color font-medium">
+                      {profile.label}
+                    </span>
+                    <span className="as-p3-text secondary-text-color">
+                      {profile.description}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
           </div>
         </div>
 

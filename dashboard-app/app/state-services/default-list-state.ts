@@ -238,7 +238,7 @@ export const useItemsPageState = <D>(
         } finally {
             setLoading(false);
         }
-    }, [clearError, setError]);
+    }, [clearError, setError, loadItems]);
 
     // ✅ NEW: if subscribeItems is provided, use realtime updates
     useEffect(() => {

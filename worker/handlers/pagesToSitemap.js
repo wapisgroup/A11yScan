@@ -11,6 +11,7 @@
 const admin = require('firebase-admin');
 const path = require('path');
 const { buildSitemapTree, uploadTreeJson } = require('../helpers/pages_to_sitemap');
+const { notifySitemapGenerated, getSlackConfigFromOrg } = require('../helpers/slack');
 
 async function handlePagesToSitemapJob(db, projectId, runId) {
     console.log('handlePagesToSitemapJob', projectId, runId);
@@ -42,10 +43,11 @@ async function handlePagesToSitemapJob(db, projectId, runId) {
 
         // Save the tree JSON to the same storage/ local-artifacts place you use for sitemap
         const treePath = `projects/${projectId}/sitemaps/${runId}.tree.json`;
+        let treeUrl = null;
 
         try {
             // treeJson and treePath exist where you're generating the tree (treePath e.g. `projects/${projectId}/sitemaps/${runId}.tree.json`)
-            const treeUrl = await uploadTreeJson(admin, treeJson, treePath);
+            treeUrl = await uploadTreeJson(admin, treeJson, treePath);
 
             // persist url into project doc (and optionally into the run doc)
             await projectRef.update({ sitemapTreeUrl: treeUrl });
@@ -84,6 +86,15 @@ async function handlePagesToSitemapJob(db, projectId, runId) {
         await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp() });
 
         console.log('Sitemap job finished', projectId, runId, 'pages:', pages.length);
+
+        const slackConfig = await getSlackConfigFromOrg(db, project.organisationId);
+        if (slackConfig) {
+            await notifySitemapGenerated({
+                projectId,
+                projectName: project.name || project.domain || projectId,
+                sitemapTreeUrl: treeUrl,
+            }, slackConfig);
+        }
     } catch (err) {
         console.warn('Failed to generate/upload structured sitemap:', err && err.message ? err.message : err);
     }

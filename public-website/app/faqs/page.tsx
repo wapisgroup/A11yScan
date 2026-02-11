@@ -6,6 +6,14 @@ import { HiQuestionMarkCircle, HiEnvelope } from 'react-icons/hi2';
 import Link from 'next/link';
 import { client } from '../../lib/sanity';
 import { URL_FRONTEND_CONTACT } from "@/app/services/urlServices";
+import { buildPageMetadata } from "../libs/metadata";
+
+export const metadata = buildPageMetadata({
+    title: "FAQs",
+    description:
+        "Answers to common questions about scanning, reports, pricing, and accessibility compliance.",
+    path: "/faqs"
+});
 
 // Fetch FAQs from Sanity
 async function getFAQs() {

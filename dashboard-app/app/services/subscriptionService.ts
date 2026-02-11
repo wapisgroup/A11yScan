@@ -165,8 +165,19 @@ export function canPerformAction(
   action: keyof UsageLimits
 ): boolean {
   if (!subscription) return false;
+
+  console.log(`Checking if user can perform action: ${action}`);
+  console.log('Current usage:', subscription.currentUsage);
+  console.log('Limits:', subscription);
   
-  const limit = subscription.limits[action];
+  const packageId = subscription.packageId;
+  const packageConfig = getPackageConfig(packageId);
+  
+  if (!packageConfig) {
+    console.warn('Package config not found for packageId:', packageId);
+    return false;
+  }
+  const limit = packageConfig.limits[action];
   const usage = subscription.currentUsage[action] || 0;
   
   // If limit is 'unlimited' or null, allow action

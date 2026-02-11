@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Button } from "../../atom/button";
 
-type ContactPlan = "Free" | "Team" | "Agency";
+type ContactPlan = "Basic" | "Starter" | "Professional" | "Enterprise";
 
 type ContactPayload = {
     name: string;
@@ -35,7 +35,7 @@ export function ContactPageForm() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [company, setCompany] = useState("");
-    const [plan, setPlan] = useState<ContactPlan>("Free");
+    const [plan, setPlan] = useState<ContactPlan>("Basic");
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState<boolean | null>(null);
@@ -58,7 +58,7 @@ export function ContactPageForm() {
         setEmail("");
         setCompany("");
         setMessage("");
-        setPlan("Free");
+        setPlan("Basic");
         setErrorMessage("");
         setSuccess(null);
         setHoneypot("");
@@ -110,7 +110,7 @@ export function ContactPageForm() {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
             {/* honeypot - visually hidden */}
             <label htmlFor="company_name" className="sr-only">
                 Leave this field empty
@@ -125,7 +125,10 @@ export function ContactPageForm() {
                 tabIndex={-1}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-medium">
+            <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">Contact details</h3>
+                <p className="text-sm text-slate-600 mb-4">Tell us how to reach you.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-medium">
                 <div>
                     <label
                         htmlFor="full_name"
@@ -165,45 +168,51 @@ export function ContactPageForm() {
                         required
                     />
                 </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-medium">
-                <div>
-                    <label
-                        htmlFor="company"
-                        className="block primary-text-color as-p3-text mb-1 font-semibold"
-                    >
-                        Company (optional)
-                    </label>
-                    <input
-                        id="company"
-                        name="company"
-                        value={company}
-                        onChange={(e) => setCompany(e.target.value)}
-                        className="w-full input"
-                        placeholder="Acme Agency"
-                        autoComplete="organization"
-                    />
-                </div>
+            <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">Project details</h3>
+                <p className="text-sm text-slate-600 mb-4">Share a bit about your team and goals.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-medium">
+                    <div>
+                        <label
+                            htmlFor="company"
+                            className="block primary-text-color as-p3-text mb-1 font-semibold"
+                        >
+                            Company (optional)
+                        </label>
+                        <input
+                            id="company"
+                            name="company"
+                            value={company}
+                            onChange={(e) => setCompany(e.target.value)}
+                            className="w-full input"
+                            placeholder="Acme Agency"
+                            autoComplete="organization"
+                        />
+                    </div>
 
-                <div>
-                    <label
-                        htmlFor="plan"
-                        className="block primary-text-color as-p3-text mb-1 font-semibold"
-                    >
-                        Interested plan
-                    </label>
-                    <select
-                        id="plan"
-                        name="plan"
-                        value={plan}
-                        onChange={(e) => setPlan(e.target.value as ContactPlan)}
-                        className="w-full input"
-                    >
-                        <option value="Free">Free</option>
-                        <option value="Team">Team</option>
-                        <option value="Agency">Agency</option>
-                    </select>
+                    <div>
+                        <label
+                            htmlFor="plan"
+                            className="block primary-text-color as-p3-text mb-1 font-semibold"
+                        >
+                            Interested plan
+                        </label>
+                        <select
+                            id="plan"
+                            name="plan"
+                            value={plan}
+                            onChange={(e) => setPlan(e.target.value as ContactPlan)}
+                            className="w-full input"
+                        >
+                            <option value="Basic">Basic</option>
+                            <option value="Starter">Starter</option>
+                            <option value="Professional">Professional</option>
+                            <option value="Enterprise">Enterprise</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -224,6 +233,9 @@ export function ContactPageForm() {
                     placeholder="Tell us what you'd like to achieve, size of site, private/staging access, or any questions"
                     required
                 />
+                <p className="text-xs text-slate-500 mt-2">
+                    Include approximate page count and any compliance deadlines if you have them.
+                </p>
             </div>
 
             {errorMessage ? (
