@@ -61,6 +61,15 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // scanIndex collection - fast scans listing index (written by worker/admin)
+    // Users can read only documents from their organisation.
+    match /scanIndex/{scanIndexId} {
+      allow read: if request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.organisationId == resource.data.organisationId;
+      allow write: if false; // worker/admin only
+    }
+
     // Pages collection (top-level) - authenticated users can read/write
     match /pages/{pageId} {
       allow read, write: if request.auth != null;
@@ -116,7 +125,7 @@ service cloud.firestore {
     // Payment history collection - users can read their own payment history
     match /paymentHistory/{paymentId} {
       // Allow users to read their own payment records
-      allow read: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
       
       // Only Cloud Functions can write payment history (webhooks)
       // In production, you'd use a service account for this

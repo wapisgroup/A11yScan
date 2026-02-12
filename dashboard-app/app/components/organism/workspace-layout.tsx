@@ -36,9 +36,9 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = subscribeToJobsWithToasts(toast);
+    const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user?.uid ?? null });
     return unsubscribe;
-  }, [toast]);
+  }, [toast, user?.uid]);
 
   const handleLogout = async () => {
     try {

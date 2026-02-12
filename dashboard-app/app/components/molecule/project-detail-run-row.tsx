@@ -20,7 +20,7 @@ type RunRowProps = {
 };
 
 export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
-  const pagesTotal = safeInt(run.pagesTotal);
+  const pagesTotal = safeInt(run.pagesTotal) || (Array.isArray(run.pagesIds) ? run.pagesIds.length : 0);
   const pagesScanned = safeInt(run.pagesScanned);
 
   const progress = useMemo(() => {
@@ -30,7 +30,7 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
 
     const status = String(run.status ?? "").toLowerCase();
     if (["done", "finished", "completed", "success"].includes(status)) return 100;
-    if (["queued", "running", "pending"].includes(status)) return 1;
+    if (["queued", "running", "pending", "blocked", "processing"].includes(status)) return 1;
     return 0;
   }, [pagesScanned, pagesTotal, run.status]);
 
@@ -41,6 +41,8 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
 
   const typeLabel = (run.type ?? "scan") as string;
   const statusLabel = (run.status ?? "-") as string;
+  const isGrouped = Array.isArray(run.groupedRuns) && run.groupedRuns.length > 1;
+  const groupedRuns = (run.groupedRuns ?? []) as RunDoc[];
 
   /**
    * Special UI case:
@@ -59,6 +61,11 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
             {typeLabel} · {startedLabel}
           </div>
           <div className="as-p3-text secondary-text-color">status: {statusLabel}</div>
+          {isGrouped && (
+            <div className="as-p3-text secondary-text-color">
+              pipeline · {run.groupedRuns?.length ?? 0} runs
+            </div>
+          )}
         </div>
 
         <div className="mt-2 h-2 bg-[var(--color-bg-light)] rounded-md overflow-hidden max-w-[600px]">
@@ -85,6 +92,43 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
             </>
           )}
         </div>
+
+        {isGrouped && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {groupedRuns.map((stage) => {
+              const stageStatus = String(stage.status ?? "queued").toLowerCase();
+              const stagePagesTotal =
+                safeInt(stage.pagesTotal) || (Array.isArray(stage.pagesIds) ? stage.pagesIds.length : 0);
+              const stagePagesScanned = safeInt(stage.pagesScanned);
+              const stageTone =
+                stageStatus === "done" || stageStatus === "completed"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : stageStatus === "failed"
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : stageStatus === "running" || stageStatus === "processing"
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : stageStatus === "blocked"
+                        ? "bg-slate-100 text-slate-700 border-slate-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200";
+
+              return (
+                <span
+                  key={stage.id}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 as-p3-text ${stageTone}`}
+                  title={`${stage.type ?? "stage"} · ${stageStatus}`}
+                >
+                  <strong>{stage.type ?? "stage"}</strong>
+                  <span>{stageStatus}</span>
+                  {stagePagesTotal > 0 && (
+                    <span>
+                      {stagePagesScanned}/{stagePagesTotal}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 shrink-0">

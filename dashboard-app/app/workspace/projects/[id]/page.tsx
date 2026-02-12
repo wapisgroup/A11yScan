@@ -17,7 +17,7 @@
 
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { PrivateRoute } from "@/utils/private-router";
 import { useState } from "react";
 
@@ -64,11 +64,9 @@ const HeaderButtons = ({
  */
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const id = params?.id;
 
   const [showNoPageModal, setShowNoPageModal] = useState(false);
-  const [pageCount, setPageCount] = useState<number>(0);
 
   /**
    * State-service hook: loads the project and owns the active tab state.
@@ -86,22 +84,20 @@ export default function ProjectDetailPage() {
   };
 
   const handleStartFullScan = () => {
-    // Check if there are pages
-    if (pageCount === 0) {
-      setShowNoPageModal(true);
-    } else {
-      void startFullScan(id);
-    }
+    void (async () => {
+      const result = await startFullScan(id);
+      if (result.noPages) {
+        setShowNoPageModal(true);
+      }
+    })();
   };
 
   const handleNoPageModalSubmit = async (option: "discover-and-test" | "discover-and-choose" | "add-manually") => {
     setShowNoPageModal(false);
 
     if (option === "discover-and-test") {
-      // Collect pages (user can manually start scan after pages are discovered)
-      await startPageCollection(id);
-      // Note: We don't auto-start full scan to avoid race conditions
-      // User should manually trigger scan once pages are collected
+      // Queue dependency-aware pipeline: collect pages first, then scan.
+      await startFullScan(id, { includePageCollection: true });
     } else if (option === "discover-and-choose") {
       // Collect pages and navigate to pages tab
       await startPageCollection(id);
@@ -168,7 +164,7 @@ export default function ProjectDetailPage() {
               <div className="bg-[var(--color-bg-light)] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl">
                 {tab === "overview" && <OverviewTab project={project} setTab={state.setTabSafe} />}
                 {tab === "runs" && <RunsTab project={project} />}
-                {tab === "pages" && <PagesTab project={project} onPageCountChange={setPageCount} />}
+                {tab === "pages" && <PagesTab project={project} />}
                 {tab === "pageSets" && <PageSetsTab project={project} />}
                 {tab === "reports" && <ReportsTab projectId={project.id} />}
                 {tab === "settings" && <SettingsTab project={project} />}

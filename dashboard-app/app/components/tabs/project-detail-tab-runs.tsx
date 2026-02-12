@@ -60,7 +60,12 @@ export function RunsTab({ project }: RunsTabProps) {
       if (ok) {
 
         if (!projectId) return;
-        await deleteProjectRun(projectId, run.id);
+        const runsToDelete = Array.isArray((run as any).groupedRuns) && (run as any).groupedRuns.length > 0
+          ? (run as any).groupedRuns
+          : [run];
+        for (const r of runsToDelete) {
+          await deleteProjectRun(projectId, r.id);
+        }
       }
     },
     [projectId]
@@ -69,7 +74,12 @@ export function RunsTab({ project }: RunsTabProps) {
   const handleHideRun  = useCallback(
     async (run: RunDoc) => {
        if (!projectId) return;
-        await hideProjectRun(projectId, run.id);
+        const runsToHide = Array.isArray((run as any).groupedRuns) && (run as any).groupedRuns.length > 0
+          ? (run as any).groupedRuns
+          : [run];
+        for (const r of runsToHide) {
+          await hideProjectRun(projectId, r.id);
+        }
     }, [projectId]);
 
   return (

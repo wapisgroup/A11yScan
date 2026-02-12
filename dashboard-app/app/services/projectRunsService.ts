@@ -16,6 +16,88 @@ import { db } from "@/utils/firebase";
 import type { PageDoc } from "@/types/page-types";
 import { RunDoc } from "@/state-services/project-detail-states_old";
 
+type RunLike = PageDoc & {
+  pipelineId?: string | null;
+  pagesTotal?: number | null;
+  pagesScanned?: number | null;
+  pagesIds?: string[] | null;
+  type?: string | null;
+  status?: string | null;
+  groupedRuns?: RunLike[] | null;
+};
+
+const normalizeRunStatus = (value: unknown): string => {
+  const s = String(value ?? "").toLowerCase();
+  if (!s) return "queued";
+  if (["completed", "done", "finished", "success"].includes(s)) return "done";
+  if (["failed", "error"].includes(s)) return "failed";
+  if (["processing", "in-progress", "running"].includes(s)) return "running";
+  if (["blocked"].includes(s)) return "blocked";
+  return s;
+};
+
+const toMillisSafe = (value: unknown): number => {
+  const maybe = value as { toMillis?: () => number };
+  if (maybe && typeof maybe.toMillis === "function") return maybe.toMillis();
+  return 0;
+};
+
+const sortRunsDesc = (runs: RunLike[]): RunLike[] =>
+  [...runs].sort((a, b) => {
+    const aTime = toMillisSafe((a as any).startedAt) || toMillisSafe((a as any).createdAt);
+    const bTime = toMillisSafe((b as any).startedAt) || toMillisSafe((b as any).createdAt);
+    return bTime - aTime;
+  });
+
+function groupRunsByPipeline(rawRuns: RunLike[]): RunLike[] {
+  const ordered = sortRunsDesc(rawRuns);
+  const groups = new Map<string, RunLike[]>();
+
+  ordered.forEach((run) => {
+    const key = String((run.pipelineId ?? run.id) || run.id);
+    const current = groups.get(key) ?? [];
+    current.push(run);
+    groups.set(key, current);
+  });
+
+  const aggregated: RunLike[] = [];
+
+  groups.forEach((runs, groupKey) => {
+    if (runs.length === 1) {
+      aggregated.push(runs[0]);
+      return;
+    }
+
+    const statuses = runs.map((r) => normalizeRunStatus(r.status));
+    let status = "queued";
+    if (statuses.some((s) => s === "failed")) status = "failed";
+    else if (statuses.some((s) => s === "running")) status = "running";
+    else if (statuses.some((s) => s === "blocked")) status = "blocked";
+    else if (statuses.some((s) => s === "queued")) status = "queued";
+    else if (statuses.every((s) => s === "done")) status = "done";
+
+    const pagesScanned = runs.reduce((acc, r) => acc + Number((r.pagesScanned ?? 0) || 0), 0);
+    const pagesTotal = runs.reduce((acc, r) => {
+      const direct = Number((r.pagesTotal ?? 0) || 0);
+      const fallback = Array.isArray(r.pagesIds) ? r.pagesIds.length : 0;
+      return acc + (direct > 0 ? direct : fallback);
+    }, 0);
+
+    const representative = runs[0];
+    aggregated.push({
+      ...representative,
+      id: representative.id,
+      type: "full_scan",
+      status,
+      pipelineId: groupKey,
+      pagesScanned,
+      pagesTotal,
+      groupedRuns: runs,
+    });
+  });
+
+  return sortRunsDesc(aggregated);
+}
 
 /**
  * Builds the Firestore query used to load pages.
@@ -42,7 +124,7 @@ export async function loadProjectRuns(projectId: string): Promise<PageDoc[]> {
   const q = buildPagesQuery(projectId);
   const snap = await getDocs(q);
 
-  return snap.docs
+  const runs = snap.docs
     .map((d) => {
       const data = d.data() as DocumentData;
       return {
@@ -54,13 +136,9 @@ export async function loadProjectRuns(projectId: string): Promise<PageDoc[]> {
       } as PageDoc;
     })
     // Exclude soft-hidden runs
-    .filter((r) => (r as any).hidden !== true)
-    // Sort by startedAt descending (newest first), fallback to createdAt
-    .sort((a, b) => {
-      const aTime = (a as any).startedAt?.toMillis?.() ?? (a as any).createdAt?.toMillis?.() ?? 0;
-      const bTime = (b as any).startedAt?.toMillis?.() ?? (b as any).createdAt?.toMillis?.() ?? 0;
-      return bTime - aTime;
-    });
+    .filter((r) => (r as any).hidden !== true) as RunLike[];
+
+  return groupRunsByPipeline(runs);
 }
 
 export function subscribeProjectRuns(
@@ -90,15 +168,9 @@ export function subscribeProjectRuns(
           } as PageDoc;
         })
         // Exclude soft-hidden runs
-        .filter((r) => (r as any).hidden !== true)
-        // Sort by startedAt descending (newest first), fallback to createdAt
-        .sort((a, b) => {
-          const aTime = (a as any).startedAt?.toMillis?.() ?? (a as any).createdAt?.toMillis?.() ?? 0;
-          const bTime = (b as any).startedAt?.toMillis?.() ?? (b as any).createdAt?.toMillis?.() ?? 0;
-          return bTime - aTime;
-        });
+        .filter((r) => (r as any).hidden !== true) as RunLike[];
 
-      onNext(runs);
+      onNext(groupRunsByPipeline(runs));
     },
     (error) => {
       if (onError) {

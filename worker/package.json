@@ -8,7 +8,9 @@
     "create-topic": "node create_topic.js",
     "create-run": "node createRun.js",
     "publish-job": "node publishJob.js",
-    "test:core": "node --test tests/ablelytics-core.scenarios.test.js"
+    "test:core": "node --test tests/ablelytics-core.scenarios.test.js",
+    "backfill:scan-index": "node scripts/backfill-scan-index.cjs",
+    "backfill:scan-index:local": "dotenv -e .env.local -- node scripts/backfill-scan-index.cjs"
   },
   "dependencies": {
     "@axe-core/puppeteer": "^4.1.0",

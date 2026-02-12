@@ -40,6 +40,7 @@ export async function loadProject(id: string): Promise<Project> {
 export type MessageResult = {
   title: string;
   message: string;
+  noPages?: boolean;
 };
 
 export const startPageCollection = async (projectId: string): Promise<MessageResult> => {
@@ -155,7 +156,10 @@ export async function scanSinglePage(
  * - This function is intentionally side-effect free (no alert/toast).
  * - The UI layer decides how to present the returned MessageResult.
  */
-export async function startFullScan(projectId: string): Promise<MessageResult> {
+export async function startFullScan(
+  projectId: string,
+  options?: { includePageCollection?: boolean }
+): Promise<MessageResult> {
   if (!projectId) {
     return {
       title: "System exception",
@@ -164,17 +168,30 @@ export async function startFullScan(projectId: string): Promise<MessageResult> {
   }
 
   try {
-    const payload = { projectId, type: "full_scan" };
+    const payload = {
+      projectId,
+      type: "full_scan",
+      includePageCollection: Boolean(options?.includePageCollection),
+    };
     const res = await callServerFunction("startScan", payload);
 
     const serverMessage =
       res && typeof res === "object" && "message" in res
         ? String((res as Record<string, unknown>).message ?? "")
         : "";
+    const noPages =
+      Boolean(
+        res &&
+          typeof res === "object" &&
+          ("noPages" in res
+            ? (res as Record<string, unknown>).noPages
+            : false)
+      );
 
     return {
       title: "Information",
-      message: serverMessage || "Full scan started",
+      message: serverMessage || (noPages ? "No pages found for this project" : "Full scan started"),
+      noPages,
     };
   } catch (err: unknown) {
     // eslint-disable-next-line no-console

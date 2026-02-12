@@ -45,6 +45,7 @@ admin.initializeApp({
   storageBucket: process.env.STORAGE_BUCKET
 });
 const db = admin.firestore();
+const MAX_PARALLEL_JOBS = Math.max(1, Number(process.env.WORKER_MAX_PARALLEL_JOBS || '1'));
 
 console.log('process.env.EMULATOR_MODE', process.env.EMULATOR_MODE);
 console.log('admin projectId:', admin.app().options.projectId);
@@ -60,6 +61,8 @@ if (process.env.EMULATOR_MODE === '1' || process.env.FIRESTORE_EMULATOR_HOST) {
     console.log('[firebase-admin] Using Firestore emulator at', process.env.FIRESTORE_EMULATOR_HOST);
     console.log('Worker: enabling Firestore jobs listener (emulator mode)');
     const jobsCol = db.collection('jobs');
+    let activeJobs = 0;
+    let draining = false;
 
     (async () => {
       const allSnap = await db.collection('projects').get();
@@ -75,68 +78,144 @@ if (process.env.EMULATOR_MODE === '1' || process.env.FIRESTORE_EMULATOR_HOST) {
       qSnap.forEach(d => console.log('QUEUED JOB', d.id));
     })();
 
-    jobsCol.where('status', '==', 'queued').onSnapshot(snapshot => {
-        snapshot.docs.forEach(doc => {
-            try {
-                console.log('Job doc:', doc.id, JSON.stringify(doc.data(), null, 2));
-            } catch (e) {
-                console.log('Job doc (non-serializable):', doc.id, doc.data());
-            }
-        });
-        
-        snapshot.docChanges().forEach(change => {
-            console.log('change.type', change.type);
-            if (change.type === 'added') {
-              const doc = change.doc;
-              (async () => {
-                try {
-                  const job = doc.data();
-                  console.log('Processing job:', job);
-                  if (!job || !job.action) return;
-                  
-                  // Claim the job (avoid double-processing on reconnects / replays).
-                  const claimed = await db.runTransaction(async (tx) => {
-                      const fresh = await tx.get(doc.ref);
-                      const cur = fresh.data();
-                      if (!cur || cur.status !== 'queued') return false;
-                      tx.update(doc.ref, {
-                          status: 'in-progress',
-                          startedAt: admin.firestore.FieldValue.serverTimestamp(),
-                      });
-                      return true;
-                  });
+    async function settleDependentJobs(completedJobId, succeeded, errorText) {
+        try {
+            const depsSnap = await jobsCol
+                .where('dependsOnJobId', '==', completedJobId)
+                .where('status', '==', 'blocked')
+                .get();
+            if (depsSnap.empty) return;
 
-                  if (!claimed) return;
+            const ops = depsSnap.docs.flatMap((d) => {
+                const dep = d.data() || {};
+                const runRef = dep.projectId && dep.runId
+                    ? db.collection('projects').doc(dep.projectId).collection('runs').doc(dep.runId)
+                    : null;
 
-                  switch(job.action) {
-                      case 'page_collection':
-                          await handlePageCollectionJob(db, job.projectId, job.runId);
-                          break;
-                      case 'pages_to_sitemap':
-                          await handlePagesToSitemapJob(db, job.projectId, job.runId);
-                          break;
-                      case 'scan_pages':
-                      case 'full_scan':
-                          await handleScanPages(db, job.projectId, job.runId);
-                          break;
-                      case 'generate_report':
-                          await handleGenerateReport(db, job.projectId, job.runId);
-                          break;
-                      default:
-                          console.log('Unknown job action:', job.action);
-                          return;
-                  }
-
-                  await doc.ref.update({ status: 'done', doneAt: admin.firestore.FieldValue.serverTimestamp() });
-                } catch (err) {
-                  console.error('Error processing Firestore job doc', err);
-                  try { await doc.ref.update({ status: 'error', error: String(err) }); } catch(e){}
+                if (succeeded) {
+                    const updates = [d.ref.update({
+                        status: 'queued',
+                        unblockedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    })];
+                    if (runRef) {
+                        updates.push(runRef.update({
+                            status: 'queued',
+                            unblockedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        }));
+                    }
+                    return updates;
                 }
-              })();
+                const failedUpdates = [d.ref.update({
+                    status: 'failed',
+                    error: `Dependency failed (${completedJobId})${errorText ? `: ${errorText}` : ''}`,
+                    doneAt: admin.firestore.FieldValue.serverTimestamp(),
+                })];
+                if (runRef) {
+                    failedUpdates.push(runRef.update({
+                        status: 'failed',
+                        error: `Dependency failed (${completedJobId})`,
+                        finishedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    }));
+                }
+                return failedUpdates;
+            });
+            await Promise.all(ops);
+        } catch (e) {
+            console.error('Failed to settle dependent jobs', e);
+        }
+    }
+
+    async function processJobDoc(doc) {
+        let processingError = null;
+        const job = doc.data();
+        try {
+            console.log('Processing job:', job);
+            if (!job || !job.action) throw new Error('Missing job.action');
+
+            switch(job.action) {
+                case 'page_collection':
+                    await handlePageCollectionJob(db, job.projectId, job.runId);
+                    break;
+                case 'pages_to_sitemap':
+                    await handlePagesToSitemapJob(db, job.projectId, job.runId);
+                    break;
+                case 'scan_pages':
+                case 'full_scan':
+                    await handleScanPages(db, job.projectId, job.runId);
+                    break;
+                case 'generate_report':
+                    await handleGenerateReport(db, job.projectId, job.runId);
+                    break;
+                default:
+                    throw new Error(`Unknown job action: ${job.action}`);
             }
+
+            await doc.ref.update({ status: 'completed', doneAt: admin.firestore.FieldValue.serverTimestamp() });
+        } catch (err) {
+            processingError = err;
+            console.error('Error processing Firestore job doc', err);
+            try {
+                await doc.ref.update({ status: 'failed', error: String(err), doneAt: admin.firestore.FieldValue.serverTimestamp() });
+            } catch(e) {}
+        } finally {
+            await settleDependentJobs(doc.id, !processingError, processingError ? String(processingError) : null);
+        }
+    }
+
+    async function claimNextQueuedJob() {
+        const snap = await jobsCol.where('status', '==', 'queued').limit(1).get();
+        if (snap.empty) return null;
+        const candidate = snap.docs[0];
+
+        const claimed = await db.runTransaction(async (tx) => {
+            const fresh = await tx.get(candidate.ref);
+            const cur = fresh.data();
+            if (!cur || cur.status !== 'queued') return false;
+            tx.update(candidate.ref, {
+                status: 'processing',
+                startedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            return true;
         });
-    }, err => console.error('Jobs listener error', err));
+
+        if (!claimed) return null;
+        return candidate;
+    }
+
+    async function drainQueue() {
+        if (draining) return;
+        draining = true;
+        try {
+            while (activeJobs < MAX_PARALLEL_JOBS) {
+                const doc = await claimNextQueuedJob();
+                if (!doc) break;
+                activeJobs += 1;
+                void (async () => {
+                    try {
+                        await processJobDoc(doc);
+                    } finally {
+                        activeJobs = Math.max(0, activeJobs - 1);
+                        void drainQueue();
+                    }
+                })();
+            }
+        } catch (e) {
+            console.error('drainQueue failed', e);
+        } finally {
+            draining = false;
+        }
+    }
+
+    jobsCol.where('status', '==', 'queued').onSnapshot(
+        () => {
+            void drainQueue();
+        },
+        err => console.error('Jobs listener error', err)
+    );
+
+    setInterval(() => {
+        void drainQueue();
+    }, 3000);
 }
 
 console.log('Worker started successfully. Listening for jobs...');
-

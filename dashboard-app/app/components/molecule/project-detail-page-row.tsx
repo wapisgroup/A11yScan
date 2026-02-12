@@ -115,58 +115,25 @@ export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowPr
   const status = useMemo(() => {
     const runStatus = statusFromRun(referencingRun);
     const pageStatus = normalizeStatus(page.status);
-    
-    // If there's an active run (queued/running), use its status
-    if (referencingRun && (runStatus === "queued" || runStatus === "running" || runStatus === "pending")) {
-      console.log('[PageRow] Status calculation:', { 
-        pageId: page.id, 
-        pageStatus, 
-        runStatus, 
-        referencingRun,
-        finalStatus: runStatus,
-        reason: 'active run takes priority'
-      });
-      return runStatus;
-    }
-    
-    // Otherwise use page status if available
-    if (page.status) {
-      console.log('[PageRow] Status calculation:', { 
-        pageId: page.id, 
-        pageStatus, 
-        runStatus, 
-        referencingRun,
-        finalStatus: pageStatus,
-        reason: 'page status'
-      });
+
+    // Prefer page-level status so we don't mark all queued pages as "in progress".
+    if (["queued", "running", "pending", "scanned", "failed"].includes(pageStatus)) {
       return pageStatus;
     }
-    
-    // Fall back to run status
-    console.log('[PageRow] Status calculation:', { 
-      pageId: page.id, 
-      pageStatus, 
-      runStatus, 
-      referencingRun,
-      finalStatus: runStatus,
-      reason: 'fallback to run status'
-    });
-    return runStatus;
-  }, [page.status, page.id, referencingRun]);
+
+    // Fall back to run-derived status only for finished states.
+    if (referencingRun && runStatus === "scanned") {
+      return "scanned";
+    }
+
+    return pageStatus || "discovered";
+  }, [page.status, referencingRun]);
 
   const isScanned = status === "scanned";
   // Check for queued/running states (statusFromRun returns "queued" for running tasks)
   const isRunning = status === "queued" || status === "running" || status === "pending";
   const hasRunBeenStarted = Boolean(referencingRun);
   const hasCompletedScan = Boolean(page.lastScan || (page.status === "scanned"));
-
-  console.log('[PageRow] Display state:', {
-    pageId: page.id,
-    status,
-    isRunning,
-    isScanned,
-    hasCompletedScan
-  });
 
   const lastRunId = page.lastRunId || referencingRun?.id || null;
   const hasScan = Boolean(page.lastScan || page.lastRunId || referencingRun?.id);

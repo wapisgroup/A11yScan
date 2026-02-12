@@ -277,7 +277,18 @@ async function handleScanPages(db, projectId, runId) {
         throw new Error('Run not found: ' + runId);
     }
     const runData = runSnap.data() || {};
-    const pagesIds = Array.isArray(runData.pagesIds) ? runData.pagesIds : [];
+    let pagesIds = Array.isArray(runData.pagesIds) ? runData.pagesIds : [];
+
+    // For pipeline jobs (collect pages -> scan), resolve target pages at run start.
+    if (pagesIds.length === 0 && Boolean(runData.resolvePagesAtStart)) {
+        const pagesSnap = await projectRef.collection('pages').get();
+        pagesIds = pagesSnap.docs.map((d) => d.id);
+        await runRef.update({
+            pagesIds,
+            pagesTotal: pagesIds.length,
+            resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
 
     if (pagesIds.length === 0) {
         console.log('No pages to scan for run', runId);
@@ -359,12 +370,13 @@ async function handleScanPages(db, projectId, runId) {
     // === Per-page scan flow (concurrent) ===
     // Each page is processed independently, including fetch/render, axe/static checks, snapshotting, and persistence.
     await Promise.all(pagesIds.map(pageId => limit(async () => {
+        let pageRef = null;
         try {
             // Per-page metadata (snapshot, node rectangles, etc.).
             // IMPORTANT: must be per-page to avoid leaking data across pages.
             const pageInfo = {};
 
-            const pageRef = projectRef.collection('pages').doc(pageId);
+            pageRef = projectRef.collection('pages').doc(pageId);
             const pageSnap = await pageRef.get();
             if (!pageSnap.exists) {
                 console.warn('Page doc not found for id', pageId);
@@ -372,6 +384,16 @@ async function handleScanPages(db, projectId, runId) {
             }
             const page = pageSnap.data();
             const pageUrl = page.url;
+
+            try {
+                await pageRef.update({
+                    status: 'running',
+                    activeRunId: runId,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            } catch (e) {
+                console.warn('Failed to mark page as running for', pageId, e && e.message ? e.message : e);
+            }
 
             const issues = [];
             let httpStatus = null;
@@ -530,6 +552,48 @@ async function handleScanPages(db, projectId, runId) {
                         });
                         
                         if (axeResults && axeResults.violations) {
+                            // Extra stability check for axe "list" findings:
+                            // validate candidates against current DOM to reduce transient false positives.
+                            const listSelectors = Array.from(
+                                new Set(
+                                    axeResults.violations
+                                        .filter(v => v && v.id === 'list' && Array.isArray(v.nodes))
+                                        .flatMap(v => v.nodes || [])
+                                        .map(node => (Array.isArray(node?.target) ? node.target[0] : null))
+                                        .filter(Boolean)
+                                )
+                            );
+                            let listValidationMap = {};
+                            if (listSelectors.length > 0) {
+                                listValidationMap = await pageP.evaluate((selectors) => {
+                                    const result = {};
+                                    const allowedChildren = new Set(['LI', 'SCRIPT', 'TEMPLATE']);
+                                    selectors.forEach((selector) => {
+                                        try {
+                                            const el = document.querySelector(selector);
+                                            if (!el) {
+                                                result[selector] = false;
+                                                return;
+                                            }
+                                            const tag = String(el.tagName || '').toUpperCase();
+                                            if (tag === 'LI') {
+                                                result[selector] = !el.closest('ul,ol,menu');
+                                                return;
+                                            }
+                                            if (tag === 'UL' || tag === 'OL' || tag === 'MENU') {
+                                                const invalidChild = Array.from(el.children).some((child) => !allowedChildren.has(String(child.tagName || '').toUpperCase()));
+                                                result[selector] = invalidChild;
+                                                return;
+                                            }
+                                            result[selector] = false;
+                                        } catch (e) {
+                                            result[selector] = false;
+                                        }
+                                    });
+                                    return result;
+                                }, listSelectors);
+                            }
+
                             axeResults.violations.forEach(v => {
                                 const impact = v.impact || 'moderate';
                                 const ruleId = v.id;
@@ -540,6 +604,12 @@ async function handleScanPages(db, projectId, runId) {
                                 
                                 // one issue per node
                                 v.nodes.forEach(node => {
+                                    if (ruleId === 'list') {
+                                        const verificationSelector = Array.isArray(node?.target) ? node.target[0] : null;
+                                        if (verificationSelector && listValidationMap[verificationSelector] !== true) {
+                                            return;
+                                        }
+                                    }
                                     // Use either the node's html or the joined target selectors for highlighting
                                     const selector = (node && (node.html || node.target && node.target.join(','))) || null;
                                     const failureSummary = (node && node.failureSummary) || null;
@@ -989,6 +1059,31 @@ async function handleScanPages(db, projectId, runId) {
 
             await scansCol.add(scanDoc);
 
+            // Maintain an org-scoped scan index for fast listing/filtering in UI.
+            try {
+                const organisationId = projectData?.organisationId || null;
+                const scanIndexId = `${projectId}__${pageId}`;
+                await db.collection('scanIndex').doc(scanIndexId).set({
+                    projectId,
+                    projectName: projectData?.name || projectData?.domain || projectId,
+                    organisationId,
+                    pageId,
+                    url: pageUrl || null,
+                    runId,
+                    status: 'scanned',
+                    summary: scanDoc.summary,
+                    totalIssues:
+                        Number(scanDoc.summary?.critical || 0) +
+                        Number(scanDoc.summary?.serious || 0) +
+                        Number(scanDoc.summary?.moderate || 0) +
+                        Number(scanDoc.summary?.minor || 0),
+                    lastScanned: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            } catch (e) {
+                console.warn('Failed to update scan index for', pageId, e && e.message ? e.message : e);
+            }
+
             // Track this page scan in subscription usage
             if (projectOwner) {
                 try {
@@ -1019,6 +1114,7 @@ async function handleScanPages(db, projectId, runId) {
                     lastPageInfo: pageInfo,
                     violationsCount: scanDoc.summary,
                     status: 'scanned',
+                    activeRunId: null,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp()
                 });
             } catch (e) {
@@ -1043,6 +1139,38 @@ async function handleScanPages(db, projectId, runId) {
                 await scansCol.add({ pageId, runId, error: String(err), createdAt: admin.firestore.FieldValue.serverTimestamp() });
             } catch (e) {
                 console.warn('Failed to write error scan doc', e);
+            }
+
+            try {
+                const organisationId = projectData?.organisationId || null;
+                const scanIndexId = `${projectId}__${pageId}`;
+                await db.collection('scanIndex').doc(scanIndexId).set({
+                    projectId,
+                    projectName: projectData?.name || projectData?.domain || projectId,
+                    organisationId,
+                    pageId,
+                    url: pageRef ? (await pageRef.get()).data()?.url || null : null,
+                    runId,
+                    status: 'failed',
+                    summary: { critical: 0, serious: 0, moderate: 0, minor: 0 },
+                    totalIssues: 0,
+                    lastScanned: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            } catch (e) {
+                console.warn('Failed to update failed scan index for', pageId, e && e.message ? e.message : e);
+            }
+
+            try {
+                if (pageRef) {
+                    await pageRef.update({
+                        status: 'failed',
+                        activeRunId: null,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to mark page as failed for', pageId, e && e.message ? e.message : e);
             }
         }
     })));

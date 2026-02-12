@@ -36,9 +36,6 @@ import { callServerFunction } from "@/services/serverService";
 type PagesTabProps = {
   /** The parent project document. */
   project: Project;
-  
-  /** Optional callback when page count changes. */
-  onPageCountChange?: (count: number) => void;
 };
 
 /**
@@ -122,7 +119,7 @@ const PageListRow = React.memo(function PageListRow({
  * - This component is intentionally thin
  * - All Firestore subscriptions and mutations live in the state hook
  */
-export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
+export function PagesTab({ project }: PagesTabProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -206,13 +203,6 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
       setFiltered404Page(1);
     }
   }, [is404Filtered]);
-
-  // Notify parent of page count changes
-  useEffect(() => {
-    if (onPageCountChange) {
-      onPageCountChange(totalCount);
-    }
-  }, [totalCount, onPageCountChange]);
 
   /**
   * Pagination metadata derived by the state hook.
