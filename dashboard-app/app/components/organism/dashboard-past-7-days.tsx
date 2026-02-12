@@ -1,61 +1,67 @@
-import { PiArrowRight } from "react-icons/pi";
-
 type DashboardPast7DaysProps = {
+  totalPages: number;
   pagesScanned: number;
+  pagesUnscanned: number;
+  scannedLast7Days: number;
+  stalePages: number;
   totalIssues: number;
 };
 
-export function DashboardPast7Days({ pagesScanned, totalIssues }: DashboardPast7DaysProps) {
+export function DashboardPast7Days({
+  totalPages,
+  pagesScanned,
+  pagesUnscanned,
+  scannedLast7Days,
+  stalePages,
+  totalIssues,
+}: DashboardPast7DaysProps) {
+  const scanCoverage = totalPages > 0 ? Math.round((pagesScanned / totalPages) * 100) : 0;
+  const scanVelocity = totalPages > 0 ? Math.round((scannedLast7Days / totalPages) * 100) : 0;
+  const issueDensity = pagesScanned > 0 ? (totalIssues / pagesScanned).toFixed(1) : "0.0";
+
   return (
     <div className="bg-white rounded-2xl p-6 border border-gray-200">
-      <h2 className="text-lg font-bold text-gray-900 mb-4">Past 7 Days Summary</h2>
-      
-      {/* Chart visualization */}
-      <div className="mb-4">
-        <div className="h-32 flex items-end justify-between gap-1.5 bg-gray-50 rounded-lg p-3">
-          {[50, 62, 55, 70, 65, 75, 80].map((val, i) => {
-            const greenHeight = `${val}%`;
-            const orangeHeight = `${val * 0.4}%`;
-            return (
-              <div key={i} className="flex-1 h-full flex flex-col justify-end items-stretch gap-1">
-                <div className="bg-teal-500 rounded-t-sm" style={{ height: greenHeight }}></div>
-                <div className="bg-orange-500 rounded-t-sm" style={{ height: orangeHeight }}></div>
-              </div>
-            );
-          })}
+      <h2 className="text-lg font-bold text-gray-900 mb-4">Health Snapshot</h2>
+
+      <div className="space-y-4">
+        <div>
+          <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+            <span>Coverage</span>
+            <span className="font-semibold text-gray-900">{scanCoverage}%</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-teal-500" style={{ width: `${scanCoverage}%` }}></div>
+          </div>
         </div>
-        <div className="flex justify-between text-xs text-gray-500 mt-2">
-          <span>Sun</span>
-          <span>Mon</span>
-          <span>Tue</span>
-          <span>Wed</span>
-          <span>Thu</span>
-          <span>Fri</span>
-          <span>Sat</span>
+
+        <div>
+          <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+            <span>Scanned in Last 7 Days</span>
+            <span className="font-semibold text-gray-900">{scanVelocity}%</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500" style={{ width: `${scanVelocity}%` }}></div>
+          </div>
         </div>
+
       </div>
 
-      {/* Stats */}
-      <div className="space-y-3 pt-3 border-t border-gray-200">
+      <div className="space-y-3 pt-4 mt-4 border-t border-gray-200">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600 flex items-center gap-2">
-            <div className="w-3 h-3 bg-teal-500 rounded-sm"></div>
-            Pages Scanned
-          </span>
-          <span className="text-sm text-gray-900 font-semibold flex items-center gap-1">
-            {pagesScanned} pages
-            <PiArrowRight className="text-xs text-gray-400" />
-          </span>
+          <span className="text-sm text-gray-600">Scanned pages</span>
+          <span className="text-sm text-gray-900 font-semibold">{pagesScanned}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600 flex items-center gap-2">
-            <div className="w-3 h-3 bg-orange-500 rounded-sm"></div>
-            New Issues
-          </span>
-          <span className="text-sm text-gray-900 font-semibold flex items-center gap-1">
-            {Math.floor(totalIssues * 0.4)} pages
-            <PiArrowRight className="text-xs text-gray-400" />
-          </span>
+          <span className="text-sm text-gray-600">Unscanned pages</span>
+          <span className="text-sm text-gray-900 font-semibold">{pagesUnscanned}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Stale pages (30+ days)</span>
+          <span className="text-sm text-gray-900 font-semibold">{stalePages}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Issue density</span>
+          <span className="text-sm text-gray-900 font-semibold">{issueDensity} per scanned page</span>
         </div>
       </div>
     </div>

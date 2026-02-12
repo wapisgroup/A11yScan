@@ -35,11 +35,15 @@ export default function Dashboard() {
   // Use dashboard state hook
   const {
     totalProjects,
+    totalPages,
     activeScans,
     pagesScanned,
-    failedPages,
+    pagesUnscanned,
+    scannedLast7Days,
+    stalePages,
     lastScanTime,
     issueBreakdown,
+    topIssueRules,
     activeRuns,
     recentPages,
     problemPages,
@@ -81,7 +85,7 @@ export default function Dashboard() {
 
               <DashboardCard
                 title="Total Pages"
-                value={pagesScanned}
+                value={totalPages}
                 icon={<PiGlobe />}
                 iconColor="text-blue-600"
               />
@@ -105,8 +109,8 @@ export default function Dashboard() {
               />
 
               <DashboardCard
-                title="Failed Pages"
-                value={failedPages}
+                title="Unscanned Pages"
+                value={pagesUnscanned}
                 icon={<PiX />}
                 iconColor="text-red-600"
               />
@@ -142,11 +146,15 @@ export default function Dashboard() {
                 <DashboardViolationOverview issueBreakdown={issueBreakdown} />
                 
                 {/* Top Issues */}
-                <DashboardTopIssues issueBreakdown={issueBreakdown} />
+                <DashboardTopIssues topIssueRules={topIssueRules} />
                 
                 {/* Past 7 Days Summary */}
                 <DashboardPast7Days 
+                  totalPages={totalPages}
                   pagesScanned={pagesScanned}
+                  pagesUnscanned={pagesUnscanned}
+                  scannedLast7Days={scannedLast7Days}
+                  stalePages={stalePages}
                   totalIssues={totalIssues}
                 />
               </div>

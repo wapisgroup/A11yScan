@@ -1,41 +1,38 @@
-type IssueBreakdown = {
-  critical: number;
-  serious: number;
-  moderate: number;
-  minor: number;
-};
+import type { TopIssueRule } from "@/services/dashboardService";
 
 type DashboardTopIssuesProps = {
-  issueBreakdown: IssueBreakdown;
+  topIssueRules: TopIssueRule[];
 };
 
-export function DashboardTopIssues({ issueBreakdown }: DashboardTopIssuesProps) {
+function impactClass(impact: TopIssueRule["impact"]): string {
+  if (impact === "critical") return "bg-red-500";
+  if (impact === "serious") return "bg-orange-500";
+  if (impact === "moderate") return "bg-amber-500";
+  if (impact === "minor") return "bg-blue-500";
+  return "bg-gray-400";
+}
+
+export function DashboardTopIssues({ topIssueRules }: DashboardTopIssuesProps) {
   return (
     <div className="bg-white rounded-2xl p-6 border border-gray-200">
       <h2 className="text-lg font-bold text-gray-900 mb-4">Top Issues</h2>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-all cursor-pointer">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-gray-400 rounded-sm"></div>
-            <span className="text-sm text-gray-700">Missing Alt Text</span>
-          </div>
-          <span className="text-xl font-bold text-gray-900">{Math.floor(issueBreakdown.critical * 0.3)}</span>
+      {topIssueRules.length === 0 ? (
+        <div className="text-sm text-gray-500">No issue-level rule data yet.</div>
+      ) : (
+        <div className="space-y-3">
+          {topIssueRules.slice(0, 5).map((rule) => (
+            <div key={rule.id} className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-all">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-2 h-2 rounded-sm ${impactClass(rule.impact)}`}></div>
+                <span className="text-sm text-gray-700 truncate" title={rule.label}>
+                  {rule.label}
+                </span>
+              </div>
+              <span className="text-xl font-bold text-gray-900">{rule.count}</span>
+            </div>
+          ))}
         </div>
-        <div className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-all cursor-pointer">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-gray-400 rounded-sm"></div>
-            <span className="text-sm text-gray-700">Empty Button Text</span>
-          </div>
-          <span className="text-xl font-bold text-gray-900">{Math.floor(issueBreakdown.serious * 0.5)}</span>
-        </div>
-        <div className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-all cursor-pointer">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-gray-400 rounded-sm"></div>
-            <span className="text-sm text-gray-700">Low Contrast Text</span>
-          </div>
-          <span className="text-xl font-bold text-gray-900">{Math.floor(issueBreakdown.moderate * 0.7)}</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
