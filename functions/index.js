@@ -30,6 +30,12 @@ const {
   retryFailedEmailsHandler,
   processEmailQueueNowHandler,
 } = require('./handlers/emailQueue');
+const {
+  getAdminOrganizationsHandler,
+  getAdminOrganizationDetailHandler,
+  resetAdminOrganizationUsageHandler,
+  setAdminOrganizationLimitsOverrideHandler,
+} = require('./handlers/platformAdmin');
 
 // ============================================================================
 // Callable Functions (preferred for frontend)
@@ -102,3 +108,11 @@ exports.processEmailQueueHttp = processEmailQueueHttp;
 exports.getEmailDeliveryStats = functions.https.onCall(getEmailDeliveryStatsHandler);
 exports.retryFailedEmails = functions.https.onCall(retryFailedEmailsHandler);
 exports.processEmailQueueNow = functions.https.onCall(processEmailQueueNowHandler);
+
+/**
+ * Platform admin endpoints
+ */
+exports.getAdminOrganizations = functions.https.onCall(getAdminOrganizationsHandler);
+exports.getAdminOrganizationDetail = functions.https.onCall(getAdminOrganizationDetailHandler);
+exports.resetAdminOrganizationUsage = functions.https.onCall(resetAdminOrganizationUsageHandler);
+exports.setAdminOrganizationLimitsOverride = functions.https.onCall(setAdminOrganizationLimitsOverrideHandler);

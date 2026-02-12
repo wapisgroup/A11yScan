@@ -39,6 +39,7 @@ const pLimit = require('p-limit');
 const { fetchHtml } = require('../helpers/generic');
 const { AblelyticsCoreTests } = require('../helpers/ablelytics-core-tests');
 const { AblelyticsAiHeuristics } = require('../helpers/ai-heuristics');
+const { insertPageScan, insertIssues, insertCoreCheckTimings } = require('../helpers/bigquery');
 
 async function removeCookieBanners(pageP, mode) {
     const removed = await pageP.evaluate((bannerMode) => {
@@ -371,6 +372,7 @@ async function handleScanPages(db, projectId, runId) {
     // Each page is processed independently, including fetch/render, axe/static checks, snapshotting, and persistence.
     await Promise.all(pagesIds.map(pageId => limit(async () => {
         let pageRef = null;
+        const pageScanStartedAt = new Date();
         try {
             // Per-page metadata (snapshot, node rectangles, etc.).
             // IMPORTANT: must be per-page to avoid leaking data across pages.
@@ -1057,6 +1059,62 @@ async function handleScanPages(db, projectId, runId) {
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             };
 
+            const scanFinishedAt = new Date();
+            const detectedEngines = Array.from(
+                new Set((issues || []).map((issue) => issue && issue.engine).filter(Boolean))
+            );
+
+            try {
+                await insertPageScan({
+                    projectId,
+                    organisationId: projectData?.organisationId || null,
+                    runId,
+                    pageId,
+                    pageUrl,
+                    action: runData?.action || runData?.type || null,
+                    status: 'scanned',
+                    httpStatus,
+                    summary: scanDoc.summary,
+                    issuesTotal: issues.length,
+                    engines: detectedEngines,
+                    coreTotalDurationMs: pageInfo?.coreTiming?.totalDurationMs || null,
+                    usedPuppeteer: usePuppeteer && Boolean(browser),
+                    scanStartedAt: pageScanStartedAt,
+                    scanFinishedAt,
+                    ingestedAt: scanFinishedAt,
+                });
+
+                await insertIssues({
+                    projectId,
+                    organisationId: projectData?.organisationId || null,
+                    runId,
+                    pageId,
+                    pageUrl,
+                    issues,
+                    ingestedAt: scanFinishedAt,
+                });
+
+                if (Array.isArray(pageInfo?.coreTiming?.checks) && pageInfo.coreTiming.checks.length > 0) {
+                    await insertCoreCheckTimings({
+                        projectId,
+                        organisationId: projectData?.organisationId || null,
+                        runId,
+                        pageId,
+                        pageUrl,
+                        checks: pageInfo.coreTiming.checks,
+                        scanStartedAt: pageScanStartedAt,
+                        scanFinishedAt,
+                        ingestedAt: scanFinishedAt,
+                    });
+                }
+            } catch (bqErr) {
+                console.warn(
+                    'BigQuery write failed for scanned page',
+                    pageId,
+                    bqErr && bqErr.message ? bqErr.message : bqErr
+                );
+            }
+
             await scansCol.add(scanDoc);
 
             // Maintain an org-scoped scan index for fast listing/filtering in UI.
@@ -1133,12 +1191,42 @@ async function handleScanPages(db, projectId, runId) {
 
         } catch (err) {
             console.error('Error scanning page', pageId, err && err.stack ? err.stack : err);
+            const scanFinishedAt = new Date();
             // record error inside scans collection
             try {
                 const scansCol = projectRef.collection('scans');
                 await scansCol.add({ pageId, runId, error: String(err), createdAt: admin.firestore.FieldValue.serverTimestamp() });
             } catch (e) {
                 console.warn('Failed to write error scan doc', e);
+            }
+
+            try {
+                const failedPageUrl = pageRef ? (await pageRef.get()).data()?.url || null : null;
+                await insertPageScan({
+                    projectId,
+                    organisationId: projectData?.organisationId || null,
+                    runId,
+                    pageId,
+                    pageUrl: failedPageUrl,
+                    action: runData?.action || runData?.type || null,
+                    status: 'failed',
+                    httpStatus: null,
+                    summary: { critical: 0, serious: 0, moderate: 0, minor: 0 },
+                    issuesTotal: 0,
+                    engines: [],
+                    coreTotalDurationMs: null,
+                    usedPuppeteer: usePuppeteer && Boolean(browser),
+                    error: String(err),
+                    scanStartedAt: pageScanStartedAt,
+                    scanFinishedAt,
+                    ingestedAt: scanFinishedAt,
+                });
+            } catch (bqErr) {
+                console.warn(
+                    'BigQuery write failed for failed page',
+                    pageId,
+                    bqErr && bqErr.message ? bqErr.message : bqErr
+                );
             }
 
             try {

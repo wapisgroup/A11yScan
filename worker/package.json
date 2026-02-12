@@ -9,11 +9,16 @@
     "create-run": "node createRun.js",
     "publish-job": "node publishJob.js",
     "test:core": "node --test tests/ablelytics-core.scenarios.test.js",
+    "test:bigquery": "node scripts/test-bigquery.cjs",
+    "test:bigquery:local": "dotenv -e .env.local -- node scripts/test-bigquery.cjs",
+    "query:bigquery:latest": "node scripts/query-latest-bigquery.cjs",
+    "query:bigquery:latest:local": "dotenv -e .env.local -- node scripts/query-latest-bigquery.cjs",
     "backfill:scan-index": "node scripts/backfill-scan-index.cjs",
     "backfill:scan-index:local": "dotenv -e .env.local -- node scripts/backfill-scan-index.cjs"
   },
   "dependencies": {
     "@axe-core/puppeteer": "^4.1.0",
+    "@google-cloud/bigquery": "^7.8.0",
     "@google-cloud/storage": "^6.9.0",
     "@wapisgroup/accessibility-rules": "^1.0.4",
     "axe-core": "^4.10.3",
