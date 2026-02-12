@@ -1,3 +1,11 @@
+/**
+ * Dashboard Violation Overview
+ * Shared component in organism/dashboard-violation-overview.tsx.
+ */
+
+import { DSSurface } from "@/components/organism/ds-surface";
+import { DSSectionHeader } from "@/components/molecule/ds-section-header";
+
 type IssueBreakdown = {
   critical: number;
   serious: number;
@@ -13,8 +21,10 @@ export function DashboardViolationOverview({ issueBreakdown }: DashboardViolatio
   const totalIssues = issueBreakdown.critical + issueBreakdown.serious + issueBreakdown.moderate + issueBreakdown.minor;
 
   return (
-    <div className="bg-white rounded-2xl p-[var(--spacing-m)] border border-gray-200">
-      <h2 className="as-h3-text font-bold text-gray-900 mb-6">Violation Overview</h2>
+    <DSSurface>
+      <div className="mb-6">
+        <DSSectionHeader title="Violation Overview" />
+      </div>
 
       {/* Donut Chart and Total */}
       <div className="flex flex-col items-center mb-6">
@@ -118,7 +128,7 @@ export function DashboardViolationOverview({ issueBreakdown }: DashboardViolatio
       </div>
 
       {/* New Issues Over Time */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
+      <div className="mt-6 pt-6 border-t border-[var(--color-border-light)]">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-gray-700 mb-1">New Issues Over Time</h3>
         </div>
@@ -162,6 +172,6 @@ export function DashboardViolationOverview({ issueBreakdown }: DashboardViolatio
           <span>1m</span>
         </div>
       </div>
-    </div>
+    </DSSurface>
   );
 }

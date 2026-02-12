@@ -1,10 +1,15 @@
 "use client";
 
+/**
+ * Project Detail Tab Page Sets
+ * Shared component in tabs/project-detail-tab-page-sets.tsx.
+ */
+
 import { useEffect, useMemo, useState } from "react";
 
 import { PageSetRow } from "@/components/molecule/project-detail-page-set-row";
 import { PageContainer } from "@/components/molecule/page-container";
-import { Button } from "@/components/atom/button";
+import { DSButton } from "@/components/atom/ds-button";
 import { useAlert, useConfirm } from "@/components/providers/window-provider";
 import PageSetBuilderDrawer from "@/components/modals/page-set-builder-drawer";
 
@@ -148,17 +153,17 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
       <PageContainer
         inner
         title="Page sets"
-        buttons={<Button variant="primary" onClick={openCreate} title="Add page set" />}
+        buttons={<DSButton onClick={openCreate}>Add page set</DSButton>}
       >
         <div className="md:col-span-2 space-y-2 w-full">
           {loading && (
-            <div className="text-slate-400 p-3 bg-white/3 rounded border border-white/6">
+            <div className="text-slate-400 p-3 bg-[var(--color-bg-light)] rounded border border-[var(--color-border-light)]">
               Loading page sets...
             </div>
           )}
 
           {!loading && error && (
-            <div className="text-red-300 p-3 bg-white/3 rounded border border-white/6">
+            <div className="text-red-300 p-3 bg-[var(--color-bg-light)] rounded border border-[var(--color-border-light)]">
               {error}
             </div>
           )}
@@ -176,7 +181,7 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
           ))}
 
           {!loading && !error && pagedItems.length === 0 && (
-            <div className="text-slate-400 p-3 bg-white/3 rounded border border-white/6">
+            <div className="text-slate-400 p-3 bg-[var(--color-bg-light)] rounded border border-[var(--color-border-light)]">
               No page sets created yet.
             </div>
           )}
@@ -194,4 +199,3 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
     </div>
   );
 }
-

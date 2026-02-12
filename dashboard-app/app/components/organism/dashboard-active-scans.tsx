@@ -1,5 +1,13 @@
+/**
+ * Dashboard Active Scans
+ * Shared component in organism/dashboard-active-scans.tsx.
+ */
+
 import Link from "next/link";
 import { PiPlay, PiCheckCircle, PiGlobe, PiSpinner } from "react-icons/pi";
+import { DSSurface } from "@/components/organism/ds-surface";
+import { DSSectionHeader } from "@/components/molecule/ds-section-header";
+import { DSButton } from "@/components/atom/ds-button";
 
 type ActiveRun = {
   id: string;
@@ -23,12 +31,15 @@ export function DashboardActiveScans({
   formatTimeAgo,
 }: DashboardActiveScansProps) {
   return (
-    <div className="bg-white rounded-2xl p-[var(--spacing-m)] border border-gray-200">
+    <DSSurface>
+      <div className="mb-4">
+        <DSSectionHeader title="Active Scans" />
+      </div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="as-h3-text primary-text-color flex items-center gap-2">
-          <PiPlay className="text-xl text-[#649DAD]" />
-          Active Scans
-        </h2>
+        <div className="inline-flex items-center gap-2 as-p3-text secondary-text-color">
+          <PiPlay className="text-[#649DAD]" />
+          Live queue
+        </div>
         {activeScans > 0 && (
           <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold">
             {activeScans} running
@@ -44,13 +55,13 @@ export function DashboardActiveScans({
       ) : (
         <div className="space-y-3">
           {activeRuns.map((run) => (
-            <div key={run.id} className="border border-gray-200 rounded-lg p-4">
+            <div key={run.id} className="border border-[var(--color-border-light)] rounded-lg p-4">
               <div className="flex items-start gap-3 mb-3">
-                <div className="p-3 bg-gray-100 rounded-lg">
+                <div className="p-3 bg-[var(--color-bg-light)] rounded-lg">
                   <PiGlobe className="text-2xl text-[#649DAD]" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-bold text-gray-900">{run.projectName}</h3>
+                  <h3 className="font-bold primary-text-color">{run.projectName}</h3>
                   <p className="text-sm text-gray-500">{run.projectId}</p>
                 </div>
               </div>
@@ -65,7 +76,7 @@ export function DashboardActiveScans({
                     <span className="text-gray-600">Progress: {Math.floor(run.progress * 840 / 100)}/840</span>
                     <span className="font-bold text-gray-900">{Math.floor(run.progress)}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden mb-3">
+                  <div className="w-full bg-[var(--color-bg-light)] rounded-full h-2 overflow-hidden mb-3">
                     <div 
                       className="h-full bg-[#649DAD] transition-all duration-500"
                       style={{ width: `${run.progress}%` }}
@@ -92,16 +103,15 @@ export function DashboardActiveScans({
                 </div>
               ) : null}
               
-              <Link 
-                href={`/workspace/projects/${run.projectId}`}
-                className="mt-4 w-full block text-center py-2 bg-[#649DAD] text-white rounded-lg text-sm font-semibold hover:bg-[#4a7b8a] transition-all"
-              >
-                View Active Scan
-              </Link>
+              <div className="mt-4">
+                <Link href={`/workspace/projects/${run.projectId}`}>
+                  <DSButton className="w-full">View Active Scan</DSButton>
+                </Link>
+              </div>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </DSSurface>
   );
 }

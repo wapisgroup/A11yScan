@@ -1,3 +1,8 @@
+/**
+ * Update Subscription Button
+ * Shared component in subscription/update-subscription-button.tsx.
+ */
+
 'use client';
 
 import { useState } from 'react';

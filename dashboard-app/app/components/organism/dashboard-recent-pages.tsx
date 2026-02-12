@@ -1,5 +1,12 @@
+/**
+ * Dashboard Recent Pages
+ * Shared component in organism/dashboard-recent-pages.tsx.
+ */
+
 import Link from "next/link";
-import { PiGlobe, PiArrowRight } from "react-icons/pi";
+import { PiGlobe } from "react-icons/pi";
+import { DSSurface } from "@/components/organism/ds-surface";
+import { DSSectionHeader } from "@/components/molecule/ds-section-header";
 
 type RecentPage = {
   id: string;
@@ -18,9 +25,9 @@ type DashboardRecentPagesProps = {
 
 export function DashboardRecentPages({ recentPages, formatTimeAgo }: DashboardRecentPagesProps) {
   return (
-    <div className="bg-white rounded-2xl  border border-gray-200">
-      <div className="flex items-center justify-between p-[var(--spacing-l)]">
-          <h2 className="as-h3-text primary-text-color">Recently Scanned Pages</h2>    
+    <DSSurface className="p-0 overflow-hidden">
+      <div className="flex items-center justify-between p-[var(--spacing-l)] border-b border-[var(--color-border-light)]">
+          <DSSectionHeader title="Recently Scanned Pages" />    
       </div>
 
       {recentPages.length === 0 ? (
@@ -32,7 +39,7 @@ export function DashboardRecentPages({ recentPages, formatTimeAgo }: DashboardRe
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="">
-              <tr className="border-b border-gray-200 ">
+              <tr className="border-b border-[var(--color-border-light)] ">
                 <th className="text-left p-3 pl-8 as-p3-text table-heading-text-color font-semibold">Page URL</th>
                 <th className="text-left p-3 as-p3-text table-heading-text-color font-semibold">Project</th>
                 <th className="text-left p-3 as-p3-text table-heading-text-color font-semibold">Status</th>
@@ -44,7 +51,7 @@ export function DashboardRecentPages({ recentPages, formatTimeAgo }: DashboardRe
                 // Generate varied response times
                
                 return (
-                  <tr key={page.id} className="border-b border-gray-50">
+                  <tr key={page.id} className="border-b border-[var(--color-border-light)]/60">
                     <td className="p-3 pl-8">
                       <div className="as-p3-text secondary-text-color hover:underline cursor-pointer truncate max-w-xs" title={page.url}>
                         {page.url}
@@ -73,6 +80,6 @@ export function DashboardRecentPages({ recentPages, formatTimeAgo }: DashboardRe
           </table>
         </div>
       )}
-    </div>
+    </DSSurface>
   );
 }

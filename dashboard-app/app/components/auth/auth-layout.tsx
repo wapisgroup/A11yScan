@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Auth Layout
+ * Shared component in auth/auth-layout.tsx.
+ */
+
 import Image from "next/image";
 import Link from "next/link";
 

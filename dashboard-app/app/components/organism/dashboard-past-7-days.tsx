@@ -1,3 +1,11 @@
+/**
+ * Dashboard Past 7 Days
+ * Shared component in organism/dashboard-past-7-days.tsx.
+ */
+
+import { DSSurface } from "@/components/organism/ds-surface";
+import { DSSectionHeader } from "@/components/molecule/ds-section-header";
+
 type DashboardPast7DaysProps = {
   totalPages: number;
   pagesScanned: number;
@@ -20,8 +28,10 @@ export function DashboardPast7Days({
   const issueDensity = pagesScanned > 0 ? (totalIssues / pagesScanned).toFixed(1) : "0.0";
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-200">
-      <h2 className="text-lg font-bold text-gray-900 mb-4">Health Snapshot</h2>
+    <DSSurface>
+      <div className="mb-4">
+        <DSSectionHeader title="Health Snapshot" />
+      </div>
 
       <div className="space-y-4">
         <div>
@@ -46,7 +56,7 @@ export function DashboardPast7Days({
 
       </div>
 
-      <div className="space-y-3 pt-4 mt-4 border-t border-gray-200">
+      <div className="space-y-3 pt-4 mt-4 border-t border-[var(--color-border-light)]">
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Scanned pages</span>
           <span className="text-sm text-gray-900 font-semibold">{pagesScanned}</span>
@@ -64,6 +74,6 @@ export function DashboardPast7Days({
           <span className="text-sm text-gray-900 font-semibold">{issueDensity} per scanned page</span>
         </div>
       </div>
-    </div>
+    </DSSurface>
   );
 }

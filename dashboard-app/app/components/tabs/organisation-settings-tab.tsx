@@ -1,7 +1,14 @@
 "use client";
 
+/**
+ * Organisation Settings Tab
+ * Shared component in tabs/organisation-settings-tab.tsx.
+ */
+
 import { useState } from "react";
 import { FiTrash2 } from "react-icons/fi";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSIconButton } from "@/components/atom/ds-icon-button";
 
 type OrganisationData = {
   name: string;
@@ -54,7 +61,7 @@ export function OrganisationSettingsTab({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-[var(--color-border-light)] p-6">
       <form onSubmit={onSave} className="space-y-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -69,7 +76,7 @@ export function OrganisationSettingsTab({
               <input
                 type="text"
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                 value={orgData.name}
                 onChange={(e) =>
                   setOrgData({ ...orgData, name: e.target.value })
@@ -82,7 +89,7 @@ export function OrganisationSettingsTab({
                 Language
               </label>
               <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                 value={orgData.language}
                 onChange={(e) =>
                   setOrgData({ ...orgData, language: e.target.value })
@@ -100,7 +107,7 @@ export function OrganisationSettingsTab({
                 Industry
               </label>
               <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                 value={orgData.industry}
                 onChange={(e) =>
                   setOrgData({ ...orgData, industry: e.target.value })
@@ -121,7 +128,7 @@ export function OrganisationSettingsTab({
               </label>
               <input
                 type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                 placeholder="e.g., BE0123456789"
                 value={orgData.vatNumber}
                 onChange={(e) =>
@@ -132,7 +139,7 @@ export function OrganisationSettingsTab({
           </div>
         </div>
 
-        <div className="pt-6 border-t border-gray-200">
+        <div className="pt-6 border-t border-[var(--color-border-light)]">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
             Security Settings
           </h2>
@@ -147,7 +154,7 @@ export function OrganisationSettingsTab({
             <div className="flex gap-2 mb-3">
               <input
                 type="text"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                 placeholder="e.g., 192.168.1.1"
                 value={newIp}
                 onChange={(e) => setNewIp(e.target.value)}
@@ -158,32 +165,27 @@ export function OrganisationSettingsTab({
                   }
                 }}
               />
-              <button
-                type="button"
-                onClick={handleAddIpRestriction}
-                className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
-              >
+              <DSButton type="button" variant="outline" onClick={handleAddIpRestriction}>
                 Add IP
-              </button>
+              </DSButton>
             </div>
             {orgData.ipRestrictions.length > 0 && (
               <div className="space-y-2">
                 {orgData.ipRestrictions.map((ip) => (
                   <div
                     key={ip}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    className="flex items-center justify-between p-3 bg-[var(--color-bg-light)] rounded-lg border border-[var(--color-border-light)]"
                   >
                     <span className="text-gray-700 font-mono text-sm">
                       {ip}
                     </span>
-                    <button
+                    <DSIconButton
                       type="button"
+                      variant="danger"
+                      label="Remove IP"
+                      icon={<FiTrash2 size={16} />}
                       onClick={() => handleRemoveIpRestriction(ip)}
-                      className="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
-                      title="Remove IP"
-                    >
-                      <FiTrash2 size={16} />
-                    </button>
+                    />
                   </div>
                 ))}
               </div>
@@ -191,14 +193,13 @@ export function OrganisationSettingsTab({
           </div>
         </div>
 
-        <div className="pt-6 border-t border-gray-200">
-          <button
+        <div className="pt-6 border-t border-[var(--color-border-light)]">
+          <DSButton
             type="submit"
             disabled={saving}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save Changes"}
-          </button>
+          </DSButton>
         </div>
       </form>
     </div>

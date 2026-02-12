@@ -11,9 +11,12 @@ import { PrivateRoute } from "@/utils/private-router";
 import { Pagination } from "@/components/molecule/pagination";
 import { useAuth, db } from "@/utils/firebase";
 import { useReportsPageState } from "@/state-services/reports-state";
-import { Button } from "@/components/atom/button";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSIconButton } from "@/components/atom/ds-icon-button";
+import { DSEmptyState } from "@/components/molecule/ds-empty-state";
 import { useConfirm } from "@/components/providers/window-provider";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
+import { PageDataLoading } from "@/components/molecule/page-data-loading";
 
 export default function Reports() {
   const { user } = useAuth();
@@ -102,9 +105,7 @@ export default function Reports() {
         <WorkspaceLayout>
           <PageWrapper title="Reports">
             <PageContainer title="Generated Reports">
-              <div className="flex items-center justify-center h-64">
-                <div className="as-p2-text secondary-text-color">Loading reports...</div>
-              </div>
+              <PageDataLoading>Loading reports...</PageDataLoading>
             </PageContainer>
           </PageWrapper>
         </WorkspaceLayout>
@@ -116,42 +117,24 @@ export default function Reports() {
     <PrivateRoute>
       <WorkspaceLayout>
         <PageWrapper title="Reports">
-          <PageContainer title="Generated Reports">
+          <PageContainer title="Generated Reports" description="View and manage all your generated accessibility reports. Filter by type, status, or project to find specific reports. Click on a report to view details or download the PDF." buttons={<><div className="mt-4 flex items-center gap-3">
+                <DSButton
+                  leadingIcon={<PiPlus size={20} />}
+                  onClick={() => router.push('/workspace/projects')}
+                >
+                  Generate New Report
+                </DSButton>
+                <DSButton
+                  variant="outline"
+                  leadingIcon={<PiGlobe size={20} />}
+                  onClick={() => router.push('/workspace/scans')}
+                >
+                  View Scans
+                </DSButton>
+              </div></>}>
             {error && <div style={{ color: 'var(--color-error)' }} className="as-p2-text mb-4">{error}</div>}
 
-            {/* Info Card */}
-            <div className="mb-6 p-[var(--spacing-l)] bg-gradient-to-r from-[var(--color-primary-light)]/10 to-[var(--color-primary-light)]/5 rounded-xl border border-brand">
-              <div className="flex items-start gap-medium">
-                <div className="p-3 bg-brand rounded-lg">
-                  <PiFilePdf className="text-3xl text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="as-h4-text primary-text-color mb-2">About Reports</h3>
-                  <p className="as-p2-text secondary-text-color leading-relaxed">
-                    Reports are comprehensive PDF documents that summarize all accessibility issues found across your scanned pages.
-                    Issues are grouped and deduplicated - if the same issue appears on multiple pages, it's shown once with a list of affected pages.
-                    Each report includes issue titles, descriptions, code snippets, and severity breakdowns. Reports can be white-labeled with your organization's branding.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="mb-6 flex items-center gap-3">
-              <Button
-                variant="brand"
-                icon={<PiPlus size={20} />}
-                title="Generate New Report"
-                onClick={() => router.push('/workspace/projects')}
-              />
-              <Button
-                variant="secondary"
-                icon={<PiGlobe size={20} />}
-                title="View Scans"
-                onClick={() => router.push('/workspace/scans')}
-              />
-            </div>
-
+            
             {/* Filters */}
             <div className="mb-6 flex flex-wrap gap-4">
               {/* Type Filter */}
@@ -205,39 +188,39 @@ export default function Reports() {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr className="text-left as-p2-text table-heading-text-color border-b border-[var(--color-border-light)]">
-                      <th className="py-4 pr-4">Report</th>
-                      <th className="py-4 pr-4">Status</th>
-                      <th className="py-4 pr-4 text-center">Pages</th>
-                      <th className="py-4 pr-4 text-center">Unique Issues</th>
-                      <th className="py-4 pr-4 text-center">Total Issues</th>
-                      <th className="py-4 pr-4">Generated</th>
-                      <th className="py-4 pr-4 text-right">Actions</th>
+                    <tr className="as-p3-text table-heading-text-color border-b border-[var(--color-border-light)] uppercase tracking-wider">
+                      <th className="py-3 px-6">Report</th>
+                      <th className="py-3 px-6">Status</th>
+                      <th className="py-3 px-6 text-center">Pages</th>
+                      <th className="py-3 px-6 text-center">Unique Issues</th>
+                      <th className="py-3 px-6 text-center">Total Issues</th>
+                      <th className="py-3 px-6 whitespace-nowrap">Generated</th>
+                      <th className="py-3 px-6 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pagedReports.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="py-12 text-center">
-                          <PiFilePdf className="text-6xl table-heading-text-color mx-auto mb-3" />
-                          <p className="as-h5-text secondary-text-color">No reports generated yet</p>
-                          <p className="as-p2-text table-heading-text-color mt-2">
-                            Generate your first report from a project to get started
-                          </p>
-                          <div className="mt-4">
-                            <Button
-                              variant="brand"
-                              icon={<PiPlus size={20} />}
-                              title="Generate Report"
-                              onClick={() => router.push('/workspace/projects')}
-                            />
-                          </div>
+                          <DSEmptyState
+                            icon={<PiFilePdf />}
+                            title="No reports generated yet"
+                            description="Generate your first report from a project to get started."
+                            action={
+                              <DSButton
+                                leadingIcon={<PiPlus size={20} />}
+                                onClick={() => router.push('/workspace/projects')}
+                              >
+                                Generate Report
+                              </DSButton>
+                            }
+                          />
                         </td>
                       </tr>
                     ) : (
                       pagedReports.map((report) => (
                         <tr key={report.id} className="border-t border-[var(--color-border-light)] hover:bg-[var(--color-bg-light)] transition-colors">
-                          <td className="py-4 pr-4">
+                          <td className="py-4 px-6">
                             <div>
                               <div className="as-p2-text primary-text-color mb-1">
                                 {report.projectName}
@@ -252,18 +235,18 @@ export default function Reports() {
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 pr-4">
+                          <td className="py-4 px-6">
                             {getStatusBadge(report.status)}
                           </td>
-                          <td className="py-4 pr-4 text-center">
+                          <td className="py-4 px-6 text-center">
                             <span className="as-p2-text primary-text-color">{report.totalPages}</span>
                           </td>
-                          <td className="py-4 pr-4 text-center">
+                          <td className="py-4 px-6 text-center">
                             <span style={{ backgroundColor: 'var(--color-gradient-purple-light)', color: 'var(--color-gradient-purple)' }} className="inline-flex items-center justify-center min-w-[50px] px-3 py-1 rounded-full as-p2-text">
                               {report.uniqueIssues}
                             </span>
                           </td>
-                          <td className="py-4 pr-4 text-center">
+                          <td className="py-4 px-6 text-center">
                             <div className="flex items-center justify-center gap-2">
                               {report.criticalIssues > 0 && (
                                 <span style={{ backgroundColor: 'var(--color-error-light)', color: 'var(--color-error)' }} className="inline-flex items-center gap-1 px-2 py-1 rounded as-p3-text">
@@ -287,26 +270,26 @@ export default function Reports() {
                               )}
                             </div>
                           </td>
-                          <td className="py-4 pr-4">
+                          <td className="py-4 px-6 whitespace-nowrap">
                             <div className="flex items-center gap-1 as-p2-text secondary-text-color">
                               <PiCalendar className="table-heading-text-color" />
                               {formatDate(report.generatedAt)}
                             </div>
                           </td>
-                          <td className="py-4 text-right">
+                          <td className="py-4 px-6 text-right">
                             <div className="flex items-center justify-end gap-2">
                               {report.status === 'completed' && report.pdfUrl && (
-                                <Button
+                                <DSIconButton
                                   variant="brand"
                                   icon={<PiDownload size={18} />}
-                                  title="Download"
+                                  label="Download report"
                                   onClick={() => window.open(report.pdfUrl, '_blank')}
                                 />
                               )}
-                              <Button
+                              <DSIconButton
                                 variant="danger"
                                 icon={<PiTrash size={18} />}
-                                title="Delete"
+                                label="Delete report"
                                 onClick={() => handleDelete(report.id, `${report.projectName} - ${report.type === 'pageset' ? report.pageSetName : 'Full Report'}`)}
                               />
                             </div>

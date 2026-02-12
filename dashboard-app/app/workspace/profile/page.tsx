@@ -6,8 +6,7 @@ import { PrivateRoute } from "@/utils/private-router";
 import { useAuth, db } from "@/utils/firebase";
 import { PageContainer } from "@/components/molecule/page-container";
 import { doc, updateDoc } from "firebase/firestore";
-import { Button } from "@/components/atom/button";
-import { PiUserCircle, PiEnvelope, PiPhone, PiGlobe } from "react-icons/pi";
+import { DSButton } from "@/components/atom/ds-button";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 
 export default function ProfilePage() {
@@ -88,7 +87,7 @@ export default function ProfilePage() {
                       <input
                         id="firstName"
                         type="text"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         required
@@ -102,7 +101,7 @@ export default function ProfilePage() {
                       <input
                         id="lastName"
                         type="text"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         required
@@ -136,7 +135,7 @@ export default function ProfilePage() {
                     <input
                       id="phone"
                       type="tel"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="+1 234 567 8900"
@@ -150,7 +149,7 @@ export default function ProfilePage() {
                     </label>
                     <select
                       id="language"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
                     >
@@ -164,12 +163,12 @@ export default function ProfilePage() {
 
                   {/* Action Button */}
                   <div className="pt-6 border-t border-gray-200">
-                    <Button
-                      variant="primary"
+                    <DSButton
                       disabled={saving}
                       type="submit"
-                      title={saving ? "Saving..." : "Save Changes"} 
-                    />
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
+                    </DSButton>
                      
                   </div>
                 </form>

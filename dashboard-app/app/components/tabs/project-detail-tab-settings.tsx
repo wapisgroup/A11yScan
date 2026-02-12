@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Project Detail Tab Settings
+ * Shared component in tabs/project-detail-tab-settings.tsx.
+ */
+
 import React, { useMemo, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/utils/firebase";
@@ -134,7 +139,7 @@ export function SettingsTab({ project }: SettingsTabProps) {
     <PageContainer inner>
       <div className="flex flex-col gap-medium w-full p-[var(--spacing-m)]">
         {/* Header with Status */}
-        <div className="flex items-center justify-between border-b border-solid border-white/6 pb-[var(--spacing-m)]">
+        <div className="flex items-center justify-between border-b border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)]">
           <div className="flex flex-col gap-1">
             <h2 className="as-h3-text primary-text-color">Project Settings</h2>
             <p className="as-p2-text secondary-text-color">Configure crawling and scanning behavior</p>

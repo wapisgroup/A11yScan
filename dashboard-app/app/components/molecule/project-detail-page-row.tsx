@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Project Detail Page Row
+ * Shared component in molecule/project-detail-page-row.tsx.
+ */
+
 import React, { useEffect, useMemo, useState } from "react";
 import {
   collection,
@@ -14,7 +19,7 @@ import {
 
 import { db } from "@/utils/firebase";
 import { PiPlay, PiArrowClockwise, PiFileText, PiTrash, PiHourglassLow } from "react-icons/pi";
-import { Button } from "../atom/button";
+import { DSIconButton } from "../atom/ds-icon-button";
 import { ProjectInfoLine } from "../atom/project-info-line";
 import {  statusFromRun } from "@/ui-helpers/page-helpers";
 import { PageDoc } from "@/types/page-types";
@@ -190,10 +195,9 @@ export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowPr
       <div className="flex gap-medium items-center">
         {/* Show Scan/Re-scan button only when not running */}
         {isHttpOk && !isRunning && (
-          <Button
-            title={hasCompletedScan ? "Re-scan" : "Scan"}
+          <DSIconButton
+            label={hasCompletedScan ? "Re-scan" : "Scan"}
             icon={hasCompletedScan ? <PiArrowClockwise size={18} /> : <PiPlay size={18} />}
-            variant="secondary"
             onClick={() => onScan?.()}
           />
         )}
@@ -221,19 +225,18 @@ export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowPr
 
         {/* Show Report button only when scanned */}
         {isHttpOk && hasCompletedScan && (
-          <Button
-            title="Report"
+          <DSIconButton
+            label="Report"
             icon={<PiFileText size={18} />}
-            variant="secondary"
             onClick={() => onOpen?.()}
           />
         )}
 
         {/* Delete button always visible */}
-        <Button
-          title="Delete"
+        <DSIconButton
+          label="Delete"
           icon={<PiTrash size={18} />}
-          variant="secondary"
+          variant="danger"
           onClick={() => onDelete?.()}
         />
       </div>

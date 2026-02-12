@@ -1,3 +1,8 @@
+/**
+ * Window Provider
+ * Shared component in providers/window-provider.tsx.
+ */
+
 "use client"
 
 /**

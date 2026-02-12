@@ -24,7 +24,7 @@ import { formatDate } from "@/ui-helpers/default";
 import { PrivateRoute } from "@/utils/private-router";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PageContainer } from "@/components/molecule/page-container";
-import { Button } from "@/components/atom/button";
+import { DSButton } from "@/components/atom/ds-button";
 import { createReport } from "@/services/reportService";
 import IssueDetailModal, { type IssueData } from "@/components/modals/issue-detail-modal";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
@@ -264,45 +264,49 @@ export default function PageReport(): React.JSX.Element {
 
             buttons={
               <div className="flex flex-wrap items-center gap-2">
-                <Button
+                <DSButton
                   onClick={retestPage}
-                  icon={retesting ? <PiSpinner size={18} className="animate-spin" /> : <PiPlayCircle size={18} />}
-                  title={retesting ? "Starting..." : "Re-test Page"}
-                  variant="brand"
+                  leadingIcon={retesting ? <PiSpinner size={18} className="animate-spin" /> : <PiPlayCircle size={18} />}
                   disabled={retesting}
-                />
-                <Button
+                >
+                  {retesting ? "Starting..." : "Re-test Page"}
+                </DSButton>
+                <DSButton
                   onClick={generatePageReport}
-                  icon={<PiFilePdf size={18} />}
-                  title="Generate PDF"
-                  variant="secondary"
+                  leadingIcon={<PiFilePdf size={18} />}
+                  variant="outline"
                   disabled={generatingReport}
-                />
-                <Button
+                >
+                  Generate PDF
+                </DSButton>
+                <DSButton
                   onClick={exportPDF}
-                  icon={<PiPrinter size={18} />}
-                  title="Print"
-                  variant="secondary"
-                />
+                  leadingIcon={<PiPrinter size={18} />}
+                  variant="outline"
+                >
+                  Print
+                </DSButton>
                 {state.downloadUrl && (
-                  <Button
+                  <DSButton
                     onClick={downloadArtifact}
-                    icon={<PiDownload size={18} />}
-                    title="Download"
-                    variant="secondary"
-                  />
+                    leadingIcon={<PiDownload size={18} />}
+                    variant="outline"
+                  >
+                    Download
+                  </DSButton>
                 )}
-                <Button
+                <DSButton
                   onClick={viewPage}
-                  icon={<PiEye size={18} />}
-                  title="View Page"
-                  variant="secondary"
-                />
+                  leadingIcon={<PiEye size={18} />}
+                  variant="outline"
+                >
+                  View Page
+                </DSButton>
               </div>
             }>
 
             {/* Scan Selector */}
-            <div className="flex items-center justify-between border-b border-t border-solid border-white/6 py-[var(--spacing-m)] px-[var(--spacing-l)] w-full">
+            <div className="flex items-center justify-between border-b border-t border-solid border-[var(--color-border-light)] py-[var(--spacing-m)] px-[var(--spacing-l)] w-full">
               <div className="flex items-center gap-3">
                 <label className="as-p2-text primary-text-color font-medium">Scan History:</label>
                 <select
@@ -321,7 +325,7 @@ export default function PageReport(): React.JSX.Element {
             </div>
 
 
-            <div className="bg-[#F5F7FB] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl w-full">
+            <div className="bg-[var(--color-bg-light)] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl w-full">
               <div className="w-full" ref={containerRef}>
                 {/* Summary Cards & Chart */}
                 <div className="mb-6">

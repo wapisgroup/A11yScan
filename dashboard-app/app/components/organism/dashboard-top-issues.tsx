@@ -1,4 +1,11 @@
+/**
+ * Dashboard Top Issues
+ * Shared component in organism/dashboard-top-issues.tsx.
+ */
+
 import type { TopIssueRule } from "@/services/dashboardService";
+import { DSSurface } from "@/components/organism/ds-surface";
+import { DSSectionHeader } from "@/components/molecule/ds-section-header";
 
 type DashboardTopIssuesProps = {
   topIssueRules: TopIssueRule[];
@@ -14,14 +21,16 @@ function impactClass(impact: TopIssueRule["impact"]): string {
 
 export function DashboardTopIssues({ topIssueRules }: DashboardTopIssuesProps) {
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-200">
-      <h2 className="text-lg font-bold text-gray-900 mb-4">Top Issues</h2>
+    <DSSurface>
+      <div className="mb-4">
+        <DSSectionHeader title="Top Issues" />
+      </div>
       {topIssueRules.length === 0 ? (
         <div className="text-sm text-gray-500">No issue-level rule data yet.</div>
       ) : (
         <div className="space-y-3">
           {topIssueRules.slice(0, 5).map((rule) => (
-            <div key={rule.id} className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-all">
+            <div key={rule.id} className="flex items-center justify-between hover:bg-[var(--color-bg-light)] p-2 rounded-lg transition-all">
               <div className="flex items-center gap-2 min-w-0">
                 <div className={`w-2 h-2 rounded-sm ${impactClass(rule.impact)}`}></div>
                 <span className="text-sm text-gray-700 truncate" title={rule.label}>
@@ -33,6 +42,6 @@ export function DashboardTopIssues({ topIssueRules }: DashboardTopIssuesProps) {
           ))}
         </div>
       )}
-    </div>
+    </DSSurface>
   );
 }

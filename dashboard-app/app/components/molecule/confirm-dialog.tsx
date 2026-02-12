@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Confirm Dialog
+ * Shared component in molecule/confirm-dialog.tsx.
+ */
+
 import { type ReactNode, useEffect } from "react";
 import { Popup } from "@/components/molecule/popup";
 

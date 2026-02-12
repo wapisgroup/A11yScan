@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * UploadSitemapModal
+ * Shared component in modals/UploadSitemapModal.tsx.
+ */
+
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Popup } from "@/components/molecule/popup";

@@ -23,8 +23,8 @@ import { useState } from "react";
 
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PageContainer } from "@/components/molecule/page-container";
-import { Button } from "@/components/atom/button";
-import { TabButton } from "@/components/atom/tab-button";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSTabs } from "@/components/molecule/ds-tabs";
 import { ProjectDetailStats } from "@/components/molecule/project-detail-stats";
 import NoPagesScanModal from "@/components/modals/NoPagesScanModal";
 
@@ -45,26 +45,16 @@ import { PageWrapper } from "@/components/molecule/page-wrapper";
  * Small header action group rendered in the PageContainer header.
  */
 const HeaderButtons = ({
-  projectId,
   onCollectPages,
   onStartFullScan
 }: {
-  projectId: string;
   onCollectPages: () => void;
   onStartFullScan: () => void;
 }) => {
   return (
     <div className="flex gap-small">
-      <Button
-        title="Collect pages"
-        variant="secondary"
-        onClick={onCollectPages}
-      />
-      <Button
-        title="Start full scan now"
-        variant="primary"
-        onClick={onStartFullScan}
-      />
+      <DSButton variant="outline" onClick={onCollectPages}>Collect pages</DSButton>
+      <DSButton onClick={onStartFullScan}>Start full scan now</DSButton>
     </div>
   );
 };
@@ -149,7 +139,7 @@ export default function ProjectDetailPage() {
                 <div className="as-p3-text">{project?.domain}</div>
               </>
             }
-            buttons={<HeaderButtons projectId={id} onCollectPages={handleCollectPages} onStartFullScan={handleStartFullScan} />}
+            buttons={<HeaderButtons onCollectPages={handleCollectPages} onStartFullScan={handleStartFullScan} />}
           >
             <div className="w-full">
               <div className="flex flex-col gap-medium">
@@ -158,20 +148,24 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* Tabs */}
-                <div className="px-[var(--spacing-m)] py-[var(--spacing-m)] flex gap-small border-t border-b border-white/6">
-                  {tabs.map((t) => (
-                    <TabButton
-                      key={t}
-                      tabKey={t}
-                      onClick={(next) => state.setTab(next)}
-                      selected={tab === t}
-                    />
-                  ))}
+                <div className="px-[var(--spacing-m)] py-[var(--spacing-m)] border-t border-b border-[var(--color-border-light)]">
+                  <DSTabs
+                    variant="panel"
+                    value={tab}
+                    onChange={(next) => state.setTab(next)}
+                    items={tabs.map((t) => ({
+                      key: t,
+                      label:
+                        t === "pageSets"
+                          ? "Page Sets"
+                          : t.charAt(0).toUpperCase() + t.slice(1),
+                    }))}
+                  />
                 </div>
               </div>
 
               {/* Tab content */}
-              <div className="bg-[#F5F7FB] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl">
+              <div className="bg-[var(--color-bg-light)] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl">
                 {tab === "overview" && <OverviewTab project={project} setTab={state.setTabSafe} />}
                 {tab === "runs" && <RunsTab project={project} />}
                 {tab === "pages" && <PagesTab project={project} onPageCountChange={setPageCount} />}

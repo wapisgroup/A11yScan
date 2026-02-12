@@ -1,6 +1,13 @@
 "use client";
 
+/**
+ * Organisation Members Tab
+ * Shared component in tabs/organisation-members-tab.tsx.
+ */
+
 import { FiTrash2, FiEdit2 } from "react-icons/fi";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSIconButton } from "@/components/atom/ds-icon-button";
 
 type Member = {
   id: string;
@@ -18,13 +25,11 @@ type MembersTabProps = {
 
 export function MembersTab({ members }: MembersTabProps) {
   return (
-    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-[var(--color-border-light)] p-6">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">Team Members</h2>
-          <button className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-            Add Member
-          </button>
+          <DSButton>Add Member</DSButton>
         </div>
         <p className="text-gray-600">
           Manage your organisation's team members and their access levels.
@@ -76,19 +81,9 @@ export function MembersTab({ members }: MembersTabProps) {
                 </td>
                 <td className="text-right">
                   <div className="flex justify-end gap-2">
-                    <button
-                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
-                      title="Edit member"
-                    >
-                      <FiEdit2 size={18} />
-                    </button>
+                    <DSIconButton icon={<FiEdit2 size={18} />} label="Edit member" />
                     {member.accountType !== "Account owner" && (
-                      <button
-                        className="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
-                        title="Delete member"
-                      >
-                        <FiTrash2 size={18} />
-                      </button>
+                      <DSIconButton variant="danger" icon={<FiTrash2 size={18} />} label="Delete member" />
                     )}
                   </div>
                 </td>

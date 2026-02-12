@@ -1,3 +1,8 @@
+/**
+ * Plan Selection
+ * Shared component in subscription/plan-selection.tsx.
+ */
+
 'use client';
 
 import { useEffect, useState } from 'react';

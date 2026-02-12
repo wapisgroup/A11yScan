@@ -1,3 +1,8 @@
+/**
+ * Popup
+ * Shared component in molecule/popup.tsx.
+ */
+
 import React, { type ReactNode } from "react";
 
 type PopupProps = {

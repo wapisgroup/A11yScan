@@ -1,3 +1,8 @@
+/**
+ * Start Trial Button
+ * Shared component in subscription/start-trial-button.tsx.
+ */
+
 'use client';
 
 import { useState } from 'react';

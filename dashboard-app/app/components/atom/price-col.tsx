@@ -1,3 +1,8 @@
+/**
+ * Price Col
+ * Shared component in atom/price-col.tsx.
+ */
+
 import { PackageConfig } from "@/types/subscription"
 import { capitalizeFirst } from "@/ui-helpers/default";
 import { UpdateSubscriptionButton } from "../subscription/update-subscription-button";

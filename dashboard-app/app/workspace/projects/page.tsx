@@ -18,19 +18,20 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { FiEdit2, FiExternalLink, FiFileText, FiSettings, FiSlash, FiUpload } from "react-icons/fi";
+import { FiExternalLink, FiFileText, FiPlus, FiSettings, FiSlash, FiUpload } from "react-icons/fi";
 
 import { PageContainer } from "@/components/molecule/page-container";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
-import { createProject, deleteProject, updateProject, type Project } from "@/services/projectsService";
+import { createProject, deleteProject, startProjectScan, updateProject, type Project } from "@/services/projectsService";
 
 import dynamic from "next/dynamic";
 import { useConfirm } from "@/components/providers/window-provider";
 import { Pagination } from "@/components/molecule/pagination";
 import { useProjectsPageState } from "@/state-services/projects-page-states";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
-import { Button } from "@/components/atom/button";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSIconButton } from "@/components/atom/ds-icon-button";
 
 
 /**
@@ -117,10 +118,13 @@ export default function ProjectsPage() {
  */
   const AddButton = () => {
     return (
-      <Button
+      <DSButton
         onClick={openCreate}
         aria-label="Add project"
-        title={`Add Project`}/>
+        leadingIcon={<FiPlus size={16} />}
+      >
+        Add Project
+      </DSButton>
       
     );
   };
@@ -170,24 +174,17 @@ export default function ProjectsPage() {
 
   }
 
-  // /**
-  //  * Starts a scan for the given project.
-  //  *
-  //  * Surfaces any backend error into the page error state.
-  //  * Keeps the existing alert behavior for user feedback.
-  //  */
-  // const start = useCallback(async (p: Project) => {
-  //   clearError();
-
-  //   try {
-  //     const runId = await startProjectScan({ id: p.id, domain: p.domain });
-  //     // Keep existing behavior (no design change)
-  //     // eslint-disable-next-line no-alert
-  //     alert(`Scan started. Run ID: ${runId}`);
-  //   } catch (err: unknown) {
-  //     setError(err instanceof Error ? err.message : String(err));
-  //   }
-  // }, [clearError, setError]);
+  /**
+   * Starts a scan for the given project.
+   */
+  const start = useCallback(async (p: Project) => {
+    setError("");
+    try {
+      await startProjectScan({ id: p.id, domain: p.domain });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [setError]);
 
 
 
@@ -228,7 +225,7 @@ export default function ProjectsPage() {
     <PrivateRoute>
       <WorkspaceLayout>
         <PageWrapper title="Projects">
-          <PageContainer title="List of projects" buttons={<AddButton />} >
+          <PageContainer title="List of projects" description="Manage your projects, start scans, and view reports." buttons={<AddButton />}>
 
             {error && <div style={{ color: 'var(--color-error)' }} className="as-p2-text">{error}</div>}
 
@@ -284,44 +281,34 @@ export default function ProjectsPage() {
 
                             <td className="text-right">
                               <div className="flex justify-end gap-small">
-                                <button
-                                  type="button"
+                                <DSIconButton
+                                  variant="brand"
+                                  icon={<FiUpload />}
+                                  label="Start scan"
                                   onClick={() => void start(p)}
-                                  className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
-                                  aria-label="Start scan"
-                                  title="Start scan"
-                                >
-                                  <FiUpload />
-                                </button>
+                                />
 
                                 <Link
                                   href={`/workspace/reports?projectId=${encodeURIComponent(p.id)}`}
-                                  className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg secondary-text-color bg-[var(--color-bg-light)] hover:bg-[var(--color-bg-light)]/70 transition-colors"
                                   aria-label="View reports"
                                   title="View reports"
                                 >
                                   <FiFileText />
                                 </Link>
 
-                                <button
-                                  type="button"
+                                <DSIconButton
+                                  icon={<FiSettings />}
+                                  label="Project settings"
                                   onClick={() => openEdit(p)}
-                                  className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
-                                  aria-label="Project settings"
-                                  title="Project settings"
-                                >
-                                  <FiSettings />
-                                </button>
+                                />
 
-                                <button
-                                  type="button"
+                                <DSIconButton
+                                  variant="danger"
+                                  icon={<FiSlash />}
+                                  label="Disable or delete"
                                   onClick={() => void handleRemove(p)}
-                                  className="p-2 rounded hover:bg-[var(--color-bg-light)] secondary-text-color"
-                                  aria-label="Disable / delete"
-                                  title="Disable / delete"
-                                >
-                                  <FiSlash />
-                                </button>
+                                />
                               </div>
                             </td>
                           </tr>

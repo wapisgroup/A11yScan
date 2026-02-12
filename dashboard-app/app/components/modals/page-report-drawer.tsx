@@ -1,11 +1,18 @@
 "use client";
 
+/**
+ * Page Report Drawer
+ * Shared component in modals/page-report-drawer.tsx.
+ */
+
 import React, { useEffect, useMemo, useState } from "react";
-import { PiCheckCircle, PiInfo, PiWarning, PiX } from "react-icons/pi";
+import { PiCheckCircle } from "react-icons/pi";
 
 import { formatDate } from "@/ui-helpers/default";
 import { usePageReportState } from "@/state-services/page-report-state";
 import IssueDetailModal, { type IssueData } from "@/components/modals/issue-detail-modal";
+import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
+import { DSBadge } from "@/components/atom/ds-badge";
 
 type DrawerTab = "report" | "preview";
 
@@ -121,24 +128,14 @@ export default function PageReportDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
-      <section className="fixed inset-y-0 right-0 z-50 w-[74vw] min-w-[960px] bg-white shadow-2xl border-l border-[var(--color-border-light)] flex flex-col">
-        <header className="border-b border-[var(--color-border-light)] px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="as-p2-text secondary-text-color">Page Report</div>
-              <h2 className="as-h4-text primary-text-color truncate">{state?.page?.url || pageId}</h2>
-            </div>
-            <button
-              aria-label="Close panel"
-              className="p-2 rounded-md hover:bg-[var(--color-bg-light)]"
-              onClick={onClose}
-            >
-              <PiX size={20} />
-            </button>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between gap-4">
+      <DSDrawerShell
+        open={open && Boolean(pageId)}
+        subtitle="Page Report"
+        title={state?.page?.url || pageId}
+        widthClassName="w-[74vw] min-w-[960px]"
+        onClose={onClose}
+        headerActions={
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <label className="as-p3-text secondary-text-color">Scan History:</label>
               <select
@@ -174,11 +171,11 @@ export default function PageReportDrawer({
               </button>
             </div>
           </div>
-        </header>
-
+        }
+      >
         <div className="flex-1 overflow-hidden">
           {activeTab === "report" ? (
-            <div className="h-full overflow-y-auto p-6 bg-[#F5F7FB]">
+            <div className="h-full overflow-y-auto p-6 bg-[var(--color-bg-light)]">
               {!state || state.loading ? (
                 <div className="as-p2-text secondary-text-color">Loading report...</div>
               ) : state.error ? (
@@ -243,7 +240,7 @@ export default function PageReportDrawer({
             </div>
           )}
         </div>
-      </section>
+      </DSDrawerShell>
 
       <IssueDetailModal
         isOpen={isModalOpen}
@@ -280,10 +277,9 @@ function StatCard({
 
 function severityBadge(impact?: string) {
   const v = (impact || "").toLowerCase();
-  if (v === "critical") return <span className="px-2 py-0.5 rounded-full bg-[var(--color-error)]/10 text-[var(--color-error)]">Critical</span>;
-  if (v === "serious") return <span className="px-2 py-0.5 rounded-full bg-[var(--color-warning)]/10 text-[var(--color-warning)]">Serious</span>;
-  if (v === "moderate") return <span className="px-2 py-0.5 rounded-full bg-[var(--color-info)]/10 text-[var(--color-info)]">Moderate</span>;
-  if (v === "minor") return <span className="px-2 py-0.5 rounded-full bg-[var(--color-success)]/10 text-[var(--color-success)]">Minor</span>;
-  return <span className="px-2 py-0.5 rounded-full bg-[var(--color-bg-light)] secondary-text-color"><PiInfo size={12} className="inline mr-1" />Unknown</span>;
+  if (v === "critical") return <DSBadge tone="danger" text="Critical" />;
+  if (v === "serious") return <DSBadge tone="warning" text="Serious" />;
+  if (v === "moderate") return <DSBadge tone="info" text="Moderate" />;
+  if (v === "minor") return <DSBadge tone="success" text="Minor" />;
+  return <DSBadge tone="neutral" text="Unknown" />;
 }
-

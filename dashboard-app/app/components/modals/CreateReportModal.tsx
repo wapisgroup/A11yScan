@@ -1,8 +1,13 @@
 "use client";
 
+/**
+ * CreateReportModal
+ * Shared component in modals/CreateReportModal.tsx.
+ */
+
 import { useState, useEffect } from "react";
 import { PiFileText, PiX, PiListChecks, PiGlobe, PiInfo } from "react-icons/pi";
-import { Button } from "@/components/atom/button";
+import { DSButton } from "@/components/atom/ds-button";
 import { createReport, getScannedPages, getPageSetPages } from "@/services/reportService";
 import { collection, query, getDocs } from "firebase/firestore";
 import { db } from "@/utils/firebase";
@@ -296,19 +301,20 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
-          <Button
-            title="Cancel"
-            variant="secondary"
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--color-border-light)] bg-[var(--color-bg-light)]">
+          <DSButton
+            variant="outline"
             onClick={handleClose}
             disabled={loading}
-          />
-          <Button
-            title={loading ? "Generating..." : "Generate Report"}
-            variant="primary"
+          >
+            Cancel
+          </DSButton>
+          <DSButton
             onClick={handleSubmit}
             disabled={loading || (selectedType === 'pageset' && pageSets.length === 0)}
-          />
+          >
+            {loading ? "Generating..." : "Generate Report"}
+          </DSButton>
         </div>
       </div>
     </div>

@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * NoPagesScanModal
+ * Shared component in modals/NoPagesScanModal.tsx.
+ */
+
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Popup } from "@/components/molecule/popup";

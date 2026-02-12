@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Overview Task Row
+ * Shared component in molecule/overview-task-row.tsx.
+ */
+
 import { RunDoc } from "@/types/run";
 import { safeInt, toDateSafe } from "@/ui-helpers/default";
 import React, { useMemo } from "react";

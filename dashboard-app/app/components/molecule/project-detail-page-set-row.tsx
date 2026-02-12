@@ -1,7 +1,13 @@
 "use client";
 
+/**
+ * Project Detail Page Set Row
+ * Shared component in molecule/project-detail-page-set-row.tsx.
+ */
+
 import { PageSetTDO } from "@/types/page-types-set";
 import React from "react";
+import { DSButton } from "../atom/ds-button";
 
 type PageSetRowProps = {
   setDoc: PageSetTDO;
@@ -38,7 +44,7 @@ function formatFilter(setDoc: PageSetTDO): string {
 export function PageSetRow({ setDoc, pageCount, onRun, onReport, onEdit, onDelete }: PageSetRowProps) {
   const ruleCount = Array.isArray(setDoc.rules) ? setDoc.rules.length : 0;
   return (
-    <div className="flex items-center justify-between gap-4 p-3 bg-white/2 rounded-md border border-white/6 w-full">
+    <div className="flex items-center justify-between gap-4 p-3 bg-white rounded-md border border-[var(--color-border-light)] w-full">
       <div className="min-w-0">
         <div className="font-medium truncate">{setDoc.name}</div>
         <div className="text-xs text-slate-300 truncate">
@@ -47,34 +53,38 @@ export function PageSetRow({ setDoc, pageCount, onRun, onReport, onEdit, onDelet
       </div>
 
       <div className="flex gap-2 shrink-0">
-        <button
+        <DSButton
           type="button"
-          className="px-2 py-1 rounded bg-white/5 text-sm"
+          variant="ghost"
+          size="sm"
           onClick={() => onRun(setDoc)}
         >
           Scan
-        </button>
-        <button
+        </DSButton>
+        <DSButton
           type="button"
-          className="px-2 py-1 rounded bg-white/5 text-sm"
+          variant="ghost"
+          size="sm"
           onClick={() => onReport(setDoc)}
         >
           Report
-        </button>
-        <button
+        </DSButton>
+        <DSButton
           type="button"
-          className="px-2 py-1 rounded border border-white/6 text-sm"
+          variant="outline"
+          size="sm"
           onClick={() => onEdit(setDoc)}
         >
           Edit
-        </button>
-        <button
+        </DSButton>
+        <DSButton
           type="button"
-          className="px-2 py-1 rounded border border-red-500 text-sm"
+          variant="danger"
+          size="sm"
           onClick={() => onDelete(setDoc)}
         >
           Delete
-        </button>
+        </DSButton>
       </div>
     </div>
   );

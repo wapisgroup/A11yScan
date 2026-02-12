@@ -1,6 +1,12 @@
 "use client";
 
+/**
+ * Organisation Integrations Tab
+ * Shared component in tabs/organisation-integrations-tab.tsx.
+ */
+
 import { FiSlack } from "react-icons/fi";
+import { DSButton } from "@/components/atom/ds-button";
 
 type SlackIntegrationData = {
   enabled: boolean;
@@ -22,7 +28,7 @@ export function OrganisationIntegrationsTab({
   onSave,
 }: OrganisationIntegrationsTabProps) {
   return (
-    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-[var(--color-border-light)] p-6">
       <form onSubmit={onSave} className="space-y-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Integrations</h2>
@@ -31,7 +37,7 @@ export function OrganisationIntegrationsTab({
           </p>
         </div>
 
-        <div className="border border-gray-200 rounded-xl p-5">
+        <div className="border border-[var(--color-border-light)] rounded-xl p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
@@ -75,7 +81,7 @@ export function OrganisationIntegrationsTab({
                   })
                 }
                 disabled={!slackIntegration.enabled}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent disabled:bg-gray-100"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent disabled:bg-gray-100"
               />
             </div>
             <div>
@@ -93,20 +99,19 @@ export function OrganisationIntegrationsTab({
                   })
                 }
                 disabled={!slackIntegration.enabled}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent disabled:bg-gray-100"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent disabled:bg-gray-100"
               />
             </div>
           </div>
         </div>
 
         <div className="pt-2">
-          <button
+          <DSButton
             type="submit"
             disabled={saving}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save Changes"}
-          </button>
+          </DSButton>
         </div>
       </form>
     </div>

@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Pagination
+ * Shared component in molecule/pagination.tsx.
+ */
+
 import React from "react";
 
 type PaginationProps = {

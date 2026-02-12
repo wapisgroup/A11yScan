@@ -1,10 +1,16 @@
 "use client";
 
+/**
+ * Project Detail Run Row
+ * Shared component in molecule/project-detail-run-row.tsx.
+ */
+
 import { RunDoc } from "@/types/run";
 import { safeInt, toDateSafe } from "@/ui-helpers/default";
 import React, { useMemo } from "react";
-import { Button } from "../atom/button";
-import { FaEyeSlash, FaTrash, FaTrashAlt } from "react-icons/fa";
+import { DSButton } from "../atom/ds-button";
+import { DSIconButton } from "../atom/ds-icon-button";
+import { FaEyeSlash, FaTrashAlt } from "react-icons/fa";
 
 type RunRowProps = {
   run: RunDoc;
@@ -46,7 +52,7 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
     String(run.status ?? "").toLowerCase() === "running";
 
   return (
-    <div className="flex items-center justify-between gap-4 p-3 bg-white/2 rounded-md  w-full">
+    <div className="flex items-center justify-between gap-4 p-3 bg-white rounded-md  w-full">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-3">
           <div className="as-p2-text primary-text-color truncate">
@@ -55,7 +61,7 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
           <div className="as-p3-text secondary-text-color">status: {statusLabel}</div>
         </div>
 
-        <div className="mt-2 h-2 bg-white/6 rounded-md overflow-hidden max-w-[600px]">
+        <div className="mt-2 h-2 bg-[var(--color-bg-light)] rounded-md overflow-hidden max-w-[600px]">
           <div
             className={
               isPageCollectionRunning
@@ -84,14 +90,16 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
       <div className="flex items-center gap-2 shrink-0">
         
         {String(run.status ?? "").toLowerCase() === "done" && (
-          <Button
-            variant="secondary"
+          <DSButton
+            variant="outline"
+            size="sm"
             onClick={() => onView(run)}
-            title={`View`}
-          />
+          >
+            View
+          </DSButton>
         )}
-        {run.status == 'queued' && <Button variant="danger" onClick={()=>onRemove(run)} title={<FaTrashAlt/>}/>}
-        {run.status == 'done' && <Button variant="danger" onClick={()=>onHide(run)} title={<FaEyeSlash />}/>}
+        {run.status == 'queued' && <DSIconButton variant="danger" icon={<FaTrashAlt />} label="Delete queued run" onClick={()=>onRemove(run)} />}
+        {run.status == 'done' && <DSIconButton variant="danger" icon={<FaEyeSlash />} label="Hide run" onClick={()=>onHide(run)} />}
       </div>
       <style jsx>{`
         .run-progress-indeterminate {
