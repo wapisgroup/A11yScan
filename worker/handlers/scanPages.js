@@ -175,6 +175,35 @@ async function uploadHtmlToStorage(projectId, runId, pageId, html) {
     }
 }
 
+async function uploadBinaryToStorage(projectId, runId, pageId, filename, buffer, contentType) {
+    try {
+        const bucket = admin.storage().bucket();
+        const filePath = `scans/${projectId}/${runId}/${pageId}/${filename}`;
+        const file = bucket.file(filePath);
+        await file.save(buffer, {
+            contentType,
+            metadata: {
+                cacheControl: 'public, max-age=604800',
+            },
+        });
+
+        if (process.env.EMULATOR_MODE === '1') {
+            const bucketName = bucket.name;
+            const storageHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || 'localhost:9199';
+            return `http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
+        }
+
+        const [url] = await file.getSignedUrl({
+            action: 'read',
+            expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        });
+        return url;
+    } catch (error) {
+        console.error('Failed to upload binary to storage:', error);
+        return null;
+    }
+}
+
 /**
  * Scans all pages referenced by a run, writes scan results, and updates usage and stats.
  *
@@ -305,7 +334,7 @@ async function handleScanPages(db, projectId, runId) {
      *   { impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target }
      * Also increments the corresponding counter in agg.
      */
-    function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target, engine, confidence, needsReview, evidence, aiHowToFix) {
+    function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target, engine, confidence, needsReview, evidence, aiHowToFix, decision) {
         issues.push({ 
             impact, 
             message, 
@@ -321,7 +350,8 @@ async function handleScanPages(db, projectId, runId) {
             confidence: typeof confidence === 'number' ? confidence : null,
             needsReview: typeof needsReview === 'boolean' ? needsReview : null,
             evidence: Array.isArray(evidence) ? evidence : [],
-            aiHowToFix: aiHowToFix || null
+            aiHowToFix: aiHowToFix || null,
+            decision: decision || null
         });
         if (agg[impact] !== undefined) agg[impact]++;
     }
@@ -623,6 +653,22 @@ async function handleScanPages(db, projectId, runId) {
                                     pageInfo.pageSnapshot = sanitizedHtml.substring(0, 500000); // Max 50KB
                                 }
                             }
+                            try {
+                                const screenshotBuffer = await pageP.screenshot({ fullPage: true, type: 'jpeg', quality: 65 });
+                                if (screenshotBuffer) {
+                                    const screenshotUrl = await uploadBinaryToStorage(
+                                        projectId,
+                                        runId,
+                                        pageId,
+                                        'screenshot.jpg',
+                                        screenshotBuffer,
+                                        'image/jpeg'
+                                    );
+                                    if (screenshotUrl) pageInfo.pageScreenshotUrl = screenshotUrl;
+                                }
+                            } catch (shotErr) {
+                                console.warn('Failed to capture/upload screenshot:', shotErr && shotErr.message ? shotErr.message : shotErr);
+                            }
                             if (issueNodes && issueNodes.length) pageInfo.nodeInfo = issueNodes;
 
                         } catch (e) {
@@ -634,6 +680,7 @@ async function handleScanPages(db, projectId, runId) {
 
                     // Ablelytics core tests (Puppeteer/Playwright compatible checks)
                     let coreIssues = [];
+                    let coreStats = null;
                     try {
                         if (removeCookieBannersEnabled) {
                             try {
@@ -643,8 +690,25 @@ async function handleScanPages(db, projectId, runId) {
                                 console.warn('Failed to re-remove cookie banners:', bannerErr);
                             }
                         }
-                        const coreTests = new AblelyticsCoreTests(pageP, { includeMultiPageChecks: false });
+                        const coreTests = new AblelyticsCoreTests(pageP, {
+                            includeMultiPageChecks: false,
+                            includeExperimentalChecks: String(process.env.ENABLE_CORE_EXPERIMENTAL_HEURISTICS || '').toLowerCase() === '1',
+                            includeAccessibilityTreeChecks: String(process.env.ENABLE_CORE_A11Y_TREE_CHECKS || '1').toLowerCase() !== '0',
+                            enableVisualFocusChecks: String(process.env.ENABLE_CORE_VISUAL_FOCUS_CHECKS || '1').toLowerCase() !== '0',
+                            minConfidenceForAutoRaise: Number(process.env.CORE_AUTORAISE_CONFIDENCE || 0.7),
+                            suppressions: (() => {
+                                try {
+                                    const raw = process.env.CORE_SUPPRESSIONS_JSON;
+                                    if (!raw) return [];
+                                    const parsed = JSON.parse(raw);
+                                    return Array.isArray(parsed) ? parsed : [];
+                                } catch (e) {
+                                    return [];
+                                }
+                            })()
+                        });
                         coreIssues = await coreTests.runAll();
+                        coreStats = typeof coreTests.getLastRunStats === 'function' ? coreTests.getLastRunStats() : null;
                         coreIssues.forEach((issue) => {
                             pushIssue(
                                 issues,
@@ -658,9 +722,27 @@ async function handleScanPages(db, projectId, runId) {
                                 issue.failureSummary,
                                 issue.html,
                                 issue.target,
-                                issue.engine || 'ablelytics-core'
+                                issue.engine || 'ablelytics-core',
+                                issue.confidence,
+                                issue.needsReview,
+                                issue.evidence,
+                                null,
+                                issue.decision
                             );
                         });
+                        if (coreStats) {
+                            pageInfo.coreTiming = coreStats;
+                            if (String(process.env.ENABLE_CORE_TIMING_LOGS || '1').toLowerCase() !== '0') {
+                                console.log('[ablelytics-core][timing]', JSON.stringify({
+                                    projectId,
+                                    runId,
+                                    pageId,
+                                    pageUrl,
+                                    totalDurationMs: coreStats.totalDurationMs,
+                                    checks: coreStats.checks
+                                }));
+                            }
+                        }
                     } catch (coreErr) {
                         console.warn('Ablelytics core tests failed:', coreErr && coreErr.message ? coreErr.message : coreErr);
                     }
@@ -881,7 +963,7 @@ async function handleScanPages(db, projectId, runId) {
             const scansCol = projectRef.collection('scans');
             
             // Extract pageSnapshot, pageSnapshotUrl and nodeInfo to top level
-            const { pageSnapshot, pageSnapshotUrl, nodeInfo, ...restPageInfo } = pageInfo;
+            const { pageSnapshot, pageSnapshotUrl, pageScreenshotUrl, nodeInfo, coreTiming, ...restPageInfo } = pageInfo;
             
             const scanDoc = {
                 pageId: pageId,
@@ -897,8 +979,10 @@ async function handleScanPages(db, projectId, runId) {
                 issues,
                 // Store HTML snapshot URL from Cloud Storage (preferred) or truncated HTML (fallback)
                 pageSnapshotUrl: pageSnapshotUrl || null,
+                pageScreenshotUrl: pageScreenshotUrl || null,
                 pageSnapshot: pageSnapshot || null,
                 nodeInfo: nodeInfo || [],
+                coreTiming: coreTiming || null,
                 pageInfo: Object.keys(restPageInfo).length > 0 ? restPageInfo : null,
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             };

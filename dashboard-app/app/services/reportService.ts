@@ -1,7 +1,8 @@
-import { collection, query, where, getDocs, orderBy, limit, addDoc, Timestamp, onSnapshot, type DocumentData, type Unsubscribe } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, addDoc, Timestamp, onSnapshot, type DocumentData, type Unsubscribe, doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/utils/firebase";
 import { callServerFunction } from "@/services/serverService";
+import { isLikelyScanned, resolvePageSetPages } from "@/services/pageSetResolver";
 
 export type ReportType = 'full' | 'pageset' | 'individual';
 
@@ -456,39 +457,20 @@ export async function getScannedPages(projectId: string): Promise<{ id: string; 
  */
 export async function getPageSetPages(projectId: string, pageSetId: string): Promise<{ id: string; url: string; title?: string }[]> {
   try {
-    // Load all pages in the page set
-    const pagesQuery = query(
-      collection(db, "projects", projectId, "pages"),
-      where("pageSetIds", "array-contains", pageSetId)
-    );
-    
-    const pagesSnap = await getDocs(pagesQuery);
-    
-    // Filter to only scanned pages
-    const scannedPages = pagesSnap.docs
-      .map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          url: data.url || '',
-          title: data.title,
-          hasViolations: data.violationsCount !== undefined || data.violations !== undefined,
-          hasLastScan: data.lastScan !== undefined,
-          status: data.status,
-        };
-      })
-      .filter(page => 
-        page.status === 'scanned' || 
-        page.hasViolations || 
-        page.hasLastScan
-      )
-      .map(page => ({
-        id: page.id,
-        url: page.url,
-        title: page.title,
-      }));
+    const setSnap = await getDoc(doc(db, "projects", projectId, "pageSets", pageSetId));
+    if (!setSnap.exists()) return [];
+    const setDoc = setSnap.data() || {};
 
-    return scannedPages;
+    const allPagesSnap = await getDocs(query(collection(db, "projects", projectId, "pages")));
+    const allPages = allPagesSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+    const resolved = resolvePageSetPages(allPages, setDoc as any)
+      .filter((p) => isLikelyScanned(p))
+      .map((p) => ({
+        id: String(p.id),
+        url: String(p.url || ""),
+        title: (p.title as string | undefined) || undefined
+      }));
+    return resolved;
   } catch (err) {
     console.error("Failed to load page set pages:", err);
     return [];

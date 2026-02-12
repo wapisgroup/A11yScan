@@ -7,7 +7,8 @@
     "start:local": "dotenv -e .env.local -- node --trace-warnings index.cjs",
     "create-topic": "node create_topic.js",
     "create-run": "node createRun.js",
-    "publish-job": "node publishJob.js"
+    "publish-job": "node publishJob.js",
+    "test:core": "node --test tests/ablelytics-core.scenarios.test.js"
   },
   "dependencies": {
     "@axe-core/puppeteer": "^4.1.0",

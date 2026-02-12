@@ -21,6 +21,7 @@ async function startScanHandler(payload, context) {
   console.log('startScan data:', data);
   const projectId = data && data.projectId;
   const type = data && data.type ? data.type : 'full_scan';
+  const explicitPageIds = Array.isArray(data && data.pagesIds) ? data.pagesIds.map(String).filter(Boolean) : null;
 
   if (!projectId) {
     throw new functions.https.HttpsError('invalid-argument', 'projectId is required');
@@ -36,9 +37,14 @@ async function startScanHandler(payload, context) {
     }, { merge: true });
   }
 
-  // Get all pages within the project
-  const pagesSnapshot = await projectRef.collection('pages').get();
-  const pagesIds = pagesSnapshot.docs.map(doc => doc.id);
+  // Use explicit pages list when provided, otherwise scan all pages in the project.
+  let pagesIds = [];
+  if (explicitPageIds && explicitPageIds.length > 0) {
+    pagesIds = explicitPageIds;
+  } else {
+    const pagesSnapshot = await projectRef.collection('pages').get();
+    pagesIds = pagesSnapshot.docs.map(doc => doc.id);
+  }
 
   // Create a run document with all page IDs
   const runRef = await projectRef.collection('runs').add({

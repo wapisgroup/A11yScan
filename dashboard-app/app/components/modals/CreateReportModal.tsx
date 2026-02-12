@@ -49,7 +49,7 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
         return {
           id: doc.id,
           name: data.name || 'Untitled Page Set',
-          pageCount: data.pageIds?.length || 0,
+          pageCount: Number(data.pageCount || data.pageIds?.length || 0),
         };
       });
       

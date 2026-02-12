@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FiPlus, FiChevronDown } from "react-icons/fi";
 import { PiX, PiPlay, PiTrash, PiWarning, PiFunnel, PiFunnelSimple, PiFunnelX } from "react-icons/pi";
 
@@ -12,6 +12,7 @@ import { Checkbox } from "../atom/checkbox";
 import { useAlert, useConfirm } from "../providers/window-provider";
 import AddPageModal from "../modals/AddPageModal";
 import UploadSitemapModal from "../modals/UploadSitemapModal";
+import PageReportDrawer from "../modals/page-report-drawer";
 
 import type { Project } from "@/types/project";
 import { useProjectPagesPageState } from "@/state-services/project-detail-pages-state";
@@ -117,6 +118,8 @@ const PageListRow = React.memo(function PageListRow({
  */
 export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const alert = useAlert();
   const confirm = useConfirm();
 
@@ -136,6 +139,11 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
   // Manual pagination for filtered items
   const [filtered404Page, setFiltered404Page] = useState(1);
   const FILTERED_PAGE_SIZE = 10;
+
+  const panelPageId = searchParams.get("reportPageId");
+  const panelScanId = searchParams.get("reportScanId");
+  const panelTab = (searchParams.get("reportPanelTab") === "preview" ? "preview" : "report") as "report" | "preview";
+  const isPanelOpen = Boolean(panelPageId);
 
   // State-service hook that owns data + actions for this tab.
   const state = useProjectPagesPageState(projectId);
@@ -221,6 +229,37 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
     [projectId]
   );
 
+  const updatePanelQuery = useCallback(
+    (
+      patch: Partial<{
+        reportPageId: string | null;
+        reportScanId: string | null;
+        reportPanelTab: "report" | "preview" | null;
+      }>
+    ) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      const nextPageId = patch.reportPageId === undefined ? params.get("reportPageId") : patch.reportPageId;
+      const nextScanId = patch.reportScanId === undefined ? params.get("reportScanId") : patch.reportScanId;
+      const nextPanelTab = patch.reportPanelTab === undefined ? params.get("reportPanelTab") : patch.reportPanelTab;
+
+      if (nextPageId) params.set("reportPageId", nextPageId);
+      else params.delete("reportPageId");
+
+      if (nextScanId) params.set("reportScanId", nextScanId);
+      else params.delete("reportScanId");
+
+      if (nextPanelTab) params.set("reportPanelTab", nextPanelTab);
+      else params.delete("reportPanelTab");
+
+      const hash = typeof window !== "undefined" ? window.location.hash : "";
+      const qs = params.toString();
+      const url = `${pathname}${qs ? `?${qs}` : ""}${hash}`;
+      router.push(url, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
   /**
    * Opens the report for a page.
    * - If an `artifactUrl` exists, open it in a new tab.
@@ -234,10 +273,13 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
         window.open(page.artifactUrl, "_blank", "noopener,noreferrer");
         return;
       }
-
-      router.push(`/workspace/projects/${projectId}/page-report/${page.id}`);
+      updatePanelQuery({
+        reportPageId: page.id,
+        reportScanId: null,
+        reportPanelTab: "report"
+      });
     },
-    [projectId, router]
+    [projectId, updatePanelQuery]
   );
 
   const deletePage = useCallback((page: PageDoc) => {
@@ -656,6 +698,31 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
         open={showSitemapModal}
         onClose={() => setShowSitemapModal(false)}
         onSubmit={handleUploadSitemap}
+      />
+
+      <PageReportDrawer
+        open={isPanelOpen}
+        projectId={projectId}
+        pageId={panelPageId}
+        activeTab={panelTab}
+        scanIdFromUrl={panelScanId}
+        onClose={() =>
+          updatePanelQuery({
+            reportPageId: null,
+            reportScanId: null,
+            reportPanelTab: null
+          })
+        }
+        onTabChange={(nextTab) =>
+          updatePanelQuery({
+            reportPanelTab: nextTab
+          })
+        }
+        onScanChange={(nextScanId) =>
+          updatePanelQuery({
+            reportScanId: nextScanId
+          })
+        }
       />
     </PageContainer>
   );

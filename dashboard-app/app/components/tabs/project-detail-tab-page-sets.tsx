@@ -1,220 +1,98 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useCallback, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PageSetRow } from "@/components/molecule/project-detail-page-set-row";
 import { PageContainer } from "@/components/molecule/page-container";
 import { Button } from "@/components/atom/button";
 import { useAlert, useConfirm } from "@/components/providers/window-provider";
-
+import PageSetBuilderDrawer from "@/components/modals/page-set-builder-drawer";
 
 import type { Project } from "@/types/project";
-import { PageSetTDO } from "@/types/page-types-set";
-import dynamic from "next/dynamic";
+import type { PageSetTDO } from "@/types/page-types-set";
 import { createPageSet, deletePageSet, updatePageSet } from "@/services/projectSetsService";
 import { ProjectDetailPageSetsTabState } from "@/state-services/project-detail-pagesets-state";
-import { subscribeProjectPages } from "@/services/projectPagesService";
-
-
-
-
+import { subscribeProjectPages, runSelectedPages } from "@/services/projectPagesService";
+import { isLikelyScanned, resolvePageSetPages } from "@/services/pageSetResolver";
+import { createReport } from "@/services/reportService";
+import { auth } from "@/utils/firebase";
 
 type PageSetsTabProps = {
   project: Project;
 };
 
-/**
- * PageSetsTab
- * -----------
- * Project Detail tab for creating and managing page sets.
- *
- * The component is intentionally thin:
- * - UI/markup stays here
- * - State and business logic live in `useProjectDetailPageSetsTabState`
- *
- * Note: Creating a page set requires the project pages list (to compute pageIds).
- * For now we reuse the pages tab state-service hook to obtain the live pages list.
- */
 export function PageSetsTab({ project }: PageSetsTabProps) {
-  const router = useRouter();
   const projectId = project?.id;
-
   const alert = useAlert();
   const confirm = useConfirm();
 
-  /**
-   * Renders the "Add Project" call-to-action button
-   * displayed in the PageContainer header.
-   */
-  const AddButton = () => {
-    return (
-      <Button
-        variant="primary"
-        onClick={openCreate}
-        aria-label="Add project"
-        title="Add page set"
-      />
-
-    );
-  };
-
-  /**
-   * Local modal state for the create/edit ProjectModal.
-   */
-  const [modal, setModal] = useState<ModalState<PageSetTDO>>({ open: false });
-
-  /** Open the modal in project-creation mode. */
-  const openCreate = () => setModal({ open: true, mode: "create", initial: null });
-
-  /** Open the modal in edit mode for a specific project. */
-  const openEdit = (p: PageSetTDO) => setModal({ open: true, mode: "edit", initial: p });
-
-  /** Close the create/edit modal. */
-  const closeModal = () => setModal({ open: false });
-
-  /**
-   * ProjectPageSetModal is dynamically imported to avoid SSR issues
-   * and reduce the initial bundle size for the ProjectDetails page.
-   */
-  const ProjectPageSetModal = dynamic(() => import("@/components/modals/project-page-set-modal"), {
-    ssr: false,
-    loading: () => null,
-  });
-
-
-  // Page Sets state (create form + list + actions)
-  const state = ProjectDetailPageSetsTabState(projectId);
-
-  // Pages list is needed for live filtering preview in the modal
-  // We subscribe directly to get ALL pages (not paginated)
   const [allPages, setAllPages] = useState<any[]>([]);
-  
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<PageSetTDO | null>(null);
+
   useEffect(() => {
     if (!projectId) return;
-    
     const unsubscribe = subscribeProjectPages(
       projectId,
       (pages) => setAllPages(pages),
       (error) => console.error("Error loading pages:", error)
     );
-    
     return unsubscribe;
   }, [projectId]);
 
+  const state = ProjectDetailPageSetsTabState(projectId);
   if (!projectId || !state) return <div>Loading</div>;
 
-  const { pagedItems, setPage, pagination, filterText, setFilterText, setError, refresh, loading, error } = state;
+  const { pagedItems, loading, error, refresh } = state;
 
-  /**
-     * Handles submission from the ProjectModal.
-     *
-     * - Creates a new project when modal.mode === "create"
-     * - Updates an existing project when modal.mode === "edit"
-     * - Refreshes the project list on success
-     * - Surfaces any error message to the page
-     */
-  const handleModalSubmission = async (values: {
-    name: string;
-    filterText: string;
-    regex: string;
-  }) => {
-    setError("");
+  const resolvedCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    pagedItems.forEach((setDoc) => {
+      const pages = resolvePageSetPages(allPages, setDoc);
+      map.set(String(setDoc.id || ""), pages.length);
+    });
+    return map;
+  }, [allPages, pagedItems]);
 
-    try {
-      if (!modal.open) return;
-      if (!projectId) throw new Error("Missing projectId");
-
-      const name = (values.name || "").trim();
-      const filterText = (values.filterText || "").trim();
-      const regex = (values.regex || "").trim();
-
-      if (!name) {
-        setError("Set name is required");
-        return;
-      }
-
-      // Compute matched page ids using the same filtering logic as the modal preview
-      let pageIds: string[] = [];
-      
-      if (regex && filterText) {
-        // Both regex and filterText
-        let re: RegExp;
-        try {
-          re = new RegExp(regex);
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          setError("Invalid regex: " + msg);
-          return;
-        }
-        const t = filterText.toLowerCase();
-        pageIds = allPages
-          .filter((p) => {
-            const url = String(p.url ?? "");
-            return re.test(url) && url.toLowerCase().includes(t);
-          })
-          .map((p) => p.id);
-      } else if (regex) {
-        // Only regex
-        let re: RegExp;
-        try {
-          re = new RegExp(regex);
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          setError("Invalid regex: " + msg);
-          return;
-        }
-        pageIds = allPages.filter((p) => re.test(String(p.url ?? ""))).map((p) => p.id);
-      } else if (filterText) {
-        // Only filterText
-        const t = filterText.toLowerCase();
-        pageIds = allPages
-          .filter((p) => String(p.url ?? "").toLowerCase().includes(t))
-          .map((p) => p.id);
-      } else {
-        // No filters - include all pages
-        pageIds = allPages.map((p) => p.id);
-      }
-
-      if (modal.mode === "create") {
-        await createPageSet({
-          projectId,
-          name,
-          filterText,
-          regex,
-          pageIds,
-        });
-      } else {
-        // Edit mode
-        await updatePageSet(projectId, modal.initial.id, {
-          name,
-          filterText,
-          regex,
-          pageIds,
-        });
-      }
-
-      closeModal();
-      await refresh();
-    } catch (err: unknown) {
-      console.error(err instanceof Error ? err.message : String(err));
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      console.log('done');
-    }
+  const openCreate = () => {
+    setEditing(null);
+    setDrawerOpen(true);
   };
 
-  const handleDeletePageset = async (setDoc: PageSetTDO) => {
-    if (!projectId) {
-      // This should never happen in practice because you already guard earlier,
-      // but it keeps TypeScript and runtime both safe.
-      await alert({
-        title: "System exception",
-        message: "Missing project id",
-      });
-      return;
-    }
+  const openEdit = (setDoc: PageSetTDO) => {
+    setEditing(setDoc);
+    setDrawerOpen(true);
+  };
 
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setEditing(null);
+  };
+
+  const handleSave = async (payload: { name: string; rules: any[]; resolvedPageIds: string[] }) => {
+    if (editing?.id) {
+      await updatePageSet(projectId, String(editing.id), {
+        name: payload.name,
+        rules: payload.rules,
+        pageIds: payload.resolvedPageIds,
+        filterText: "",
+        regex: ""
+      });
+    } else {
+      await createPageSet({
+        projectId,
+        name: payload.name,
+        rules: payload.rules,
+        pageIds: payload.resolvedPageIds,
+        filterText: "",
+        regex: ""
+      });
+    }
+    closeDrawer();
+    await refresh();
+  };
+
+  const handleDelete = async (setDoc: PageSetTDO) => {
     const ok = await confirm({
       title: "Delete page set",
       message: `Delete page set ${setDoc.name}?`,
@@ -222,29 +100,60 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
       cancelLabel: "Cancel",
       tone: "danger",
     });
-
     if (!ok) return;
-
-    try {
-      await deletePageSet(projectId, setDoc.id as string);
-      await refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    await deletePageSet(projectId, String(setDoc.id));
+    await refresh();
   };
 
-  const runPageset = (pageSet: PageSetTDO) => {
+  const runPageSet = async (setDoc: PageSetTDO) => {
+    const resolved = resolvePageSetPages(allPages, setDoc);
+    if (!resolved.length) {
+      await alert({ title: "Information", message: "This page set currently resolves to 0 pages." });
+      return;
+    }
+    const result = await runSelectedPages(projectId, resolved.map((p) => String(p.id)));
+    if (result) await alert(result);
+  };
 
-  }
+  const createPageSetReport = async (setDoc: PageSetTDO) => {
+    const userId = auth.currentUser?.uid || null;
+    if (!userId) {
+      await alert({ title: "System exception", message: "You need to be signed in to generate report." });
+      return;
+    }
+
+    const resolved = resolvePageSetPages(allPages, setDoc).filter((p) => isLikelyScanned(p));
+    if (!resolved.length) {
+      await alert({ title: "Information", message: "No scanned pages currently match this set." });
+      return;
+    }
+
+    const response = await createReport({
+      projectId,
+      type: "pageset",
+      title: `${setDoc.name} - Accessibility Report`,
+      pageSetId: String(setDoc.id || ""),
+      pageIds: resolved.map((p) => String(p.id)),
+      createdBy: userId
+    });
+
+    await alert({
+      title: response.success ? "Information" : "System exception",
+      message: response.message
+    });
+  };
 
   return (
     <div>
-
-      <PageContainer inner title={`Page sets`} buttons={<AddButton />}>
+      <PageContainer
+        inner
+        title="Page sets"
+        buttons={<Button variant="primary" onClick={openCreate} title="Add page set" />}
+      >
         <div className="md:col-span-2 space-y-2 w-full">
           {loading && (
             <div className="text-slate-400 p-3 bg-white/3 rounded border border-white/6">
-              Loading page sets…
+              Loading page sets...
             </div>
           )}
 
@@ -254,17 +163,17 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
             </div>
           )}
 
-          {!loading &&
-            !error &&
-            pagedItems.map((s) => (
-              <PageSetRow
-                key={s.id}
-                setDoc={s}
-                onRun={(setDoc: PageSetTDO) => void runPageset(setDoc)}
-                onEdit={(sdoc: PageSetTDO) => openEdit(sdoc)}
-                onDelete={(setDoc: PageSetTDO) => void handleDeletePageset(setDoc)}
-              />
-            ))}
+          {!loading && !error && pagedItems.map((setDoc) => (
+            <PageSetRow
+              key={setDoc.id}
+              setDoc={setDoc}
+              pageCount={resolvedCounts.get(String(setDoc.id || ""))}
+              onRun={(doc) => void runPageSet(doc)}
+              onReport={(doc) => void createPageSetReport(doc)}
+              onEdit={(doc) => openEdit(doc)}
+              onDelete={(doc) => void handleDelete(doc)}
+            />
+          ))}
 
           {!loading && !error && pagedItems.length === 0 && (
             <div className="text-slate-400 p-3 bg-white/3 rounded border border-white/6">
@@ -274,14 +183,15 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
         </div>
       </PageContainer>
 
-      <ProjectPageSetModal
-        open={modal.open}
-        mode={modal.open ? modal.mode : "create"}
-        initial={modal.open ? modal.initial : null}
+      <PageSetBuilderDrawer
+        open={drawerOpen}
+        mode={editing ? "edit" : "create"}
+        initial={editing ? { id: String(editing.id || ""), name: editing.name, rules: editing.rules || [] } : null}
         pages={allPages}
-        onClose={closeModal}
-        onSubmit={handleModalSubmission}
+        onClose={closeDrawer}
+        onSave={handleSave}
       />
     </div>
   );
 }
+
