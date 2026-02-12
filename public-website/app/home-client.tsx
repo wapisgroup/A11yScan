@@ -11,7 +11,7 @@ export default function HomeClient() {
   return (
     <LoggedOutLayout>
       <LoggedOutHeader />
-      
+      <main>
       {/* Hero Section - White Background */}
       <section className="bg-white py-20 md:py-28 lg:py-36">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
@@ -167,8 +167,8 @@ export default function HomeClient() {
                   Reduce legal exposure with comprehensive WCAG 2.2, ADA, and Section 508 compliance reports that stand up to audits.
                 </p>
                 <Link href={URL_FRONTEND_SOLUTIONS_COMPLIANCE} className="text-emerald-600 font-semibold hover:text-emerald-700 inline-flex items-center gap-2">
-                  Learn more
-                  <span>→</span>
+                  Learn more about compliance solutions
+                  <span aria-hidden="true">→</span>
                 </Link>
               </div>
 
@@ -183,8 +183,8 @@ export default function HomeClient() {
                   Deliver professional audits to clients faster with white-label reports, bulk scanning, and automated monitoring.
                 </p>
                 <Link href={URL_FRONTEND_SOLUTIONS_AGENCIES} className="text-orange-600 font-semibold hover:text-orange-700 inline-flex items-center gap-2">
-                  Learn more
-                  <span>→</span>
+                  Learn more about agency solutions
+                  <span aria-hidden="true">→</span>
                 </Link>
               </div>
 
@@ -199,8 +199,8 @@ export default function HomeClient() {
                   Catch issues in CI/CD pipelines with REST API integration, webhooks, and automated testing in your builds.
                 </p>
                 <Link href={URL_FRONTEND_SOLUTIONS_DEVELOPERS} className="text-blue-600 font-semibold hover:text-blue-700 inline-flex items-center gap-2">
-                  Learn more
-                  <span>→</span>
+                  Learn more about developer solutions
+                  <span aria-hidden="true">→</span>
                 </Link>
               </div>
             </div>
@@ -405,6 +405,7 @@ export default function HomeClient() {
           </div>
         </div>
       </section>
+      </main>
 
       <LoggedOutFooter />
     </LoggedOutLayout>
