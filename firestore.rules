@@ -132,6 +132,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // In-app notifications created by backend jobs/webhooks
+    match /userNotifications/{notificationId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if false; // backend only
+    }
+
+    // Outbound email queue (backend-only)
+    match /emailQueue/{emailId} {
+      allow read, write: if false;
+    }
+
     // Default deny for everything else
     match /{document=**} {
       allow read, write: if false;

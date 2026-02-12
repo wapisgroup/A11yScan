@@ -69,6 +69,134 @@ function timestampFromStripeSeconds(value) {
   return Timestamp.fromMillis(seconds * 1000);
 }
 
+function toMillisSafe(value) {
+  if (!value) return null;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Returns trial period bounds from Stripe subscription in Firestore Timestamp format.
+ * Falls back to current period end for trial end when trial_end is not present.
+ */
+function getTrialWindow(subscription) {
+  const trialStart = timestampFromStripeSeconds(subscription.trial_start);
+  const trialEnd = timestampFromStripeSeconds(subscription.trial_end) ||
+    timestampFromStripeSeconds(subscription.current_period_end);
+  return { trialStart, trialEnd };
+}
+
+function getDaysUntilTimestamp(targetTs) {
+  if (!targetTs || typeof targetTs.toMillis !== 'function') return null;
+  const diffMs = targetTs.toMillis() - Date.now();
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
+
+/**
+ * Queues one email task and one in-app notification for trial reminders.
+ * Uses deterministic document ids to keep webhook retries idempotent.
+ */
+async function queueTrialEndingNotifications({ userId, organizationId, stripeSubscriptionId, trialEndTs }) {
+  const trialEndMillis = trialEndTs?.toMillis?.() || Date.now();
+  const reminderKey = `${userId}_${stripeSubscriptionId}_${trialEndMillis}`;
+  const daysUntilEnd = getDaysUntilTimestamp(trialEndTs);
+
+  await db.collection('emailQueue').doc(`trial_will_end_${reminderKey}`).set({
+    type: 'trial_will_end',
+    userId,
+    organizationId: organizationId || null,
+    stripeSubscriptionId,
+    dedupeKey: reminderKey,
+    status: 'queued',
+    priority: 'high',
+    payload: {
+      trialEndsAt: trialEndTs || null,
+      daysUntilEnd,
+    },
+    queuedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  await db.collection('userNotifications').doc(`trial_will_end_${reminderKey}`).set({
+    userId,
+    organizationId: organizationId || null,
+    type: 'trial_will_end',
+    title: 'Trial ending soon',
+    message: daysUntilEnd === 0
+      ? 'Your trial ends today. Add a payment method to keep access without interruption.'
+      : `Your trial ends in ${daysUntilEnd} day${daysUntilEnd === 1 ? '' : 's'}. Add a payment method to keep access.`,
+    level: 'warning',
+    read: false,
+    action: {
+      label: 'Open Billing',
+      href: '/workspace/billing',
+    },
+    metadata: {
+      stripeSubscriptionId,
+      trialEndsAt: trialEndTs || null,
+      daysUntilEnd,
+    },
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return { reminderKey, daysUntilEnd };
+}
+
+async function queuePaymentFailedNotifications({
+  userId,
+  organizationId,
+  stripeSubscriptionId,
+  invoiceId,
+  retryCount,
+  amountDue,
+  currency,
+}) {
+  const dedupeKey = `payment_failed_${invoiceId || stripeSubscriptionId}_${retryCount || 1}`;
+  const now = FieldValue.serverTimestamp();
+
+  await db.collection("emailQueue").doc(dedupeKey).set({
+    type: "payment_failed",
+    userId,
+    organizationId: organizationId || null,
+    stripeSubscriptionId: stripeSubscriptionId || null,
+    stripeInvoiceId: invoiceId || null,
+    dedupeKey,
+    status: "queued",
+    priority: "high",
+    payload: {
+      retryCount: Number(retryCount || 1),
+      amountDue: typeof amountDue === "number" ? amountDue : null,
+      currency: currency || "usd",
+    },
+    queuedAt: now,
+    updatedAt: now,
+  }, { merge: true });
+
+  await db.collection("userNotifications").doc(dedupeKey).set({
+    userId,
+    organizationId: organizationId || null,
+    type: "payment_failed",
+    title: "Payment failed",
+    message: "We could not process your payment. Update your billing details to keep access.",
+    level: "warning",
+    read: false,
+    action: {
+      label: "Open Billing",
+      href: "/workspace/billing",
+    },
+    metadata: {
+      stripeSubscriptionId: stripeSubscriptionId || null,
+      stripeInvoiceId: invoiceId || null,
+      retryCount: Number(retryCount || 1),
+    },
+    createdAt: now,
+    updatedAt: now,
+  }, { merge: true });
+}
+
 
 /**
  * Resolves the Stripe secret key.
@@ -300,6 +428,8 @@ async function handleSubscriptionCreated(subscription) {
     // Extract price ID from subscription items
     const stripePriceId = subscription.items?.data?.[0]?.price?.id;
     
+    const { trialStart, trialEnd } = getTrialWindow(subscription);
+
     const updateData = {
       userId,
       organizationId,
@@ -309,6 +439,12 @@ async function handleSubscriptionCreated(subscription) {
       packageName,
       billingCycle,
       stripePriceId,
+      trialStart,
+      trialEnd,
+      // Legacy aliases used by existing dashboard code.
+      trialStartDate: trialStart,
+      trialEndDate: trialEnd,
+      trialEndsAt: trialEnd,
       updatedAt: FieldValue.serverTimestamp(),
     };
     
@@ -366,11 +502,19 @@ async function handleSubscriptionUpdated(subscription) {
   // Extract price ID from subscription items
   const stripePriceId = stripeSubscription.items?.data?.[0]?.price?.id;
   
+  const { trialStart, trialEnd } = getTrialWindow(stripeSubscription);
+
   const updateData = {
     status: stripeSubscription.status,
     stripePriceId,
     currentPeriodStart: timestampFromStripeSeconds(stripeSubscription.current_period_start),
     currentPeriodEnd: timestampFromStripeSeconds(stripeSubscription.current_period_end),
+    trialStart,
+    trialEnd,
+    // Legacy aliases used by existing dashboard code.
+    trialStartDate: trialStart,
+    trialEndDate: trialEnd,
+    trialEndsAt: trialEnd,
     updatedAt: FieldValue.serverTimestamp(),
   };
 
@@ -533,6 +677,33 @@ async function handleSubscriptionUpdated(subscription) {
     console.log('✅ Subscription reactivated - cancellation removed');
   }
 
+  // Detect billing period rollover and persist previous period usage snapshot.
+  const oldPeriodStartMs = toMillisSafe(currentData?.currentPeriodStart);
+  const newPeriodStartMs = toMillisSafe(updateData.currentPeriodStart);
+  const currentUsage = currentData?.currentUsage || {};
+  if (oldPeriodStartMs && newPeriodStartMs && newPeriodStartMs > oldPeriodStartMs) {
+    updateData.usageHistory = FieldValue.arrayUnion({
+      periodStart: currentData.currentPeriodStart || null,
+      periodEnd: currentData.currentPeriodEnd || null,
+      usage: {
+        activeProjects: Number(currentUsage.activeProjects || 0),
+        scansThisMonth: Number(currentUsage.scansThisMonth || 0),
+        apiCallsToday: Number(currentUsage.apiCallsToday || 0),
+        scheduledScans: Number(currentUsage.scheduledScans || 0),
+      },
+      capturedAt: FieldValue.serverTimestamp(),
+      source: "stripe_period_rollover",
+    });
+    updateData.currentUsage = {
+      activeProjects: Number(currentUsage.activeProjects || 0),
+      scansThisMonth: 0,
+      apiCallsToday: 0,
+      scheduledScans: Number(currentUsage.scheduledScans || 0),
+      usagePeriodStart: updateData.currentPeriodStart,
+    };
+    console.log('📊 Period rollover detected - snapshot stored and monthly counters reset');
+  }
+
   await subscriptionRef.set(updateData, { merge: true });
 }
 
@@ -680,7 +851,15 @@ async function handleInvoicePaymentFailed(invoice) {
     createdAt: FieldValue.serverTimestamp(),
   });
 
-  // TODO: Send email notification about failed payment
+  await queuePaymentFailedNotifications({
+    userId,
+    organizationId,
+    stripeSubscriptionId: subscriptionId,
+    invoiceId: invoice.id,
+    retryCount: newRetryCount,
+    amountDue: typeof invoice.amount_due === 'number' ? invoice.amount_due / 100 : null,
+    currency: invoice.currency || 'usd',
+  });
 }
 
 /**
@@ -693,11 +872,34 @@ async function handleInvoicePaymentFailed(invoice) {
  * - Placeholder for notification logic.
  */
 async function handleTrialWillEnd(subscription) {
-  const { userId } = subscription.metadata;
+  const { userId, organizationId } = subscription.metadata;
   
   if (!userId) return;
 
   console.log('Trial ending soon for user:', userId);
 
-  // TODO: Send email notification about trial ending
+  const trialEndTs = timestampFromStripeSeconds(subscription.trial_end) ||
+    timestampFromStripeSeconds(subscription.current_period_end);
+
+  const subscriptionRef = db.collection('subscriptions').doc(userId);
+  const { reminderKey, daysUntilEnd } = await queueTrialEndingNotifications({
+    userId,
+    organizationId,
+    stripeSubscriptionId: subscription.id,
+    trialEndTs,
+  });
+
+  await subscriptionRef.set({
+    trialEnd: trialEndTs || null,
+    trialEndDate: trialEndTs || null,
+    trialEndsAt: trialEndTs || null,
+    trialReminder: {
+      type: 'trial_will_end',
+      source: 'stripe',
+      reminderKey,
+      daysUntilEnd,
+      lastSentAt: FieldValue.serverTimestamp(),
+    },
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
 }

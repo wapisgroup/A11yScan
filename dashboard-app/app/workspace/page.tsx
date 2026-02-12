@@ -11,6 +11,7 @@ import { DashboardRecentPages } from "@/components/organism/dashboard-recent-pag
 import { DashboardTopIssues } from "@/components/organism/dashboard-top-issues";
 import { DashboardPast7Days } from "@/components/organism/dashboard-past-7-days";
 import { DashboardProblemPages } from "@/components/organism/dashboard-problem-pages";
+import { DashboardEmailDelivery } from "@/components/organism/dashboard-email-delivery";
 import { useDashboardState } from "@/state-services/dashboard-state";
 import { formatTimeAgo } from "@/ui-helpers/default";
 import { useRouter } from "next/navigation";
@@ -163,6 +164,9 @@ export default function Dashboard() {
 
             {/* 5. Problems That Need Attention */}
             <DashboardProblemPages problemPages={problemPages} />
+
+            {/* 6. Email Delivery */}
+            <DashboardEmailDelivery organizationId={user?.organisationId} />
 
             {/* 7. Quick Actions */}
             <DSSurface>

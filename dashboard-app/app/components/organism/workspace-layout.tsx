@@ -22,6 +22,7 @@ import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight, PiCalendar, PiPa
 import { FiUser, FiLogOut, FiSettings, FiCreditCard } from "react-icons/fi";
 import { useToast } from "../providers/window-provider";
 import { subscribeToJobsWithToasts } from "@/services/jobsService";
+import { subscribeToUserNotificationsWithToasts } from "@/services/userNotificationsService";
 import { useAuth } from "@/utils/firebase";
 import { URL_APP_PROFILE, URL_APP_ORGANISATION, URL_APP_BILLING } from "@/utils/urls";
 import { useRouter } from "next/navigation";
@@ -37,6 +38,11 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
   useEffect(() => {
     const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user?.uid ?? null });
+    return unsubscribe;
+  }, [toast, user?.uid]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToUserNotificationsWithToasts(toast, user?.uid ?? null);
     return unsubscribe;
   }, [toast, user?.uid]);
 

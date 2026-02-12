@@ -6,7 +6,8 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "scenarios:subscriptions": "node scripts/subscription-scenarios.js"
   },
   "dependencies": {
     "firebase-admin": "^11.10.1",

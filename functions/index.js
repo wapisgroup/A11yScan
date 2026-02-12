@@ -23,6 +23,13 @@ const { startScanHandler } = require('./handlers/fullScan');
 const { addPageHandler } = require('./handlers/addPage');
 const { uploadSitemapHandler } = require('./handlers/uploadSitemap');
 const { stripeWebhook } = require('./handlers/stripeWebhook');
+const {
+  processEmailQueueScheduled,
+  processEmailQueueHttp,
+  getEmailDeliveryStatsHandler,
+  retryFailedEmailsHandler,
+  processEmailQueueNowHandler,
+} = require('./handlers/emailQueue');
 
 // ============================================================================
 // Callable Functions (preferred for frontend)
@@ -84,3 +91,14 @@ exports.createPageSetHttp = functions.https.onRequest(createPageSetHttpHandler);
  * Handles payment events from Stripe
  */
 exports.stripeWebhook = stripeWebhook;
+
+/**
+ * Email Queue Processor
+ * - Scheduled runner for queued notification emails
+ * - HTTP trigger for manual/admin runs
+ */
+exports.processEmailQueueScheduled = processEmailQueueScheduled;
+exports.processEmailQueueHttp = processEmailQueueHttp;
+exports.getEmailDeliveryStats = functions.https.onCall(getEmailDeliveryStatsHandler);
+exports.retryFailedEmails = functions.https.onCall(retryFailedEmailsHandler);
+exports.processEmailQueueNow = functions.https.onCall(processEmailQueueNowHandler);

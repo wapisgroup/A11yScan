@@ -28,16 +28,25 @@ function BillingPageContent() {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payment-methods'>('overview');
+  const trialStatuses = new Set(['trial', 'trialing']);
 
   const handleCancelSubscription = async () => {
     if (!subscription?.stripeSubscriptionId) return;
-    
-    const confirmMessage = `Are you sure you want to cancel your subscription?\n\n` +
-      `• You'll keep access until ${formatDate(subscription.currentPeriodEnd)}\n` +
-      `• No refunds will be issued for the current period\n` +
-      `• You can reactivate anytime before the cancellation date\n` +
-      `• All your data will be preserved\n\n` +
-      `Consider downgrading to a lower plan instead of cancelling completely.`;
+
+    const isTrialSubscription = trialStatuses.has(String(subscription?.status || '').toLowerCase());
+    const effectiveEnd = getTrialEndDisplayValue(subscription) || subscription.currentPeriodEnd || subscription.cancelAt;
+    const confirmMessage = isTrialSubscription
+      ? `Are you sure you want to cancel your trial?\n\n` +
+        `• Your trial access will stop on ${formatDate(effectiveEnd)}\n` +
+        `• You will not be charged\n` +
+        `• You can start a paid plan any time from Billing\n` +
+        `• All your data will be preserved`
+      : `Are you sure you want to cancel your subscription?\n\n` +
+        `• You'll keep access until ${formatDate(subscription.currentPeriodEnd)}\n` +
+        `• No refunds will be issued for the current period\n` +
+        `• You can reactivate anytime before the cancellation date\n` +
+        `• All your data will be preserved\n\n` +
+        `Consider downgrading to a lower plan instead of cancelling completely.`;
     
     if (!confirm(confirmMessage)) {
       return;
@@ -151,6 +160,11 @@ function BillingPageContent() {
     }
   };
 
+  const getTrialEndDisplayValue = (sub: any) => {
+    if (!sub) return null;
+    return sub.trialEndsAt || sub.trialEnd || sub.trialEndDate || sub.currentPeriodEnd || null;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -170,7 +184,7 @@ function BillingPageContent() {
   }
 
   const packageConfig = getAllPackages().find(p => p.id === subscription.packageId);
-  const isTrial = subscription.status === 'trial';
+  const isTrial = trialStatuses.has(String(subscription.status || '').toLowerCase());
   const trialDaysRemaining = isTrial ? getTrialDaysRemaining(subscription) : 0;
   const statusMessage = getStatusMessage(subscription);
 
@@ -307,10 +321,10 @@ function BillingPageContent() {
                   {subscription.billingCycle || 'N/A'}
                 </p>
               </div>
-              {isTrial && subscription.trialEndsAt && (
+              {isTrial && getTrialEndDisplayValue(subscription) && (
                 <div>
                   <p className="text-sm text-gray-600">Trial Ends</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(subscription.trialEndsAt)}</p>
+                  <p className="text-sm font-medium text-gray-900">{formatDate(getTrialEndDisplayValue(subscription))}</p>
                 </div>
               )}
               {!isTrial && subscription.currentPeriodStart && (
@@ -327,18 +341,18 @@ function BillingPageContent() {
               )}
             </div>
 
-            {/* Cancel Subscription Button - Only show if not already cancelling and not in trial */}
-            {!isTrial && !subscription.cancelAtPeriodEnd && (
+            {/* Cancel Subscription/Trial - allow for both paid and trial Stripe subscriptions */}
+            {subscription.stripeSubscriptionId && !subscription.cancelAtPeriodEnd && (
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={handleCancelSubscription}
                   disabled={cancellingSubscription}
                   className="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {cancellingSubscription ? 'Cancelling...' : 'Cancel Subscription'}
+                  {cancellingSubscription ? 'Cancelling...' : isTrial ? 'Cancel Trial' : 'Cancel Subscription'}
                 </button>
                 <p className="text-xs text-gray-500 mt-1">
-                  You'll keep access until {formatDate(subscription.currentPeriodEnd)}
+                  You'll keep access until {formatDate(isTrial ? getTrialEndDisplayValue(subscription) : subscription.currentPeriodEnd)}
                 </p>
               </div>
             )}
