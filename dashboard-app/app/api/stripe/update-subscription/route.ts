@@ -41,6 +41,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Configure proration behavior based on upgrade/downgrade
+    const isTrialing = subscription.status === 'trialing';
+
     const updateParams: Stripe.SubscriptionUpdateParams = {
       items: [
         {
@@ -55,7 +57,12 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    if (isUpgrade) {
+    if (isTrialing) {
+      // TRIAL → PAID: End trial immediately so the first invoice is charged now
+      updateParams.trial_end = 'now';
+      updateParams.proration_behavior = 'always_invoice';
+      console.log('Processing TRIAL CONVERSION - ending trial, charging immediately');
+    } else if (isUpgrade) {
       // UPGRADE: Immediate change with proration (charge now)
       updateParams.proration_behavior = 'always_invoice';
       console.log('Processing UPGRADE - immediate change with proration');
@@ -68,11 +75,11 @@ export async function POST(request: NextRequest) {
 
     const updatedSubscription = await stripe.subscriptions.update(subscriptionId, updateParams);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       subscription: updatedSubscription,
-      isUpgrade,
-      changeType: isUpgrade ? 'upgrade' : 'downgrade',
+      isUpgrade: isUpgrade || isTrialing,
+      changeType: isTrialing ? 'trial_conversion' : isUpgrade ? 'upgrade' : 'downgrade',
     });
   } catch (error) {
     console.error('Error updating subscription:', error);

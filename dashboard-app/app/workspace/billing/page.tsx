@@ -5,11 +5,15 @@ import { PrivateRoute } from "@/utils/private-router";
 import { useSubscription } from '../../hooks/use-subscription';
 import { useAuth, db } from '../../utils/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { SubscribeButton } from '../../components/subscription/subscribe-button';
 import { UpdateSubscriptionButton } from '../../components/subscription/update-subscription-button';
 import { PaymentMethods } from '../../components/subscription/payment-methods';
 import { ScheduledChangeBanner } from '../../components/subscription/scheduled-change-banner';
 import { CancelScheduledBanner } from '../../components/subscription/cancel-scheduled-banner';
+import { TrialStatusBanner } from '../../components/subscription/trial-status-banner';
+import { ExtendTrialModal } from '../../components/subscription/extend-trial-modal';
+import { CheckoutModal } from '../../components/subscription/checkout-modal';
+import { Elements } from '@stripe/react-stripe-js';
+import { getStripe } from '../../services/stripeService';
 import { useState, useEffect } from 'react';
 import { getUserSubscription, getUsageLimits, getTrialDaysRemaining, getStatusMessage } from '../../services/subscriptionService';
 import { getAllPackages, SUBSCRIPTION_PACKAGES } from '../../config/subscriptions';
@@ -28,6 +32,13 @@ function BillingPageContent() {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payment-methods'>('overview');
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [checkoutTarget, setCheckoutTarget] = useState<{
+    packageName: string;
+    packageDisplayName: string;
+    price: number;
+    existingSubscriptionId?: string;
+  } | null>(null);
   const trialStatuses = new Set(['trial', 'trialing']);
 
   const handleCancelSubscription = async () => {
@@ -224,19 +235,33 @@ function BillingPageContent() {
       </div>
       
 
-      {/* Trial Warning Banner */}
-      {activeTab === 'overview' && isTrial && trialDaysRemaining <= 3 && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <svg className="h-6 w-6 text-yellow-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <div>
-              <p className="text-yellow-800 font-medium">Your trial ends in {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''}</p>
-              <p className="text-yellow-700 text-sm">Upgrade now to continue accessing your projects</p>
-            </div>
-          </div>
-        </div>
+      {/* Trial Status Banner - shown for all trialing users */}
+      {activeTab === 'overview' && isTrial && subscription.stripeSubscriptionId && (
+        <>
+          <TrialStatusBanner
+            daysRemaining={trialDaysRemaining}
+            hasPaymentMethod={!!subscription.hasPaymentMethod}
+            trialExtended={!!subscription.trialExtended}
+            subscriptionId={subscription.stripeSubscriptionId}
+            customerId={organization?.stripeCustomerId || subscription.stripeCustomerId || ''}
+            onExtendTrial={() => setShowExtendModal(true)}
+            onConvertSuccess={() => window.location.reload()}
+          />
+          {showExtendModal && (organization?.stripeCustomerId || subscription.stripeCustomerId) && (
+            <Elements stripe={getStripe()}>
+              <ExtendTrialModal
+                isOpen={showExtendModal}
+                onClose={() => setShowExtendModal(false)}
+                subscriptionId={subscription.stripeSubscriptionId}
+                customerId={organization?.stripeCustomerId || subscription.stripeCustomerId}
+                onSuccess={() => {
+                  setShowExtendModal(false);
+                  window.location.reload();
+                }}
+              />
+            </Elements>
+          )}
+        </>
       )}
 
       {/* Payment Failed Banner */}
@@ -439,23 +464,53 @@ function BillingPageContent() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {
                 Object.entries(SUBSCRIPTION_PACKAGES).map(([key, config]) => (
-                  <PriceCol 
-                    packageKey={key} 
-                    key={key} 
-                    config={config} 
-                    stripeSubscriptionId={subscription?.stripeSubscriptionId || null} 
+                  <PriceCol
+                    packageKey={key}
+                    key={key}
+                    config={config}
+                    stripeSubscriptionId={subscription?.stripeSubscriptionId || null}
                     currentPackageId={subscription?.packageId || null}
                     currentPriceId={subscription?.stripePriceId || null}
                     hasScheduledChange={!!subscription?.scheduledChange}
+                    hasPaymentMethod={!!subscription?.hasPaymentMethod}
+                    isTrialing={isTrial}
+                    userId={user?.uid}
+                    organizationId={userProfile?.organisationId}
+                    email={user?.email || userProfile?.email || ''}
+                    organizationStripeCustomerId={organization?.stripeCustomerId || subscription?.stripeCustomerId}
                     onSuccess={(data) => {
                       console.log('Subscription updated successfully:', data);
-                      // Reload the page to reflect changes
                       window.location.reload();
+                    }}
+                    onCheckout={(pkgName, pkgDisplayName, price, existingSubId) => {
+                      setCheckoutTarget({ packageName: pkgName, packageDisplayName: pkgDisplayName, price, existingSubscriptionId: existingSubId });
                     }} />
                 ))
               }
             </div>
           </div>
+
+          {/* Inline Checkout Modal */}
+          {checkoutTarget && user?.uid && userProfile?.organisationId && (
+            <Elements stripe={getStripe()}>
+              <CheckoutModal
+                isOpen={!!checkoutTarget}
+                onClose={() => setCheckoutTarget(null)}
+                packageName={checkoutTarget.packageName}
+                packageDisplayName={checkoutTarget.packageDisplayName}
+                billingCycle="monthly"
+                price={checkoutTarget.price}
+                userId={user.uid}
+                organizationId={userProfile.organisationId}
+                email={user.email || ''}
+                existingSubscriptionId={checkoutTarget.existingSubscriptionId}
+                onSuccess={() => {
+                  setCheckoutTarget(null);
+                  window.location.reload();
+                }}
+              />
+            </Elements>
+          )}
         </>
       )}
 

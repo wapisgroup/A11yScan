@@ -25,6 +25,7 @@ export async function createCheckoutSession(data: {
   email: string;
   customerName?: string;
   organizationStripeCustomerId?: string;
+  cancelTrialSubscriptionId?: string;
 }): Promise<{ sessionId: string; url: string }> {
   try {
     const response = await fetch('/api/stripe/create-checkout-session', {
@@ -60,6 +61,7 @@ export async function redirectToCheckout(data: {
   email: string;
   customerName?: string;
   organizationStripeCustomerId?: string;
+  cancelTrialSubscriptionId?: string;
 }): Promise<void> {
   try {
     const { url } = await createCheckoutSession(data);
@@ -216,6 +218,106 @@ export async function reactivateSubscription(subscriptionId: string): Promise<{ 
     return result;
   } catch (error) {
     console.error('Error reactivating subscription:', error);
+    throw error;
+  }
+}
+
+/**
+ * Extend trial by adding a payment method (+7 days)
+ */
+export async function extendTrial(data: {
+  subscriptionId: string;
+  customerId: string;
+  paymentMethodId: string;
+}): Promise<{ success: boolean; newTrialEnd: number }> {
+  try {
+    const response = await fetch('/api/stripe/extend-trial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to extend trial');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error extending trial:', error);
+    throw error;
+  }
+}
+
+/**
+ * Convert trial to paid subscription immediately
+ */
+export async function convertTrial(data: {
+  subscriptionId: string;
+  priceId?: string;
+}): Promise<{ success: boolean }> {
+  try {
+    const response = await fetch('/api/stripe/convert-trial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to convert trial');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error converting trial:', error);
+    throw error;
+  }
+}
+
+/**
+ * Inline checkout - create subscription with payment method collected via Stripe Elements
+ * Keeps the user within the app (no redirect to Stripe Checkout).
+ */
+export async function inlineCheckout(data: {
+  userId: string;
+  organizationId: string;
+  email: string;
+  packageName: string;
+  billingCycle: 'monthly' | 'annual';
+  paymentMethodId: string;
+  businessName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  taxId?: string;
+  taxIdType?: string;
+  existingSubscriptionId?: string;
+}): Promise<{
+  success: boolean;
+  subscriptionId: string;
+  status: string;
+  requiresAction: boolean;
+  clientSecret: string | null;
+}> {
+  try {
+    const response = await fetch('/api/stripe/inline-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to process checkout');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in inline checkout:', error);
     throw error;
   }
 }

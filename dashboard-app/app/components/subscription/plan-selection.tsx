@@ -9,8 +9,10 @@ import { useEffect, useState } from 'react';
 import { db, useAuth } from '../../utils/firebase';
 import { getAllPackages } from '../../config/subscriptions';
 import { PackageConfig } from '../../types/subscription';
-import { CheckoutButton } from './checkout-button';
 import { StartTrialButton } from './start-trial-button';
+import { CheckoutModal } from './checkout-modal';
+import { Elements } from '@stripe/react-stripe-js';
+import { getStripe } from '../../services/stripeService';
 import { doc, getDoc } from 'firebase/firestore';
 
 export function PlanSelection() {
@@ -18,6 +20,11 @@ export function PlanSelection() {
     const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
     const packages = getAllPackages();
     const [organisationId, setOrganisationId] = useState<string>('');
+    const [checkoutTarget, setCheckoutTarget] = useState<{
+        packageName: string;
+        packageDisplayName: string;
+        price: number;
+    } | null>(null);
 
     const formatPrice = (pkg: PackageConfig): string => {
         if (pkg.pricing.monthly === 0) return 'Custom';
@@ -212,6 +219,7 @@ export function PlanSelection() {
                                     <StartTrialButton
                                         userId={user.uid}
                                         organizationId={user.uid}
+                                        email={user.email || ''}
                                         buttonText="Start Free Trial"
                                         className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${popular
                                                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -219,19 +227,24 @@ export function PlanSelection() {
                                             }`}
                                     />
                                 ) : (
-                                    <CheckoutButton
-                                        packageName={pkg.name}
-                                        billingCycle={billingCycle}
-                                        userId={user.uid}
-                                        organizationId={organisationId}
-                                        email={user.email || ''}
-                                        customerName={user.displayName || undefined}
-                                        buttonText="Subscribe"
+                                    <button
+                                        onClick={() => {
+                                            const price = billingCycle === 'monthly'
+                                                ? pkg.pricing.monthly
+                                                : pkg.pricing.annual;
+                                            setCheckoutTarget({
+                                                packageName: pkg.name,
+                                                packageDisplayName: pkg.displayName,
+                                                price,
+                                            });
+                                        }}
                                         className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${popular
                                                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
                                                 : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
                                             }`}
-                                    />
+                                    >
+                                        Subscribe
+                                    </button>
                                 )}
 
                                 {/* Features List */}
@@ -268,6 +281,27 @@ export function PlanSelection() {
                     Need help choosing? <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">Contact our sales team</a>
                 </p>
             </div>
+
+            {/* Inline Checkout Modal */}
+            {checkoutTarget && user && organisationId && (
+                <Elements stripe={getStripe()}>
+                    <CheckoutModal
+                        isOpen={!!checkoutTarget}
+                        onClose={() => setCheckoutTarget(null)}
+                        packageName={checkoutTarget.packageName}
+                        packageDisplayName={checkoutTarget.packageDisplayName}
+                        billingCycle={billingCycle}
+                        price={checkoutTarget.price}
+                        userId={user.uid}
+                        organizationId={organisationId}
+                        email={user.email || ''}
+                        onSuccess={() => {
+                            setCheckoutTarget(null);
+                            window.location.href = '/workspace/billing?success=true';
+                        }}
+                    />
+                </Elements>
+            )}
         </div>
     );
 }

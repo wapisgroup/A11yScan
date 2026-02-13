@@ -394,6 +394,10 @@ async function ensureDefaultCard(customerId) {
   return paymentMethod;
 }
 
+/**
+ * @deprecated Use stripe.subscriptions.update() with trial_end instead.
+ * Kept for backwards compatibility but no longer used by any scenario.
+ */
 async function createReplacementSubscription(context, { mode, trialDays }) {
   const oldSub = await refreshSubscription(context.subscriptionId);
   logStripeSubscription("subscription.current.before_replacement", oldSub);
@@ -574,18 +578,17 @@ async function doAction(context, action, rl, reportSteps) {
     case "extend_trial": {
       const daysRaw = await rl.question("Extend trial by how many days? (default 7): ");
       const days = Number(daysRaw || 7);
-      await createReplacementSubscription(context, {
-        mode: "trial",
-        trialDays: days,
-      });
-      console.log(`[stripe] summary: trial extension requested (+${days} days) via replacement trial subscription.`);
+      const currentSub = await refreshSubscription(context.subscriptionId);
+      const newTrialEnd = Number(currentSub.trial_end) + (days * 24 * 60 * 60);
+      const updated = await stripe.subscriptions.update(context.subscriptionId, { trial_end: newTrialEnd });
+      logStripeSubscription("subscription.updated.extend_trial", updated);
+      console.log(`[stripe] summary: trial extended by +${days} days on existing subscription.`);
       break;
     }
     case "jump_to_paying": {
-      await createReplacementSubscription(context, {
-        mode: "paying",
-      });
-      console.log("[stripe] summary: switched to paid via replacement subscription.");
+      const updated = await stripe.subscriptions.update(context.subscriptionId, { trial_end: "now" });
+      logStripeSubscription("subscription.updated.jump_to_paying", updated);
+      console.log("[stripe] summary: trial ended immediately, converting to paid.");
       break;
     }
     case "cancel_subscription": {
@@ -773,6 +776,13 @@ async function runAutomated() {
       extendDays: 7,
     },
     {
+      name: "trial_user_auto_converted",
+      setup: { mode: "trial", packageName: "starter", billingCycle: "monthly" },
+      actions: ["extend_trial", "advance_clock"],
+      extendDays: 7,
+      advanceDays: 22,
+    },
+    {
       name: "paying_user_upgrade",
       setup: { mode: "paying", packageName: "starter", billingCycle: "monthly" },
       actions: ["change_subscription"],
@@ -834,14 +844,11 @@ async function runAutomated() {
       const actionStartedAt = Math.floor(Date.now() / 1000) - 2;
       if (action === "extend_trial") {
         const extendDays = Number(scenario.extendDays || 7);
-        await createReplacementSubscription(context, {
-          mode: "trial",
-          trialDays: extendDays,
-        });
+        const currentSub = await refreshSubscription(context.subscriptionId);
+        const newTrialEnd = Number(currentSub.trial_end) + (extendDays * 24 * 60 * 60);
+        await stripe.subscriptions.update(context.subscriptionId, { trial_end: newTrialEnd });
       } else if (action === "jump_to_paying") {
-        await createReplacementSubscription(context, {
-          mode: "paying",
-        });
+        await stripe.subscriptions.update(context.subscriptionId, { trial_end: "now" });
       } else if (action === "cancel_subscription") {
         await stripe.subscriptions.update(context.subscriptionId, {
           cancel_at_period_end: true,
