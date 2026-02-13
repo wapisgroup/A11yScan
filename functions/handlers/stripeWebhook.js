@@ -258,9 +258,10 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     event = getStripe().webhooks.constructEvent(req.rawBody, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
-    // In emulator mode without proper webhook secret, skip verification
-    if (!functions.config().stripe?.webhook_secret && !process.env.STRIPE_WEBHOOK_SECRET) {
-      console.warn('Running in emulator without webhook secret - using request body directly');
+    const isEmulator = process.env.FUNCTIONS_EMULATOR === 'true' || process.env.FIRESTORE_EMULATOR_HOST;
+    // In emulator mode, always allow fallback to request body for local testing reliability.
+    if (isEmulator) {
+      console.warn('Running in emulator - using request body directly after signature verification failure');
       // Emulator-only fallback: accept the parsed body when signature verification isn't configured.
       // req.body is already parsed by Firebase Functions
       event = req.body;

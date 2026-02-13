@@ -7,7 +7,9 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "scenarios:subscriptions": "node scripts/subscription-scenarios.js"
+    "scenarios:subscriptions": "node scripts/subscription-scenarios.js",
+    "scenarios:subscriptions:e2e": "node scripts/stripe-subscription-e2e.js",
+    "scenarios:subscriptions:e2e:all": "node scripts/stripe-subscription-e2e.js --mode=all"
   },
   "dependencies": {
     "firebase-admin": "^11.10.1",

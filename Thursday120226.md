@@ -202,3 +202,70 @@ ORDER BY avg_ms DESC;
 
 `feat(worker): export scan + issue + ablelytics timing telemetry to BigQuery`
 
+## 15) Stripe subscription E2E harness (new)
+
+### 15.1 What was added
+
+- New real Stripe E2E runner:
+  - `/Users/zbynekstrnad/git/A11yScan/functions/scripts/stripe-subscription-e2e.js`
+- New/updated runner docs:
+  - `/Users/zbynekstrnad/git/A11yScan/functions/scripts/STRIPE_E2E_SUBSCRIPTION.md`
+- New scripts:
+  - `npm run scenarios:subscriptions:e2e`
+  - `npm run scenarios:subscriptions:e2e:all`
+
+### 15.2 Key capabilities
+
+- Interactive mode:
+  - choose start type: trial/paying
+  - choose next actions iteratively:
+    - extend trial
+    - jump to paying
+    - cancel (period end)
+    - cancel now
+    - change subscription
+    - advance test clock
+    - simulate payment failed
+    - inspect current Firestore state
+- Automated mode:
+  - runs full lifecycle scenario set.
+- Field-level Firestore diff after each action.
+- Verbose Stripe response logging on screen (`[stripe]` prefix) based on actual Stripe API responses.
+
+### 15.3 Important behavior updates made during debugging
+
+- Seeded identity context in emulator for each test user:
+  - creates/updates `organisations/{orgId}`
+  - creates/updates `users/{userId}`
+  - attempts to create Firebase Auth user for login testing (`${userId}@e2e.local`, default password `Test1234!`).
+- Added local emulator defaults inside script:
+  - Firestore emulator host fallback
+  - Auth emulator host fallback.
+- Updated webhook handler fallback for emulator:
+  - `/Users/zbynekstrnad/git/A11yScan/functions/handlers/stripeWebhook.js`
+  - if signature verification fails in emulator, request body fallback is used for reliability.
+- Added Stripe event replay mechanism:
+  - script fetches real Stripe events and POSTs them to local webhook endpoint
+  - avoids dependency on flaky/misconfigured `stripe listen` forwarding.
+
+### 15.4 Fixes for observed local failures
+
+- `Function us-central1-stripeWebhook does not exist`:
+  - caused by Functions emulator failing to load due to bad `.env.local` usage.
+- `.env.local` parsing failure in Functions emulator:
+  - removed runtime keys from `functions/.env.local`:
+    - `FIRESTORE_EMULATOR_HOST`
+    - `GCLOUD_PROJECT`
+  - keep only Stripe/pricing vars there.
+- Confirmed that missing `users`/`organisations` was solved by seeding in script.
+- Confirmed Stripe objects were being created even when Firestore subscription doc was missing (root issue: webhook delivery/processing path).
+
+### 15.5 Known practical setup
+
+- Start emulators with explicit project from repo root.
+- Ensure Functions loads and exports include `stripeWebhook`.
+- Keep Stripe API key in test mode.
+- Run interactive E2E and verify:
+  - Stripe logs appear
+  - replay logs return `200`
+  - Firestore `subscriptions/{userId}` updates appear.

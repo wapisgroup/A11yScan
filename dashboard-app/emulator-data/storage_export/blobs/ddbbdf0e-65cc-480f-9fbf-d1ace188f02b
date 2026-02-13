@@ -1,0 +1,338 @@
+<!doctype html><html lang="cs" style="height: 100%;"><head><meta http-equiv="origin-trial" content="A7vZI3v+Gz7JfuRolKNM4Aff6zaGuT7X0mf3wtoZTnKv6497cVMnhy03KDqX7kBz/q/iidW7srW31oQbBt4VhgoAAACUeyJvcmlnaW4iOiJodHRwczovL3d3dy5nb29nbGUuY29tOjQ0MyIsImZlYXR1cmUiOiJEaXNhYmxlVGhpcmRQYXJ0eVN0b3JhZ2VQYXJ0aXRpb25pbmczIiwiZXhwaXJ5IjoxNzU3OTgwODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZSwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ=="><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>FARMEKO: Titulní stránka</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="canonical" href="https://farmeko.cz/index.asp"><link rel="shortcut icon" href="/html/images/favicon.ico" media="screen,projection">
+<link rel="stylesheet" href="/aspinclude/vismoweb5/html/n_styly_5/css/zakladni.css" type="text/css" media="screen,projection">
+<link rel="stylesheet" href="/html/screen.css?v=20170913" type="text/css" media="screen,projection">
+<link rel="stylesheet" href="/html/tisk.css" type="text/css" media="print">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style type="text/css" media="screen">li#osn400ui1 a, li#osn400ui1 a:hover {background-image:url("/assets/Image.ashx?id_org=400218&amp;id_obrazky=1002");}
+li#osn400ui2 a, li#osn400ui2 a:hover {background-image:url("/assets/Image.ashx?id_org=400218&amp;id_obrazky=1053");}
+li#osn400ui3 a, li#osn400ui3 a:hover {background-image:url("/assets/Image.ashx?id_org=400218&amp;id_obrazky=1056");}
+li#osn400ui4 a, li#osn400ui4 a:hover {background-image:url("/assets/Image.ashx?id_org=400218&amp;id_obrazky=1059");}
+</style>
+<!--(c) Všechna práva vyhrazena. Kód webové stránky je autorským dílem společnosti WEBHOUSE, s.r.o. podle platných zákonů. Bez autorizovaného povolení jej ani jeho části nelze kopírovat ani jinak používat zejména pro komerční účely.-->
+<link type="text/css" rel="stylesheet" charset="UTF-8" href="https://www.gstatic.com/_/translate_http/_/ss/k=translate_http.tr.2f3WBw8L4SI.L.W.O/am=AAgG/d=0/rs=AN8SPfrhKfLNQThwPXviXzekz-H_oLcqkw/m=el_main_css"><style type="text/css">@media print{#blender{display:none!important;}}</style></head><body id="titul" class="vzor-id-2017" style="position: relative; min-height: 100%; top: 0px;">
+
+<div id="obalhlava">
+    <div id="lista">
+        <h2 class="cist">Orientační nabídka</h2>
+        <ul class="inline">
+            <li class="skip"><a href="#navigace2">Hlavní nabídka - rozcestník</a></li>
+            <li class="skip"><a href="#hlobsah">Hlavní obsah</a></li>
+            <li class="skip"><a href="/aspinclude/vismoweb5/reset/grafika.asp?grafika=0" rel="nofollow">Vypnout grafiku</a></li>
+        </ul>
+        <hr class="cist">
+
+        
+    </div><!--/lista-->
+
+    <div class="listaHlava">
+        <div class="centrovany">
+            <p class="popis">Vyšší odborná škola zdravotnická a&nbsp;Střední odborná škola</p>
+        </div>
+    </div>
+
+	<div id="hlava">
+        <div class="centrovany">
+            <div id="nazev">
+                <img id="znak" src="/html/images/znak.png" width="241" height="64" alt="Znak">
+
+                <h1 class="cvi"><strong class="cist">FARMEKO</strong><span class="cist"> - </span><span class="dodatek">...již od roku 1992</span></h1>
+                <hr class="cist">
+            </div>
+
+            <div id="obalmenu1">
+                <div id="menu1">
+                    <a name="navigace2" id="navigace2"><span class="cist">&nbsp;</span></a>
+                    <h2 class="cist">Hlavní nabídka</h2>
+                    <a href="#zamenu2" class="cist noprint">Přeskočit nabídku</a>
+                    <ul class="menu"><li id="p1"><div><a href="/pro%2Duchazece/ds-1015/p1=51">Pro&nbsp;uchazeče</a>
+</div></li>
+<li id="p2"><div><a href="/o%2Dnas/ds-1027/p1=1021">O&nbsp;nás</a>
+</div></li>
+<li id="p3"><div><a href="/dokumenty/d-1084/p1=1003">Dokumenty</a>
+</div></li>
+<li id="p4"><div><a href="/galerie/ms-68/p1=68">Galerie</a>
+</div></li>
+</ul><div class="sf">&nbsp;</div>
+                </div><!--/menu1-->
+                <a name="zamenu2" id="zamenu2"><span class="cist">&nbsp;</span></a>
+                <hr class="cist">
+            </div><!-- /obalmenu1 -->
+
+            <div class="hlava-doplnek">
+                <ul class="icons">
+                    <li>
+                        <a href="/vismo/o_utvar.asp?id_org=400218&amp;id_u=10" class="kontakt"><img src="/html/images/ico-handset.svg" width="20" height="20" alt="Kontakt"></a>
+                    </li>
+                    <li>
+                        <a class="hl fullscreen-search-anchor" href="#fullscreen-search"><img src="/html/images/btn_hledat.svg" width="20" height="20" alt="Hledat"></a>
+                    </li>
+                    <li class="gte">
+                        
+                            <div id="google_translate_element" class="pole" style="visibility: visible;"><h2 class="cist">Google Translator</h2><div class="skiptranslate goog-te-gadget" dir="ltr" style=""><div id=":0.targetLanguage" class="goog-te-gadget-simple" style="white-space: nowrap;"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAsTAAALEwEAmpwYAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==" class="goog-te-gadget-icon" alt="" style="background-image: url(&quot;https://translate.googleapis.com/translate_static/img/te_ctrl3.gif&quot;); background-position: -65px 0px;"><span style="vertical-align: middle;"><a aria-haspopup="true" class="VIpgJd-ZVi9od-xl07Ob-lTBxed" href="#"><span class="gsp1">Vyberte jazyk</span><img src="https://www.google.com/images/cleardot.gif" alt="" width="1" height="1"><span class="gsp2" style="border-left: 1px solid rgb(187, 187, 187);">​</span><img src="https://www.google.com/images/cleardot.gif" alt="" width="1" height="1"><span aria-hidden="true" class="gsp3" style="color: rgb(118, 118, 118);">▼</span></a></span></div></div><hr class="cist"></div>
+                        
+                    </li>   
+                    <li class="login"><a href="https://www.farmeko.cz/AA/index.asp?app=400218&amp;cid=AuthCookie&amp;ReturnUrl=%2Findex%2Easp%3F&amp;id_org=400218">Přihlásit se<img src="/html/images/ico-login.svg" width="20" height="20" alt="Přihlásit se"></a></li>
+                </ul>
+            </div>
+
+            
+        </div><!--/centrovany-->
+	</div><!--/hlava-->
+</div><!--/obalhlava-->
+
+<div id="obalobrazek">
+    <div class="social">
+        <ul class="social-icon">
+            <li>
+                <a href="https://www.facebook.com/skolafarmeko/" target="_blank" class="social-text"><span>Facebook</span></a>
+                <a href="https://www.facebook.com/skolafarmeko/" target="_blank"><img src="/html/images/ico-fb.svg" width="40" height="40" alt="Facebook"></a>
+            </li>
+            <li>
+                <a href="https://www.instagram.com/skola_farmeko/" target="_blank" class="social-text"><span>Instagram</span></a>
+                <a href="https://www.instagram.com/skola_farmeko/" target="_blank"><img src="/html/images/ico-ig.svg" width="40" height="40" alt="Instagram"></a>
+            </li>
+            <li>
+                <a href="https://www.youtube.com/channel/UCvCK_IJ94J385IoghVTsM6g" target="_blank" class="social-text"><span>Youtube</span></a>
+                <a href="https://www.youtube.com/channel/UCvCK_IJ94J385IoghVTsM6g" target="_blank"><img src="/html/images/ico-yt.svg" width="40" height="40" alt="Youtube"></a>
+            </li>
+            <li>
+                <a href="https://farmeko.bakalari.cz/" target="_blank" class="social-text"><span>Bakaláři</span></a>
+                <a href="https://farmeko.bakalari.cz/" target="_blank"><img src="/html/images/ico-bakalar.svg" class="bakalar" width="40" height="40" alt="Bakaláři"></a>
+            </li>
+        </ul>
+    </div>
+    <div id="obrazek">
+        <div id="blender" style="background-image: none;"><div id="wIB_inst1_0" style="left: 0px; top: 0px; width: auto; height: auto; position: absolute; background-image: url(&quot;https://farmeko.cz/html/images/blenderImages/0.jpg&quot;); transition-duration: 571.429ms; transition-delay: 0ms; visibility: visible; display: block; opacity: 0.72; z-index: 2;"></div><div id="wIB_inst1_1" style="left: 0px; top: 0px; width: auto; height: auto; position: absolute; background-image: url(&quot;https://farmeko.cz/html/images/blenderImages/1.jpg&quot;); transition-duration: 571.429ms; transition-delay: 0ms; visibility: visible; display: block; opacity: 0.28; z-index: 1;"></div><div id="wIB_inst1_2" style="left: 0px; top: 0px; width: auto; height: auto; position: absolute; background-image: url(&quot;https://farmeko.cz/html/images/blenderImages/2.jpg&quot;); transition-duration: 571.429ms; transition-delay: 0ms; visibility: hidden; display: none; opacity: 0; z-index: 1;"></div><div id="wIB_inst1_3" style="left: 0px; top: 0px; width: auto; height: auto; position: absolute; background-image: url(&quot;https://farmeko.cz/html/images/blenderImages/3.jpg&quot;); transition-duration: 571.429ms; transition-delay: 0ms; visibility: hidden; display: none; opacity: 0; z-index: 1;"></div></div>
+    </div>
+    <div class="obalupozorneni">
+        <!--  Upozornění -->
+        <div id="upozorneni"><h2 class="upo">Termín podání přihlášek ke&nbsp;studiu na&nbsp;SOŠ do&nbsp;20.&nbsp;2.&nbsp;2026</h2><p class="popis">Kompletní informace k&nbsp;přijímacímu řízení získáte na&nbsp;webové adrese www.prihlaskynastredni.cz.</p><a href="/termin%2Dpodani%2Dprihlasek%2Dke%2Dstudiu%2Dna%2Dsos%2Ddo%2D20%2D2%2D2026/d-2375" class="dok-vice">Více informací</a><hr class="cist"></div>
+    </div>
+</div>
+
+<div class="temata"><div class="centrovany"><h2 class="cist">Seznam oborů</h2>
+<ul class="ui"><li> <strong><a href="/sos%2Dlaboratorni%2Dasistent/ds-51/p1=1001">SOŠ - Laboratorní asistent</a></strong>
+</li>
+<li> <strong><a href="https://www.farmeko.cz/vismo/zobraz_dok.asp?id_org=400218&amp;p1=1031&amp;id_ktg=1047">SOŠ - Zdravotnické lyceum</a></strong>
+</li>
+<li> <strong><a href="https://www.farmeko.cz/vismo/zobraz_dok.asp?id_org=400218&amp;p1=1050&amp;id_ktg=1048">VOŠ - Diplomovaný farmaceutický asistent (denní i&nbsp;kombinované studium)</a></strong>
+</li>
+<li> <strong><a href="https://www.farmeko.cz/vismo/zobraz_dok.asp?id_org=400218&amp;p1=1051&amp;id_ktg=1049">VOŠ - Diplomovaný zdravotní laborant (kombinované studium)</a></strong>
+</li>
+</ul>
+</div><div class="sf">&nbsp;</div>
+<hr class="cist"></div>
+
+<div id="fullscreen-search" class="fullscreen-search">
+    <h2 class="cist">Vyhledávání</h2>
+    <form action="/vismo/fulltext.asp" method="get">
+        <input type="hidden" name="hledani" value="1">
+        <input type="hidden" name="id_org" value="400218">
+        
+        <label class="fullscreen-search-label label-skryty label-skryty" for="hl">Hledaný výraz</label>
+        <div class="pole">
+            <input class="fullscreen-search-input" id="hl" type="Text" name="query" size="13" placeholder="Hledaný výraz">
+            
+            <input class="fullscreen-search-button" type="image" name="submit" src="/html/images/btn_hledat_fullscreen.svg" alt="Hledat">
+            
+        </div>
+        <a class="fullscreen-search-close" href="#"><span class="cist">Zavřít</span></a>
+    </form>
+    <hr class="cist">
+</div>
+
+
+
+
+
+<div id="obalcelek">
+	<div id="celek">
+
+		<a name="hlobsah" id="hlobsah"><span class="cist">&nbsp;</span></a>			
+		<div id="telo">
+
+					<!--  Co je nového -->
+					
+						<div id="novinky" class="centrovany"> 			
+						
+						
+
+							<h2 class="cvi">Co je nového</h2>
+							<div class="dok"><ul><li><div class="card"><div class="card-top"><strong><a href="/termin%2Dpodani%2Dprihlasek%2Dke%2Dstudiu%2Dna%2Dsos%2Ddo%2D20%2D2%2D2026/d-2375" title="Upoutávka"><span class="dok-upoutavka"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=7576" alt="1" width="800" height="800"></span></a></strong><strong><span class="dok-nazev"><a href="/termin%2Dpodani%2Dprihlasek%2Dke%2Dstudiu%2Dna%2Dsos%2Ddo%2D20%2D2%2D2026/d-2375">Termín podání přihlášek ke&nbsp;studiu na&nbsp;SOŠ do&nbsp;20.&nbsp;2.&nbsp;2026</a></span></strong> </div><div class="dok-text"><div class="dok-priloha"><p class="dok-datum">2.2.2026</p></div><p class="dok-popis">Kompletní informace k&nbsp;přijímacímu řízení získáte na&nbsp;webové adrese www.prihlaskynastredni.cz.</p></div></div></li><li><div class="card"><div class="card-top"><strong><a href="/kriteria%2Dprijimaciho%2Drizeni%2D2026%2D2027/d-2372" title="Upoutávka"><span class="dok-upoutavka"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=7572" alt="1" width="800" height="800"></span></a></strong><strong><span class="dok-nazev"><a href="/kriteria%2Dprijimaciho%2Drizeni%2D2026%2D2027/d-2372">Kritéria přijímacího řízení 2026/2027</a></span></strong> </div><div class="dok-text"><div class="dok-priloha"><p class="dok-datum">19.1.2026</p></div><p class="dok-popis"></p></div></div></li><li><div class="card"><div class="card-top"><strong><a href="/individualni%2Ddny%2Dotevrenych%2Ddveri/d-2361" title="Upoutávka"><span class="dok-upoutavka"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=7568" alt="1" width="800" height="356"></span></a></strong><strong><span class="dok-nazev"><a href="/individualni%2Ddny%2Dotevrenych%2Ddveri/d-2361">Individuální DNY OTEVŘENÝCH DVEŘÍ</a></span></strong> </div><div class="dok-text"><div class="dok-priloha"><p class="dok-datum">12.1.2026</p></div><p class="dok-popis"></p></div></div></li><li><div class="card"><div class="card-top"><strong><a href="/v%2Dzari%2Dotevreme%2D2%2Dtridy%2Dsos/d-2360" title="Upoutávka"><span class="dok-upoutavka"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=7564" alt="1" width="800" height="800"></span></a></strong><strong><span class="dok-nazev"><a href="/v%2Dzari%2Dotevreme%2D2%2Dtridy%2Dsos/d-2360">V&nbsp;září otevřeme 2 třídy SOŠ</a></span></strong> </div><div class="dok-text"><div class="dok-priloha"><p class="dok-datum">7.1.2026</p></div><p class="dok-popis"></p></div></div></li></ul></div>
+							<div class="obaldalsi"><p class="dalsi"><a href="/dp">Archiv aktualit</a></p></div>
+						</div>
+						<hr class="cist">
+					
+
+		</div><!--/telo-->
+
+	</div><!--/celek-->
+</div> <!--/obalcelek-->
+
+<div class="obalvsuvka">
+    <div class="centrovany">
+        <div class="row">
+            <div class="vsuvka"><h2 class="cist">Informace</h2><div class="editor" id="uvodtitul"><div class="sf">&nbsp;</div>
+<!--VOL-vstart-400218;951-->
+<div class="informace">
+  <h3 class="cvi">FARMEKO - Vyšší odborná škola zdravotnická a Střední odborná škola</h3><ul class="oSkole"><li>více než 30 let působíme v Jihlavě, činnost&nbsp; jsme zahájili  v roce <b>1992</b></li>
+    <li>
+      máme <b>stovky absolventů</b>  se zaměřením na oblast farmacie, laboratorní činnosti, ochrany přírody</li><li><b style="font-size: 1em;">absolventi se velmi dobře uplatňují </b><span style="font-size: 1em;">v praxi či při dalším studiu na  vysokých školách a vyšších odborných školách</span></li>
+    <li><b>
+      v úspěšnosti</b> studentů ve státních maturitách jsme vysoce <b>nad průměrem</b> v porovnání s ostatními odbornými SŠ v celé ČR
+    </li>
+    <li>
+      snažíme se školu neustále <b>modernizovat</b> a přizpůsobovat požadavkům legislativy, trhu práce a moderním trendům tak, abychom zajistili absolventům  vysokou <b>konkurenceschopnost
+    </b></li>
+    <li>
+      máme řadu<b> významných partnerů</b> pro oblast praktického vzdělávání (odborné praxe studentů): diagnostická oddělení desítek nemocnic (laboratoře), soukromé diagnostické laboratoře a další zdravotnická zařízení celého regionu Vysočiny poskytující diagnostickou laboratorní péči, desítky nemocničních a soukromých lékáren po celé České republice i na Slovensku a významné společnosti provozující sítě lékáren po celé ČR 
+    </li>
+    <li><b>
+      k nejvýznamnějším partnerům</b> naší školy patří: Nemocnice Jihlava - diagnostická oddělení - laboratoře, Nemocnice Havlíčkův Brod - laboratoře, Nemocnice Pelhřimov - laboratoře, AeskuLab laboratoře - CEDELAB Mostiště, Česká lékárna holding provozující síť lékáren Dr. Max, síť lékáren BENU, nemocniční lékárna Jihlava, Zdravotní ústav Jihlava, přírodovědné oddělení Muzea Vysočiny ad.
+    </li><li>od roku 2025 jsme Fakultní školou Farmaceutické fakulty Univerzity Karlovy v Hradci králové</li>
+  </ul>
+</div>
+<!--VOL-vend-400218;951-->
+<div class="sf">&nbsp;</div><hr class="cist"></div></div>
+        </div>
+        <div class="row">
+            <div class="video-wrapper">
+                <div class="video" style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/649374914?h=9f18281eb5&amp;badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Farmeko - zdravotnick&amp;eacute; obory"></iframe></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<div id="nadpatou">
+	<div class="centrovany">
+    	<div id="kontakt">
+			<h2 class="cvi print">Kontakt</h2>
+			<address><strong class="kontprvni">FARMEKO - Vyšší odborná škola zdravotnická a Střední odborná škola, s.r.o.</strong><br>Znojemská 4447/76B<br>586 01 Jihlava<br><span class="nowrap"><strong class="kontakt-odsazeni prvni">Tel.:&nbsp; </strong> 567 306 261</span><br><span class="nowrap"><strong class="kontakt-odsazeni druhy">Tel.:&nbsp; </strong> 775 884 749</span><br><span class="mail nowrap"><strong class="kontakt-odsazeni">Mail:</strong> <a href="mailto:studijni@farmeko.cz">studijni@farmeko.cz</a></span><br><span class="nowrap"><strong class="kontakt-odsazeni">ID datové schránky:&nbsp;</strong> 7qc5vim</span></address><p class="dalsi"><a href="/vismo/o_utvar.asp?id_org=400218&amp;id_u=10">Podrobný kontakt</a></p>
+			<hr class="cist">
+		</div>
+
+        <div class="mapa flex">
+            <div class="flex">
+                <h2 class="cvi print">Kde nás hledat</h2>
+                <a href="https://goo.gl/maps/TWfpKwnScYebF88g9" target="_blank">
+                    <img src="/html/images/mapka.svg" alt="Mapa" width="366" height="214">
+                </a>
+            </div>
+            <div class="dalsi">
+                <a href="https://goo.gl/maps/TWfpKwnScYebF88g9" target="_blank">Zobrazit na mapě</a>
+            </div>
+        </div>
+
+        
+            <div id="napiste" class="titulformular">
+                <h2 class="cvi">Napište nám</h2>
+
+                <form action="/vismo/formulare3.asp" method="post">
+                    <input type="hidden" name="id_org" value="400218">
+                    <input type="hidden" name="id_f" value="50">
+                    <input type="hidden" name="podat" value="1">
+                    <input type="hidden" name="p1" value="">
+                    <input type="hidden" name="p2" value="">
+                    <input type="hidden" name="p3" value="">
+
+                    <input type="hidden" name="idc" value="0">
+
+                    <label for="em" class="short cist label-skryty">Váš email</label>
+                    <input class="format required" type="text" name="email" id="em" size="13" title="Váš email" placeholder="Váš email">
+                    <label for="zp" class="cist label-skryty">Vaše zpráva</label>
+                    <textarea class="format required" name="zprava" id="zp" rows="5" cols="12" title="Vaše zpráva" placeholder="Vaše zpráva"></textarea>
+                    
+                    <label for="g-recaptcha-response" class="cist">Odpověď recaptchy</label>
+                    <div id="volrecaptcha0" style="display: none;"><div style="width: 164px; height: 144px;"><div><iframe title="reCAPTCHA" width="164" height="144" role="presentation" name="a-ybjrvwgkooay" frameborder="0" scrolling="no" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation allow-modals allow-popups-to-escape-sandbox allow-storage-access-by-user-activation" src="https://www.google.com/recaptcha/api2/anchor?ar=1&amp;k=6LfeSCETAAAAAIsTIqRPmfTE7ktIBVGre3lKHCiJ&amp;co=aHR0cHM6Ly9mYXJtZWtvLmN6OjQ0Mw..&amp;hl=cs&amp;v=gYdqkxiddE5aXrugNbBbKgtN&amp;theme=light&amp;size=compact&amp;anchor-ms=20000&amp;execute-ms=30000&amp;cb=h23i3j88yccw"></iframe></div><textarea id="g-recaptcha-response" name="g-recaptcha-response" class="g-recaptcha-response" aria-label="Recaptcha response" style="width: 250px; height: 40px; border: 1px solid rgb(193, 193, 193); margin: 10px 25px; padding: 0px; resize: none; display: none;"></textarea></div><iframe style="display: none;"></iframe></div>
+
+
+                    <p class="bezny gdprsouhlas">Odesláním souhlasíte se&nbsp;<a href="https://www.farmeko.cz/vismo/o-webu.asp#zou">zpracováním ososbních údajů</a>.</p>
+                    <div class="fbtn">
+                        <button class="btn" type="submit" name="submit">Odeslat zprávu</button>
+                    </div>
+                    <hr class="cist">
+                </form>
+            </div>
+        <div class="obrodkazy"><h2 class="cvi">Jsme součástí</h2><ul class="ui">
+<li id="osn400ui1" class="mlichy"><div><a href="https://www.asociacevos.cz/"><span class="mtext">Asociace vyšších odborných škol</span></a></div>
+</li>
+<li id="osn400ui2" class="msudy"><div><a href="https://azscr.cz/"><span class="mtext">Asociace zdravotnických škol</span></a></div>
+</li>
+<li id="osn400ui3" class="mlichy"><div><a href="https://komora.cz/"><span class="mtext">Hospodářská komora</span></a></div>
+</li>
+<li id="osn400ui4" class="msudy"><div><a href="https://www.soukromeskoly.cz/"><span class="mtext">Sdružení soukromých škol</span></a></div>
+</li>
+</ul><hr class="cist"></div>
+	</div>
+</div>
+
+
+<div id="obalmbannery"><h2 class="cist">Navštivte také</h2><div id="mbannery" class="editor">
+<!--VOL-vstart-400218;400-->
+<ul class="mbannery"><li><a href="https://www.faf.cuni.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=6664" alt="FAKULT" hspace="0" vspace="0" width="418" height="125" style="" class=""></a><br></li><ul class="mbannery">&nbsp;<li><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1012" width="115" alt="Logo lékárny" hspace="0" vspace="0" style="opacity: 1; width: 115px;">&nbsp; &nbsp;&nbsp;</li>&nbsp;<a href="https://www.drmax.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1443" alt="drmax" hspace="0" vspace="0" width="150" height="50" style="opacity: 1;" class=""></a><li style="font-size: 1em;"><a href="https://www.nemji.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1014" width="132" alt="Nemocnice Jihlava - logo" hspace="0" vspace="0" class="" style="opacity: 1; width: 132px;"></a></li><li style="font-size: 1em;"><ul class="mbannery"></ul></li><span style="font-size: 1em;"><a href="https://www.unilabs.cz/cs/laboratore/biochemie-a-hematologie/AeskuLab-Mostiste"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=6472" alt="1" hspace="0" vspace="0" width="179" style="opacity: 1; width: 179px;" class=""></a>&nbsp;</span><li style="font-size: 1em;">&nbsp;</li><span style="font-size: 1em;">&nbsp;</span><li style="font-size: 1em;"><a href="https://www.benu.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1018" width="255" alt="Benu lékárna - logo" hspace="0" vspace="0" class="" style="opacity: 1; width: 255px;"></a></li><span style="font-size: 1em;">&nbsp;</span><li style="font-size: 1em;"><a href="https://www.ifcor.cz/index.php"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1020" width="114" height="51" alt="IFCOR - logo" hspace="0" vspace="0" class=""></a></li></ul><ul class="mbannery"><li><a href="http://www.onhb.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1022" width="236" height="82" alt="Nemocnice Havlíčkův Brod - logo" hspace="0" vspace="0" class="" style="opacity: 1;"></a>&nbsp;</li>&nbsp;<li><a href="https://www.hospital-pe.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1024" width="229" alt="Nemocnice Pelhřimov - logo" hspace="0" vspace="0" class="" style="opacity: 1; width: 229px;"></a></li>&nbsp;<li><a href="http://www.szu.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1028" width="203" alt="státní zdravotní ústav - logo" hspace="0" vspace="0" class="" style="opacity: 1; width: 203px;"></a></li>&nbsp;<li><a href="https://www.zuova.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1030" width="121" height="137" alt="Zdravotní ústav - logo" hspace="0" vspace="0" class="" style="opacity: 1;"></a></li>&nbsp;<li><a href="https://www.plasmaplace.cz/jihlava/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=1032" width="206" alt="Plasma place - logo" hspace="0" vspace="0" class="" style="opacity: 1; width: 206px;"></a></li></ul><a href="https://www.svujihlava.cz/"><img src="/assets/Image.ashx?id_org=400218&amp;id_obrazky=5193" alt="1" hspace="0" vspace="0" width="215" height="99" style="opacity: 1;" class=""></a></ul>
+<!--VOL-vend-400218;400-->
+<div class="sf"><hr class="cist"></div></div></div>
+
+
+<h2 class="cist">Informace v patě</h2>
+<div id="obalpata">
+	<div id="pata" class="centrovany">
+
+		<p id="vypnutagrafika" class="skryt">Nyní jste v módu "Bez grafiky". Přepnutím do grafického módu zobrazíte standardní verzi webu.</p>
+
+		<ul class="inline"><li><a href="https://www.farmeko.cz/AA/index.asp?app=400218&amp;cid=AuthCookie&amp;ReturnUrl=%2Findex%2Easp%3F&amp;id_org=400218">Přihlásit se</a></li><li><a href="/vismo/o-webu.asp" title="Prohlášení o přístupnosti, prohlášení o použití cookies atd.">O&nbsp;webu</a></li><li><a href="/vismo/o-webu.asp#accessibility" title="Prohlášení o přístupnosti">Prohlášení o přístupnosti</a></li><li><a href="/vismo/o-webu.asp#cookies" title="Prohlášení o použití cookies">Prohlášení o použití cookies</a></li><li><a href="/mapa-stranek">Mapa stránek</a></li></ul>
+		
+		<p class="webmaster"><span class="partWebmaster">web &amp; design <a href="http://webhouse.cz" title="WEBHOUSE, s. r. o." class="patalogo">WEBHOUSE<span>®</span></a></span><span class="cist">, </span><span class="partWebmaster1">redakční systém <a class="patalogo" href="http://vismo.cz"><span class="vis">vis</span>mo<span>®</span></a></span></p>
+
+		<div class="sf"></div>
+ 	</div><!--/pata-->
+</div><!--/obalpata-->
+
+
+
+
+
+
+
+
+	
+
+	
+		
+	
+		
+	
+	
+	
+
+
+
+
+
+
+<!-- <script type="text/javascript">
+	(function() {
+		window.__isTouchActivelyUsed = false;
+		function __activeTouchDetection() {
+			window.__isTouchActivelyUsed = true;
+			document.documentElement.className = document.documentElement.className.length > 0 ? document.documentElement.className + " using-touch" : "using-touch";
+			window.removeEventListener("touchstart", __activeTouchDetection);
+		}
+
+		if ("ontouchstart" in window) {
+			window.addEventListener("touchstart", __activeTouchDetection);
+		}
+	}());
+</script> -->
+
+                                                                   
+
+
+<div id="goog-gt-tt" class="VIpgJd-yAWNEb-L7lbkb skiptranslate" style="border-radius: 12px; margin: 0 0 0 -23px; padding: 0; font-family: 'Google Sans', Arial, sans-serif;" data-id=""><div id="goog-gt-vt" class="VIpgJd-yAWNEb-hvhgNd"><div class="VIpgJd-yAWNEb-hvhgNd-Ud7fr"><img src="https://fonts.gstatic.com/s/i/productlogos/translate/v14/24px.svg" width="24" height="24" alt=""><div class=" VIpgJd-yAWNEb-hvhgNd-IuizWc-i3jM8c " dir="ltr">Původní text</div></div><div class="VIpgJd-yAWNEb-hvhgNd-k77Iif"><div id="goog-gt-original-text" class="VIpgJd-yAWNEb-nVMfcd-fmcmS VIpgJd-yAWNEb-hvhgNd-axAV1"></div></div><div class="VIpgJd-yAWNEb-hvhgNd-N7Eqid ltr"><div class="VIpgJd-yAWNEb-hvhgNd-N7Eqid-B7I4Od ltr" dir="ltr"><div class="VIpgJd-yAWNEb-hvhgNd-UTujCb">Ohodnoťte tento překlad</div><div class="VIpgJd-yAWNEb-hvhgNd-eO9mKe">Vaše zpětná vazba bude použita k&nbsp;vylepšení Překladače Google</div></div><div class="VIpgJd-yAWNEb-hvhgNd-xgov5 ltr"><button id="goog-gt-thumbUpButton" type="button" class="VIpgJd-yAWNEb-hvhgNd-bgm6sf" title="Dobrý překlad" aria-label="Dobrý překlad" aria-pressed="false"><span id="goog-gt-thumbUpIcon"><svg width="24" height="24" viewBox="0 0 24 24" focusable="false" class="VIpgJd-yAWNEb-hvhgNd-THI6Vb NMm5M"><path d="M21 7h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 0S7.08 6.85 7 7H2v13h16c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V9c0-1.1-.9-2-2-2zM7 18H4V9h3v9zm14-7l-3 7H9V8l4.34-4.34L12 9h9v2z"></path></svg></span><span id="goog-gt-thumbUpIconFilled"><svg width="24" height="24" viewBox="0 0 24 24" focusable="false" class="VIpgJd-yAWNEb-hvhgNd-THI6Vb NMm5M"><path d="M21 7h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 0S7.08 6.85 7 7v13h11c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73V9c0-1.1-.9-2-2-2zM5 7H1v13h4V7z"></path></svg></span></button><button id="goog-gt-thumbDownButton" type="button" class="VIpgJd-yAWNEb-hvhgNd-bgm6sf" title="Špatný překlad" aria-label="Špatný překlad" aria-pressed="false"><span id="goog-gt-thumbDownIcon"><svg width="24" height="24" viewBox="0 0 24 24" focusable="false" class="VIpgJd-yAWNEb-hvhgNd-THI6Vb NMm5M"><path d="M3 17h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 24s7.09-6.85 7.17-7h5V4H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2zM17 6h3v9h-3V6zM3 13l3-7h9v10l-4.34 4.34L12 15H3v-2z"></path></svg></span><span id="goog-gt-thumbDownIconFilled"><svg width="24" height="24" viewBox="0 0 24 24" focusable="false" class="VIpgJd-yAWNEb-hvhgNd-THI6Vb NMm5M"><path d="M3 17h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 24s7.09-6.85 7.17-7V4H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2zm16 0h4V4h-4v13z"></path></svg></span></button></div></div><div id="goog-gt-votingHiddenPane" class="VIpgJd-yAWNEb-hvhgNd-aXYTce"><form id="goog-gt-votingForm" action="//translate.googleapis.com/translate_voting?client=te" method="post" target="votingFrame" class="VIpgJd-yAWNEb-hvhgNd-aXYTce"><input type="text" name="sl" id="goog-gt-votingInputSrcLang"><input type="text" name="tl" id="goog-gt-votingInputTrgLang"><input type="text" name="query" id="goog-gt-votingInputSrcText"><input type="text" name="gtrans" id="goog-gt-votingInputTrgText"><input type="text" name="vote" id="goog-gt-votingInputVote"></form><iframe name="votingFrame" frameborder="0"></iframe></div></div></div><div class="VIpgJd-ZVi9od-aZ2wEe-wOHMyf"><div class="VIpgJd-ZVi9od-aZ2wEe-OiiCO"><svg xmlns="http://www.w3.org/2000/svg" class="VIpgJd-ZVi9od-aZ2wEe" width="96px" height="96px" viewBox="0 0 66 66"><circle class="VIpgJd-ZVi9od-aZ2wEe-Jt5cK" fill="none" stroke-width="6" stroke-linecap="round" cx="33" cy="33" r="30"></circle></svg></div></div><iframe frameborder="0" class="VIpgJd-ZVi9od-xl07Ob-OEVmcd skiptranslate" title="Widget překladu jazyků" style="visibility: visible; box-sizing: content-box; width: 107px; height: 102px; display: none;"></iframe><div style="background-color: rgb(255, 255, 255); border: 1px solid rgb(204, 204, 204); box-shadow: rgba(0, 0, 0, 0.2) 2px 2px 3px; position: absolute; transition: visibility linear 0.3s, opacity 0.3s linear; opacity: 0; visibility: hidden; z-index: 2000000000; left: 0px; top: -10000px;"><div style="width: 100%; height: 100%; position: fixed; top: 0px; left: 0px; z-index: 2000000000; background-color: rgb(255, 255, 255); opacity: 0.05;"></div><div class="g-recaptcha-bubble-arrow" style="border: 11px solid transparent; width: 0px; height: 0px; position: absolute; pointer-events: none; margin-top: -11px; z-index: 2000000000;"></div><div class="g-recaptcha-bubble-arrow" style="border: 10px solid transparent; width: 0px; height: 0px; position: absolute; pointer-events: none; margin-top: -10px; z-index: 2000000000;"></div><div style="z-index: 2000000000; position: relative;"><iframe title="ověření recaptcha vyprší za dvě minuty" name="c-ybjrvwgkooay" frameborder="0" scrolling="no" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation allow-modals allow-popups-to-escape-sandbox allow-storage-access-by-user-activation" src="https://www.google.com/recaptcha/api2/bframe?hl=cs&amp;v=gYdqkxiddE5aXrugNbBbKgtN&amp;k=6LfeSCETAAAAAIsTIqRPmfTE7ktIBVGre3lKHCiJ&amp;bft=0dAFcWeA65_2SJV19rOr1JKpQyUtzM56MclMYJ8_-f5DvwpyvXx0L1aIvBtdzANPo3ZRf27amEQriYY0nThciLpAO9s5mYjdeP-A" style="width: 100%; height: 100%;"></iframe></div></div></body></html>
