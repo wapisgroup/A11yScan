@@ -9,6 +9,7 @@
     "create-run": "node createRun.js",
     "publish-job": "node publishJob.js",
     "test:core": "node --test tests/ablelytics-core.scenarios.test.js",
+    "test:sc": "node --test tests/sc-checks.test.js",
     "test:bigquery": "node scripts/test-bigquery.cjs",
     "test:bigquery:local": "dotenv -e .env.local -- node scripts/test-bigquery.cjs",
     "query:bigquery:latest": "node scripts/query-latest-bigquery.cjs",

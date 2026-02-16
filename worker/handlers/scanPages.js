@@ -488,6 +488,11 @@ async function handleScanPages(db, projectId, runId) {
                         }
                     }
                     
+                    // Pre-inject axe-core before navigation so it's available immediately after page load
+                    if (axe && axe.source) {
+                        await pageP.evaluateOnNewDocument(axe.source);
+                    }
+
                     // Use 'networkidle2' to wait for network to be mostly idle, so page is fully loaded
                     const resp = await pageP.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 30000 }).catch(e => null);
 
@@ -506,6 +511,40 @@ async function handleScanPages(db, projectId, runId) {
                                 });
                             }
                             console.log(`--- End banner removal ---\n`);
+
+                            // Install MutationObserver to auto-remove cookie banners that re-appear
+                            await pageP.evaluate((bannerMode) => {
+                                const cookieYesSelectors = [
+                                    '#cookieyes-consent', '.cookieyes-banner', '[id*="cookieyes"]',
+                                    '[class*="cookieyes"]', '.cky-consent-container', '.cky-overlay'
+                                ];
+                                const commonSelectors = [
+                                    ...cookieYesSelectors,
+                                    '#consent-management-box', '#onetrust-banner-sdk', '#onetrust-consent-sdk',
+                                    '.onetrust-pc-dark-filter', '[id*="onetrust"]',
+                                    '#CybotCookiebotDialog', '#CookiebotWidget', '[id*="cookiebot"]',
+                                    '[class*="cookie-banner"]', '[class*="cookie-consent"]',
+                                    '[class*="gdpr-banner"]', '[class*="gdpr-consent"]',
+                                    '[id*="cookie-banner"]', '[id*="cookie-consent"]',
+                                    '[aria-label*="cookie" i]', '[aria-label*="consent" i]'
+                                ];
+                                const selectorsToUse = bannerMode === 'cookieyes' ? cookieYesSelectors : commonSelectors;
+                                const observer = new MutationObserver(() => {
+                                    selectorsToUse.forEach(sel => {
+                                        try {
+                                            document.querySelectorAll(sel).forEach(el => {
+                                                if (el && el.parentNode) el.remove();
+                                            });
+                                        } catch (e) {}
+                                    });
+                                    document.body.style.overflow = '';
+                                    document.documentElement.style.overflow = '';
+                                });
+                                if (document.body) {
+                                    observer.observe(document.body, { childList: true, subtree: true });
+                                }
+                                window.__cookieBannerObserver = observer;
+                            }, mode);
                         } catch (bannerErr) {
                             console.warn('Failed to remove cookie banners:', bannerErr);
                         }
@@ -531,19 +570,10 @@ async function handleScanPages(db, projectId, runId) {
                         }
                         console.log(`--- End cookie verification ---\n`);
                     }
-                    // Ensure cookie banners are removed right before axe runs
-                    if (removeCookieBannersEnabled) {
-                        try {
-                            await pageP.waitForTimeout(300);
-                            await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
-                        } catch (bannerErr) {
-                            console.warn('Failed to re-remove cookie banners before axe:', bannerErr);
-                        }
-                    }
+                    // Cookie banner MutationObserver installed after first removal handles re-appearances
 
-                    // Inject axe-core into page context and run accessibility checks
+                    // Run axe-core accessibility checks (pre-injected via evaluateOnNewDocument)
                     if (axe && axe.source) {
-                        await pageP.addScriptTag({ content: axe.source });
                         // Run axe with WCAG 2.0, 2.1, and best-practice checks for comprehensive coverage
                         const axeResults = await pageP.evaluate(async () => {
                             try {
@@ -624,27 +654,20 @@ async function handleScanPages(db, projectId, runId) {
                             pushIssue(issues, 'serious', 'Axe run error: ' + axeResults.error, null, null, null, null, [], null, null, null, 'axe-core');
                         }
 
-                        // Ensure cookie banners are removed right before snapshot
-                        if (removeCookieBannersEnabled) {
-                            try {
-                                await pageP.waitForTimeout(200);
-                                await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
-                            } catch (bannerErr) {
-                                console.warn('Failed to re-remove cookie banners before snapshot:', bannerErr);
-                            }
-                        }
+                        // Cookie banner MutationObserver handles re-appearances automatically
 
-                        // === Page snapshot and node highlight capture ===
+                        // === Page snapshot and node highlight capture (merged into single evaluate) ===
                         try {
-                            // Get the rendered HTML content and sanitize it inside the page context
-                            // Remove scripts, noscript, and dangerous attributes before persisting
-                            console.log('Before sanitizedHtml');
-                            const sanitizedHtml = await pageP.evaluate(() => {
+                            const nodesForEvaluation = (axeResults && axeResults.violations) ? axeResults.violations.flatMap(v => v.nodes || []).map(n => ({ target: n.target, html: n.html })) : [];
+                            console.log('Nodes for evaluation count:', nodesForEvaluation.length);
+
+                            // Single evaluate call: sanitize HTML + compute node bounding rects
+                            const snapshotResult = await pageP.evaluate((nodes) => {
+                                // --- Sanitize HTML ---
+                                let html = null;
                                 try {
                                     const clone = document.documentElement.cloneNode(true);
-                                    // Remove scripts & noscript for safety
                                     clone.querySelectorAll('script, noscript').forEach(n => n.remove());
-                                    // Remove potentially dangerous event attributes and javascript: hrefs
                                     const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT, null, false);
                                     const eventAttrs = ['onabort', 'onblur', 'onchange', 'onclick', 'onerror', 'onfocus', 'oninput', 'onload', 'onmouseover', 'onsubmit', 'onresize', 'onunload'];
                                     while (walker.nextNode()) {
@@ -655,20 +678,30 @@ async function handleScanPages(db, projectId, runId) {
                                             if (href.trim().toLowerCase().startsWith('javascript:')) el.removeAttribute('href');
                                         }
                                     }
-                                    return '<!doctype html>' + clone.outerHTML;
-                                } catch (e) {
-                                    return null;
-                                }
-                            });
-                            console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
+                                    html = '<!doctype html>' + clone.outerHTML;
+                                } catch (e) {}
 
-                            // Compute bounding rects and normalized selectors for each axe node in a single evaluate (faster)
-                            // Selectors are chosen from axe node.target (prefer), or by matching html
-                            const nodesForEvaluation = (axeResults && axeResults.violations) ? axeResults.violations.flatMap(v => v.nodes || []).map(n => ({ target: n.target, html: n.html })) : [];
-                            console.log('Nodes for evaluation count:', nodesForEvaluation.length);
-                            const issueNodes = nodesForEvaluation.length > 0 ? await pageP.evaluate((nodes) => {
+                                // --- Compute node rects ---
                                 function getPrimarySelector(n) { if (n && n.target && n.target.length > 0) return n.target[0]; return null; }
-                                const results = [];
+                                function getXPathForElement(elm) {
+                                    if (elm.id) return `id("${elm.id}")`;
+                                    const parts = [];
+                                    while (elm && elm.nodeType === Node.ELEMENT_NODE) {
+                                        let nb = 1;
+                                        let sib = elm.previousSibling;
+                                        while (sib) {
+                                            if (sib.nodeType === Node.DOCUMENT_TYPE_NODE) { sib = sib.previousSibling; continue; }
+                                            if (sib.nodeType === Node.ELEMENT_NODE && sib.nodeName === elm.nodeName) nb++;
+                                            sib = sib.previousSibling;
+                                        }
+                                        const tagName = elm.nodeName.toLowerCase();
+                                        parts.unshift(`${tagName}[${nb}]`);
+                                        elm = elm.parentNode;
+                                    }
+                                    return '/' + parts.join('/');
+                                }
+
+                                const nodeRects = [];
                                 nodes.forEach((n) => {
                                     const selector = getPrimarySelector(n) || null;
                                     try {
@@ -681,38 +714,24 @@ async function handleScanPages(db, projectId, runId) {
                                             }) || null;
                                         }
                                         if (!el) {
-                                            results.push({ selector, xpath: null, outerHTML: n.html || null, rect: null });
+                                            nodeRects.push({ selector, xpath: null, outerHTML: n.html || null, rect: null });
                                         } else {
                                             const r = el.getBoundingClientRect();
-                                            function getXPathForElement(elm) {
-                                                if (elm.id) return `id("${elm.id}")`;
-                                                const parts = [];
-                                                while (elm && elm.nodeType === Node.ELEMENT_NODE) {
-                                                    let nb = 1;
-                                                    let sib = elm.previousSibling;
-                                                    while (sib) {
-                                                        if (sib.nodeType === Node.DOCUMENT_TYPE_NODE) { sib = sib.previousSibling; continue; }
-                                                        if (sib.nodeType === Node.ELEMENT_NODE && sib.nodeName === elm.nodeName) nb++;
-                                                        sib = sib.previousSibling;
-                                                    }
-                                                    const tagName = elm.nodeName.toLowerCase();
-                                                    parts.unshift(`${tagName}[${nb}]`);
-                                                    elm = elm.parentNode;
-                                                }
-                                                return '/' + parts.join('/');
-                                            }
-                                            // Truncate outerHTML to avoid Firestore nested entity limits (500 chars is enough for matching)
                                             const truncatedHtml = el.outerHTML ? el.outerHTML.substring(0, 500) : null;
-                                            results.push({ selector, xpath: getXPathForElement(el), outerHTML: truncatedHtml, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
+                                            nodeRects.push({ selector, xpath: getXPathForElement(el), outerHTML: truncatedHtml, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
                                         }
                                     } catch (e) {
-                                        // Truncate HTML for fallback case too
                                         const truncatedHtml = n.html ? n.html.substring(0, 500) : null;
-                                        results.push({ selector: selector || null, xpath: null, outerHTML: truncatedHtml, rect: null });
+                                        nodeRects.push({ selector: selector || null, xpath: null, outerHTML: truncatedHtml, rect: null });
                                     }
                                 });
-                                return results;
-                            }, nodesForEvaluation) : [];
+
+                                return { html, nodeRects };
+                            }, nodesForEvaluation);
+
+                            const sanitizedHtml = snapshotResult ? snapshotResult.html : null;
+                            const issueNodes = snapshotResult ? snapshotResult.nodeRects : [];
+                            console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
 
                             // Upload HTML to Storage instead of storing in Firestore
                             if (sanitizedHtml) {
@@ -754,14 +773,7 @@ async function handleScanPages(db, projectId, runId) {
                     let coreIssues = [];
                     let coreStats = null;
                     try {
-                        if (removeCookieBannersEnabled) {
-                            try {
-                                await pageP.waitForTimeout(400);
-                                await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
-                            } catch (bannerErr) {
-                                console.warn('Failed to re-remove cookie banners:', bannerErr);
-                            }
-                        }
+                        // Cookie banner MutationObserver handles re-appearances automatically
                         const coreTests = new AblelyticsCoreTests(pageP, {
                             includeMultiPageChecks: false,
                             includeExperimentalChecks: String(process.env.ENABLE_CORE_EXPERIMENTAL_HEURISTICS || '').toLowerCase() === '1',
@@ -989,6 +1001,32 @@ async function handleScanPages(db, projectId, runId) {
                         if (!meta.lang || meta.lang.trim() === '') pushIssue(issues, 'critical', 'Missing html[lang] attribute', null, null, null, null, [], null, null, null, 'ablelytics-core');
                     } catch (e) {
                         // ignore
+                    }
+
+                    // === Cross-engine deduplication ===
+                    // If axe-core and ablelytics-core report same rule on same element, keep axe-core
+                    const seenAxeKeys = new Set();
+                    issues.forEach(issue => {
+                        if (issue.engine === 'axe-core') {
+                            seenAxeKeys.add(`${issue.ruleId}::${issue.selector || (issue.html ? issue.html.slice(0, 80) : '')}`);
+                        }
+                    });
+                    // Build a rule-id mapping between ablelytics-core and axe-core rule ids
+                    const coreToAxeRuleMap = {
+                        'wcag-2.4.1': 'bypass',
+                        'wcag-2.4.7': 'focus-visible',
+                        'wcag-1.4.2': 'audio-caption',
+                        'wcag-4.1.2': 'aria-required-attr',
+                        'wcag-2.4.3': 'tabindex',
+                    };
+                    for (let i = issues.length - 1; i >= 0; i--) {
+                        const issue = issues[i];
+                        if (issue.engine !== 'ablelytics-core') continue;
+                        const mappedRuleId = coreToAxeRuleMap[issue.ruleId] || issue.ruleId;
+                        const key = `${mappedRuleId}::${issue.selector || (issue.html ? issue.html.slice(0, 80) : '')}`;
+                        if (seenAxeKeys.has(key)) {
+                            issues.splice(i, 1);
+                        }
                     }
 
                 } catch (err) {

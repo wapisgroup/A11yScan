@@ -8,10 +8,21 @@ process.env.XDG_CACHE_HOME = '/tmp';
 process.env.XDG_DATA_HOME = '/tmp';
 
 const puppeteer = require('puppeteer');
-const { AblelyticsCoreTests } = require('../helpers/ablelytics-core-tests');
+const {
+  checkModalInteractionScenario,
+  checkMenuInteractionScenario,
+  checkTabsInteractionScenario,
+  checkDisclosureInteractionScenario,
+  checkCarouselInteractionScenario,
+  checkDragDropKeyboardAlternativeScenario
+} = require('../helpers/checks/sc-interactive');
 
 let browser;
 let page;
+const opts = {
+  maxComponentChecks: 10,
+  includeExperimentalChecks: false
+};
 
 test.before(async () => {
   const explicitExecutablePath =
@@ -47,13 +58,6 @@ async function setHtml(html) {
   await page.setContent(html, { waitUntil: 'domcontentloaded' });
 }
 
-function createCore() {
-  return new AblelyticsCoreTests(page, {
-    maxComponentChecks: 10,
-    includeExperimentalChecks: false
-  });
-}
-
 test('modal scenario: detects missing focus transfer into dialog', async () => {
   await setHtml(`
     <button id="open" aria-haspopup="dialog" aria-controls="dlg">Open dialog</button>
@@ -70,8 +74,7 @@ test('modal scenario: detects missing focus transfer into dialog', async () => {
     </script>
   `);
 
-  const core = createCore();
-  const issues = await core.checkModalInteractionScenario();
+  const issues = await checkModalInteractionScenario(page, opts);
   assert.ok(issues.some((i) => i.message.includes('focus did not move into it')));
 });
 
@@ -101,8 +104,7 @@ test('menu scenario: passes with keyboard open/nav/close behavior', async () => 
     </script>
   `);
 
-  const core = createCore();
-  const issues = await core.checkMenuInteractionScenario();
+  const issues = await checkMenuInteractionScenario(page, opts);
   assert.equal(issues.length, 0);
 });
 
@@ -129,8 +131,7 @@ test('tabs scenario: passes with arrow navigation and visible panel', async () =
     </script>
   `);
 
-  const core = createCore();
-  const issues = await core.checkTabsInteractionScenario();
+  const issues = await checkTabsInteractionScenario(page, opts);
   assert.equal(issues.length, 0);
 });
 
@@ -149,8 +150,7 @@ test('disclosure scenario: passes when Enter/Space toggles aria-expanded and pan
     </script>
   `);
 
-  const core = createCore();
-  const issues = await core.checkDisclosureInteractionScenario();
+  const issues = await checkDisclosureInteractionScenario(page, opts);
   assert.equal(issues.length, 0);
 });
 
@@ -163,8 +163,7 @@ test('carousel scenario: detects non-working keyboard next control', async () =>
     </div>
   `);
 
-  const core = createCore();
-  const issues = await core.checkCarouselInteractionScenario();
+  const issues = await checkCarouselInteractionScenario(page, opts);
   assert.ok(issues.some((i) => i.message.includes('next control')));
 });
 
@@ -176,8 +175,7 @@ test('drag-drop scenario: detects draggable without keyboard alternative', async
     </div>
   `);
 
-  const core = createCore();
-  const issues = await core.checkDragDropKeyboardAlternativeScenario();
+  const issues = await checkDragDropKeyboardAlternativeScenario(page, opts);
   assert.ok(issues.some((i) => i.message.includes('without obvious keyboard alternative')));
 });
 
@@ -190,7 +188,6 @@ test('drag-drop scenario: passes when move controls exist', async () => {
     </div>
   `);
 
-  const core = createCore();
-  const issues = await core.checkDragDropKeyboardAlternativeScenario();
+  const issues = await checkDragDropKeyboardAlternativeScenario(page, opts);
   assert.equal(issues.length, 0);
 });
