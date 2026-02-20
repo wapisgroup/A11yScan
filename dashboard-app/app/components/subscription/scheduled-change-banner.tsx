@@ -1,3 +1,8 @@
+/**
+ * Scheduled Change Banner
+ * Shared component in subscription/scheduled-change-banner.tsx.
+ */
+
 'use client';
 
 import { useState } from 'react';

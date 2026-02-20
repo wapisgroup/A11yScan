@@ -285,7 +285,13 @@ if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
     });
     console.log('[Storage] Using emulator at', apiEndpoint);
 } else {
-    storage = new Storage();
+    const storageOpts = {
+        projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
+    };
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        storageOpts.credentials = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    }
+    storage = new Storage(storageOpts);
     console.log('[Storage] Using production GCS');
 }
 

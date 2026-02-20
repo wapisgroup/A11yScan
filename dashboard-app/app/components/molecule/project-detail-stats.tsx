@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Project Detail Stats
+ * Shared component in molecule/project-detail-stats.tsx.
+ */
+
 import { ProjectStatsTDO } from "@/types/project";
 import { StatPill } from "../atom/stat-pill";
 import React, { useEffect, useState, useMemo } from "react";
@@ -50,16 +55,18 @@ export function ProjectDetailStats({ projectId }: ProjectDetailStatsProps) {
     let minor = 0;
 
     pages.forEach((page) => {
-      // Count pages with 2xx status
-      const httpStatus = typeof page.httpStatus === 'number' 
-        ? page.httpStatus 
-        : parseInt(String(page.httpStatus ?? '0'));
-      
-      if (httpStatus >= 200 && httpStatus < 300) {
+      // Count pages with 2xx status; treat missing httpStatus as unknown (not an error)
+      const rawStatus = page.httpStatus;
+      if (rawStatus == null) {
+        // No HTTP check yet — count as a live page for totals
         pagesTotal++;
-      } else if (!httpStatus || httpStatus < 200 || httpStatus >= 300) {
-        // Count non-2xx pages (404s, 500s, etc.)
-        pages404++;
+      } else {
+        const httpStatus = typeof rawStatus === 'number' ? rawStatus : parseInt(String(rawStatus));
+        if (httpStatus >= 200 && httpStatus < 300) {
+          pagesTotal++;
+        } else {
+          pages404++;
+        }
       }
 
       // Count scanned pages - a page is scanned if it has violations data

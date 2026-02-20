@@ -1,5 +1,5 @@
 // functions/handlers/pageScanning.js
-const functions = require('firebase-functions/v1');
+const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { nowTimestamp } = require('../utils/helpers');
 
@@ -45,7 +45,16 @@ async function scanPageHandler(payload, context) {
     status: 'queued',
     startedAt: nowTimestamp(),
     creatorId: context?.auth?.uid || 'system',
-    pagesIds: pagesIds
+    finishedAt: null,
+    pagesIds: pagesIds,
+    pagesTotal: Array.isArray(pagesIds) ? pagesIds.length : 0,
+    pagesScanned: 0,
+    stats: {
+      critical: 0,
+      minor: 0,
+      moderate: 0,
+      serious: 0,
+    },
   });
   const runId = runRef.id;
 

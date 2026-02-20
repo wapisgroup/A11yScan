@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>SC 2.1.2 Fail</title></head>
+<body>
+  <p>Content before trap</p>
+  <a href="#a">Link 1</a>
+  <a href="#b">Link 2</a>
+  <a href="#c">Link 3</a>
+  <div id="trap">
+    <input id="t1" onfocus="document.getElementById('t1').focus()">
+    <input id="t2">
+    <input id="t3">
+    <input id="t4">
+    <input id="t5">
+    <input id="t6">
+  </div>
+  <a href="#d">Link 4</a>
+  <a href="#e">Link 5</a>
+  <a href="#f">Link 6</a>
+  <script>
+    // Force keyboard trap: when any input in #trap gets focus via Tab,
+    // immediately redirect focus to t1
+    document.getElementById('trap').addEventListener('keydown', function(e) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        document.getElementById('t1').focus();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -240,7 +240,7 @@ export async function removeNon2xxPages(
 ): Promise<number> {
   const non2xxPages = pages.filter(page => {
     const status = page.httpStatus;
-    return !status || status < 200 || status >= 300;
+    return status != null && (status < 200 || status >= 300);
   });
 
   await removePages(projectId, non2xxPages.map(p => p.id));

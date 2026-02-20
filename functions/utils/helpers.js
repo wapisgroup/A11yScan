@@ -1,5 +1,6 @@
 // functions/utils/helpers.js
 const admin = require('firebase-admin');
+const { SUBSCRIPTION_PACKAGES } = require('./package-config');
 
 /**
  * Helper to produce a Firestore-friendly timestamp or fallback to JS Date
@@ -29,5 +30,9 @@ function getTimestamp(){
   return new Date();
 }
 
+function getPackageConfig(packageName) {
+  if (!packageName || typeof packageName !== 'string') return null;
+  return SUBSCRIPTION_PACKAGES[packageName] || null;
+}
 
-module.exports = { nowTimestamp, getTimestamp };
+module.exports = { nowTimestamp, getTimestamp, getPackageConfig };

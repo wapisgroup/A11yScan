@@ -18,7 +18,8 @@ RUN apt-get update && apt-get install -y \
   --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json* .npmrc ./
+
 # Use lockfile if present, otherwise fallback to npm install
 RUN if [ -f package-lock.json ]; then \
       npm ci --omit=dev --no-audit --no-fund; \
@@ -31,4 +32,4 @@ COPY . .
 # Increase /tmp size if needed via runtime options
 ENV PORT=8080
 EXPOSE 8080
-CMD ["node", "worker-server.js"]
+CMD ["node", "--trace-warnings", "index.cjs"]
