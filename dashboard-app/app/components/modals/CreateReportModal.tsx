@@ -6,8 +6,9 @@
  */
 
 import { useState, useEffect } from "react";
-import { PiFileText, PiX, PiListChecks, PiGlobe, PiInfo } from "react-icons/pi";
+import { PiListChecks, PiGlobe, PiInfo } from "react-icons/pi";
 import { DSButton } from "@/components/atom/ds-button";
+import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { createReport, getScannedPages, getPageSetPages } from "@/services/reportService";
 import { collection, query, getDocs } from "firebase/firestore";
 import { db } from "@/utils/firebase";
@@ -135,27 +136,28 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
     onClose();
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h3 className="as-h3-text primary-text-color">Generate Accessibility Report</h3>
-            <p className="as-p2-text secondary-text-color mt-1">Create a comprehensive PDF report</p>
-          </div>
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+    <DSDrawerShell
+      open={open}
+      title="Generate Report"
+      subtitle="Create a comprehensive PDF report"
+      widthClassName="w-[520px]"
+      onClose={handleClose}
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <DSButton variant="outline" onClick={handleClose} disabled={loading}>
+            Cancel
+          </DSButton>
+          <DSButton
+            onClick={() => void handleSubmit()}
+            disabled={loading || (selectedType === 'pageset' && pageSets.length === 0)}
           >
-            <PiX size={24} className="secondary-text-color" />
-          </button>
+            {loading ? "Generating…" : "Generate Report"}
+          </DSButton>
         </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-6">
+      }
+    >
+      <div className="p-6 space-y-6 overflow-y-auto h-full">
           {/* Report Title */}
           <div>
             <label className="block as-p2-text primary-text-color mb-2">
@@ -299,24 +301,6 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--color-border-light)] bg-[var(--color-bg-light)]">
-          <DSButton
-            variant="outline"
-            onClick={handleClose}
-            disabled={loading}
-          >
-            Cancel
-          </DSButton>
-          <DSButton
-            onClick={handleSubmit}
-            disabled={loading || (selectedType === 'pageset' && pageSets.length === 0)}
-          >
-            {loading ? "Generating..." : "Generate Report"}
-          </DSButton>
-        </div>
-      </div>
-    </div>
+    </DSDrawerShell>
   );
 }

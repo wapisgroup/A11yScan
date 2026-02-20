@@ -33,6 +33,7 @@ type ReportsTabProps = {
 export function ReportsTab({ projectId }: ReportsTabProps) {
   const { user } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [filterText, setFilterText] = useState('');
 
   // Use reports page state hook with real-time subscription
   const {
@@ -113,19 +114,20 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
     <PageContainer inner>
       <div className="flex flex-col gap-medium w-full p-[var(--spacing-m)]">
         {/* Header with Actions - matches Pages/Runs tabs */}
-        <div className="flex items-center justify-between border-b border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)]">
+        <div className="flex items-center justify-end border-b border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)]">
           <div className="flex gap-small items-center">
-            <h2 className="as-h3-text primary-text-color">
-              Reports ({reports.length})
-            </h2>
-          </div>
-          <div className="flex gap-small items-center">
-            <DSButton
-              leadingIcon={<PiPlus size={20} />}
+            <input
+              type="text"
+              placeholder="Filter reports…"
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="input w-48"
+            />
+            <DSIconButton
+              label="Generate report"
+              icon={<PiPlus size={18} />}
               onClick={() => setShowCreateModal(true)}
-            >
-              Generate Report
-            </DSButton>
+            />
           </div>
         </div>
 
@@ -136,16 +138,16 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
             title="No reports yet"
             description="Generate comprehensive accessibility reports to track issues and share findings with your team."
             action={
-              <DSButton
-                onClick={() => setShowCreateModal(true)}
-              >
-                Generate Your First Report
+              <DSButton onClick={() => setShowCreateModal(true)}>
+                Generate your first report
               </DSButton>
             }
           />
         ) : (
           <div className="flex flex-col gap-small">
-            {reports.map((report) => (
+            {reports
+              .filter((r) => !filterText.trim() || r.title.toLowerCase().includes(filterText.toLowerCase()))
+              .map((report) => (
               <div
                 key={report.id}
                 className="flex items-start justify-between p-[var(--spacing-m)] bg-white border border-[var(--color-border-light)] rounded-lg hover:shadow-sm transition-shadow"
@@ -207,17 +209,14 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
           </div>
         )}
 
-        {/* Create Report Modal */}
-        {showCreateModal && user && (
+        {/* Create Report Drawer */}
+        {user && (
           <CreateReportModal
             open={showCreateModal}
             onClose={() => setShowCreateModal(false)}
             projectId={projectId}
             userId={user.uid}
-            onSuccess={() => {
-              setShowCreateModal(false);
-              // Real-time subscription will automatically update the list
-            }}
+            onSuccess={() => setShowCreateModal(false)}
           />
         )}
       </div>
