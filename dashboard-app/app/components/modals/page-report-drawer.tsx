@@ -5,7 +5,7 @@
  * Shared component in modals/page-report-drawer.tsx.
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PiCheckCircle } from "react-icons/pi";
 
 import { formatDate } from "@/ui-helpers/default";
@@ -58,6 +58,8 @@ export default function PageReportDrawer({
   const state = usePageReportState(projectId, pageId || undefined);
   const [selectedIssue, setSelectedIssue] = useState<IssueData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !state) return;
@@ -69,6 +71,28 @@ export default function PageReportDrawer({
       onScanChange(state.selectedScanId);
     }
   }, [open, state, scanIdFromUrl, onScanChange]);
+
+  // Load page snapshot HTML for the preview tab
+  useEffect(() => {
+    if (activeTab !== "preview" || !state?.selectedScan) {
+      setPreviewHtml(null);
+      return;
+    }
+    const scan = state.selectedScan as any;
+    const snapshotUrl = (scan.pageSnapshotUrl ?? null) as string | null;
+    const inlineHtml = (scan.pageInfo?.pageSnapshot ?? scan.pageSnapshot ?? null) as string | null;
+
+    if (snapshotUrl) {
+      fetch(snapshotUrl)
+        .then((r) => r.text())
+        .then((html) => setPreviewHtml(html))
+        .catch(() => { if (inlineHtml) setPreviewHtml(inlineHtml); });
+    } else if (inlineHtml) {
+      setPreviewHtml(inlineHtml);
+    } else {
+      setPreviewHtml(null);
+    }
+  }, [activeTab, state?.selectedScan]);
 
   const groupedIssues = useMemo(() => {
     if (!state) return [];
@@ -121,11 +145,6 @@ export default function PageReportDrawer({
 
   if (!open || !pageId) return null;
 
-  const selectedScanId = state?.selectedScanId || scanIdFromUrl || null;
-  const previewUrl = selectedScanId
-    ? `/workspace/projects/${projectId}/page-view/${selectedScanId}`
-    : null;
-
   return (
     <>
       <DSDrawerShell
@@ -173,9 +192,9 @@ export default function PageReportDrawer({
           </div>
         }
       >
-        <div className="flex-1 overflow-hidden">
+        <div className="h-full flex flex-col overflow-hidden">
           {activeTab === "report" ? (
-            <div className="h-full overflow-y-auto p-6 bg-[var(--color-bg-light)]">
+            <div className="flex-1 overflow-y-auto p-6 bg-[var(--color-bg-light)]">
               {!state || state.loading ? (
                 <div className="as-p2-text secondary-text-color">Loading report...</div>
               ) : state.error ? (
@@ -227,13 +246,17 @@ export default function PageReportDrawer({
               )}
             </div>
           ) : (
-            <div className="h-full bg-[var(--color-bg)]">
-              {previewUrl ? (
+            <div className="flex-1 bg-[var(--color-bg)]">
+              {previewHtml ? (
                 <iframe
+                  ref={iframeRef}
                   title="Page preview"
-                  src={previewUrl}
+                  srcDoc={previewHtml}
                   className="w-full h-full border-0"
+                  sandbox="allow-scripts allow-forms"
                 />
+              ) : state?.selectedScan ? (
+                <div className="p-6 as-p2-text secondary-text-color">No snapshot available for this scan.</div>
               ) : (
                 <div className="p-6 as-p2-text secondary-text-color">No scan selected for preview.</div>
               )}
