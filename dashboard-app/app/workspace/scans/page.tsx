@@ -220,7 +220,7 @@ export default function Scans() {
         projectId={selectedScan?.projectId ?? ""}
         pageId={selectedScan?.id ?? null}
         activeTab={drawerTab}
-        scanIdFromUrl={selectedScan?.scanId ?? null}
+        scanIdFromUrl={null}
         onClose={() => setSelectedScan(null)}
         onTabChange={setDrawerTab}
         onScanChange={() => {}}
