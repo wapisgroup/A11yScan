@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { PiListChecks, PiGlobe, PiInfo } from "react-icons/pi";
+import { PiListChecks, PiGlobe, PiInfo, PiWarning } from "react-icons/pi";
 import { DSButton } from "@/components/atom/ds-button";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { createReport, getScannedPages, getPageSetPages } from "@/services/reportService";
@@ -37,6 +37,18 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loadingPageSets, setLoadingPageSets] = useState(false);
+  const [scannedPageCount, setScannedPageCount] = useState<number | null>(null);
+  const [loadingScannedCount, setLoadingScannedCount] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setScannedPageCount(null);
+    setLoadingScannedCount(true);
+    getScannedPages(projectId)
+      .then((pages) => setScannedPageCount(pages.length))
+      .catch(() => setScannedPageCount(0))
+      .finally(() => setLoadingScannedCount(false));
+  }, [open, projectId]);
 
   useEffect(() => {
     if (open && selectedType === 'pageset') {
@@ -150,7 +162,7 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
           </DSButton>
           <DSButton
             onClick={() => void handleSubmit()}
-            disabled={loading || (selectedType === 'pageset' && pageSets.length === 0)}
+            disabled={loading || loadingScannedCount || scannedPageCount === 0 || (selectedType === 'pageset' && pageSets.length === 0)}
           >
             {loading ? "Generating…" : "Generate Report"}
           </DSButton>
@@ -158,6 +170,19 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
       }
     >
       <div className="p-6 space-y-6 overflow-y-auto h-full">
+          {/* No scans warning */}
+          {!loadingScannedCount && scannedPageCount === 0 && (
+            <div className="flex gap-3 p-4 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30">
+              <PiWarning size={20} className="text-[var(--color-warning)] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="as-p2-text primary-text-color font-medium mb-0.5">No scanned pages yet</p>
+                <p className="as-p3-text secondary-text-color">
+                  Run a scan on your pages before generating a report. Reports are built from scan results.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Report Title */}
           <div>
             <label className="block as-p2-text primary-text-color mb-2">
