@@ -199,12 +199,13 @@ export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowPr
           />
         )}
 
-        {/* Delete button always visible */}
+        {/* Delete button — disabled while page is being scanned */}
         <DSIconButton
           label="Delete"
           icon={<PiTrash size={18} />}
           variant="danger"
           onClick={() => onDelete?.()}
+          disabled={isRunning}
         />
       </div>
     </div>

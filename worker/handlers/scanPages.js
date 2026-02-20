@@ -41,6 +41,26 @@ const { AblelyticsCoreTests } = require('../helpers/ablelytics-core-tests');
 const { AblelyticsAiHeuristics } = require('../helpers/ai-heuristics');
 const { insertPageScan, insertIssues, insertCoreCheckTimings } = require('../helpers/bigquery');
 
+// ── Compliance profile → axe tag mapping ─────────────────────────────────────
+const PROFILE_TO_AXE_TAGS = {
+    ada_title_ii_wcag21: ['wcag2a', 'wcag2aa', 'wcag21aa'],
+    section_508_wcag20:  ['wcag2a', 'wcag2aa'],
+    en_301_549_web:      ['wcag2a', 'wcag2aa', 'wcag21aa'],
+    wcag22:              ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'],
+};
+
+function getAxeTagsFromProfiles(profiles) {
+    const tags = new Set(['best-practice']);
+    const list = Array.isArray(profiles) && profiles.length > 0
+        ? profiles
+        : ['ada_title_ii_wcag21'];
+    list.forEach(p => {
+        const mapped = PROFILE_TO_AXE_TAGS[p] || ['wcag2a', 'wcag2aa', 'wcag21aa'];
+        mapped.forEach(t => tags.add(t));
+    });
+    return Array.from(tags);
+}
+
 async function removeCookieBanners(pageP, mode) {
     const removed = await pageP.evaluate((bannerMode) => {
         const removedElements = [];
@@ -239,6 +259,11 @@ async function handleScanPages(db, projectId, runId) {
     // Get project owner for usage tracking
     const projectData = projSnap.data();
     const projectOwner = projectData?.owner;
+
+    // Project config settings
+    const storeArtifacts = projectData?.config?.storeArtifacts !== false; // default true
+    const axeTags = getAxeTagsFromProfiles(projectData?.config?.complianceProfiles);
+    console.log('[scan] storeArtifacts:', storeArtifacts, '| axe tags:', axeTags);
 
     // === Usage counters reset logic ===
     // Check and reset usage counters if needed (do this once at the start of scan)
@@ -574,14 +599,14 @@ async function handleScanPages(db, projectId, runId) {
 
                     // Run axe-core accessibility checks (pre-injected via evaluateOnNewDocument)
                     if (axe && axe.source) {
-                        // Run axe with WCAG 2.0, 2.1, and best-practice checks for comprehensive coverage
-                        const axeResults = await pageP.evaluate(async () => {
+                        // Run axe with tags derived from the project's compliance profiles
+                        const axeResults = await pageP.evaluate(async (tags) => {
                             try {
-                                return await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'best-practice'] } });
+                                return await axe.run(document, { runOnly: { type: 'tag', values: tags } });
                             } catch (e) {
                                 return { error: String(e) };
                             }
-                        });
+                        }, axeTags);
                         
                         if (axeResults && axeResults.violations) {
                             // Extra stability check for axe "list" findings:
@@ -733,32 +758,34 @@ async function handleScanPages(db, projectId, runId) {
                             const issueNodes = snapshotResult ? snapshotResult.nodeRects : [];
                             console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
 
-                            // Upload HTML to Storage instead of storing in Firestore
-                            if (sanitizedHtml) {
+                            // Upload HTML snapshot and screenshot only when storeArtifacts is enabled
+                            if (storeArtifacts && sanitizedHtml) {
                                 const storageUrl = await uploadHtmlToStorage(projectId, runId, pageId, sanitizedHtml);
                                 if (storageUrl) {
                                     pageInfo.pageSnapshotUrl = storageUrl;
                                 } else {
                                     // Fallback: store truncated HTML if storage upload fails
                                     console.warn('Storage upload failed, storing truncated HTML in Firestore');
-                                    pageInfo.pageSnapshot = sanitizedHtml.substring(0, 500000); // Max 50KB
+                                    pageInfo.pageSnapshot = sanitizedHtml.substring(0, 500000);
                                 }
                             }
-                            try {
-                                const screenshotBuffer = await pageP.screenshot({ fullPage: true, type: 'jpeg', quality: 65 });
-                                if (screenshotBuffer) {
-                                    const screenshotUrl = await uploadBinaryToStorage(
-                                        projectId,
-                                        runId,
-                                        pageId,
-                                        'screenshot.jpg',
-                                        screenshotBuffer,
-                                        'image/jpeg'
-                                    );
-                                    if (screenshotUrl) pageInfo.pageScreenshotUrl = screenshotUrl;
+                            if (storeArtifacts) {
+                                try {
+                                    const screenshotBuffer = await pageP.screenshot({ fullPage: true, type: 'jpeg', quality: 65 });
+                                    if (screenshotBuffer) {
+                                        const screenshotUrl = await uploadBinaryToStorage(
+                                            projectId,
+                                            runId,
+                                            pageId,
+                                            'screenshot.jpg',
+                                            screenshotBuffer,
+                                            'image/jpeg'
+                                        );
+                                        if (screenshotUrl) pageInfo.pageScreenshotUrl = screenshotUrl;
+                                    }
+                                } catch (shotErr) {
+                                    console.warn('Failed to capture/upload screenshot:', shotErr && shotErr.message ? shotErr.message : shotErr);
                                 }
-                            } catch (shotErr) {
-                                console.warn('Failed to capture/upload screenshot:', shotErr && shotErr.message ? shotErr.message : shotErr);
                             }
                             if (issueNodes && issueNodes.length) pageInfo.nodeInfo = issueNodes;
 
