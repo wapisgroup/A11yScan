@@ -1,3 +1,8 @@
+/**
+ * Payment Methods
+ * Shared component in subscription/payment-methods.tsx.
+ */
+
 'use client';
 
 import { useState, useEffect } from 'react';

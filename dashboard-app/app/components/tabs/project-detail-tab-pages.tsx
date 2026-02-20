@@ -1,17 +1,23 @@
 "use client";
 
+/**
+ * Project Detail Tab Pages
+ * Shared component in tabs/project-detail-tab-pages.tsx.
+ */
+
 import React, { useCallback, useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { FiPlus, FiChevronDown } from "react-icons/fi";
-import { PiX, PiPlay, PiTrash, PiWarning, PiFunnel, PiFunnelSimple, PiFunnelX } from "react-icons/pi";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { FiPlus } from "react-icons/fi";
+import { PiX, PiPlay, PiTrash, PiWarning, PiFunnelSimple, PiFunnelX, PiFileText } from "react-icons/pi";
 
 import { PageRow } from "../molecule/project-detail-page-row";
 import { PageContainer } from "../molecule/page-container";
-import { Button } from "../atom/button";
+import { DSButton } from "../atom/ds-button";
+import { DSIconButton } from "../atom/ds-icon-button";
 import { Checkbox } from "../atom/checkbox";
 import { useAlert, useConfirm } from "../providers/window-provider";
-import AddPageModal from "../modals/AddPageModal";
-import UploadSitemapModal from "../modals/UploadSitemapModal";
+import { AddPagesDrawer } from "../modals/add-pages-drawer";
+import PageReportDrawer from "../modals/page-report-drawer";
 
 import type { Project } from "@/types/project";
 import { useProjectPagesPageState } from "@/state-services/project-detail-pages-state";
@@ -19,7 +25,8 @@ import { Pagination } from "../molecule/pagination";
 import type { PageDoc } from "@/state-services/project-detail-states_old";
 import { removePage, runSelectedPages, removePages, removeNon2xxPages } from "@/services/projectPagesService";
 import { scanSinglePage } from "@/services/projectDetailService";
-import { callServerFunction } from "@/services/serverService";
+import { auth } from "@/utils/firebase";
+import { EmptyState } from "../atom/EmptyState";
 
 /**
  * PagesTabProps
@@ -29,9 +36,6 @@ import { callServerFunction } from "@/services/serverService";
 type PagesTabProps = {
   /** The parent project document. */
   project: Project;
-  
-  /** Optional callback when page count changes. */
-  onPageCountChange?: (count: number) => void;
 };
 
 /**
@@ -115,47 +119,48 @@ const PageListRow = React.memo(function PageListRow({
  * - This component is intentionally thin
  * - All Firestore subscriptions and mutations live in the state hook
  */
-export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
+export function PagesTab({ project }: PagesTabProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const alert = useAlert();
   const confirm = useConfirm();
 
   const projectId = project?.id;
 
-  // Add page modal states
-  const [showAddPageModal, setShowAddPageModal] = useState(false);
-  const [showSitemapModal, setShowSitemapModal] = useState(false);
-  const [showAddMenu, setShowAddMenu] = useState(false);
-  const addMenuRef = useRef<HTMLDivElement>(null);
+  // Add pages drawer
+  const [addDrawerOpen, setAddDrawerOpen] = useState(false);
 
   // 404 pages menu state
   const [show404Menu, setShow404Menu] = useState(false);
   const [is404Filtered, setIs404Filtered] = useState(false);
   const menu404Ref = useRef<HTMLDivElement>(null);
-  
+
   // Manual pagination for filtered items
   const [filtered404Page, setFiltered404Page] = useState(1);
   const FILTERED_PAGE_SIZE = 10;
 
+  const panelPageId = searchParams.get("reportPageId");
+  const panelScanId = searchParams.get("reportScanId");
+  const panelTab = (searchParams.get("reportPanelTab") === "preview" ? "preview" : "report") as "report" | "preview";
+  const isPanelOpen = Boolean(panelPageId);
+
   // State-service hook that owns data + actions for this tab.
   const state = useProjectPagesPageState(projectId);
 
-  // Close dropdown when clicking outside
+  // Close 404 dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
-        setShowAddMenu(false);
-      }
       if (menu404Ref.current && !menu404Ref.current.contains(event.target as Node)) {
         setShow404Menu(false);
       }
     };
 
-    if (showAddMenu || show404Menu) {
+    if (show404Menu) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showAddMenu, show404Menu]);
+  }, [show404Menu]);
 
   // Preserve original behavior: show a lightweight loading placeholder
   // until we have a project id and state.
@@ -164,9 +169,10 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
   const { pagedItems, allItems, totalCount, setPage, pagination, filterText, setFilterText, selection } = state;
 
   // Filter to show only non-2xx pages when 404 filter is active
+  // Pages with no httpStatus yet (manually added, sitemap upload) are excluded — they are unknown, not errors.
   const filtered404Items = allItems.filter(page => {
     const status = page.httpStatus;
-    return !status || status < 200 || status >= 300;
+    return status != null && (status < 200 || status >= 300);
   });
 
   // Paginate filtered items manually
@@ -193,13 +199,6 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
     }
   }, [is404Filtered]);
 
-  // Notify parent of page count changes
-  useEffect(() => {
-    if (onPageCountChange) {
-      onPageCountChange(totalCount);
-    }
-  }, [totalCount, onPageCountChange]);
-
   /**
   * Pagination metadata derived by the state hook.
   */
@@ -221,6 +220,37 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
     [projectId]
   );
 
+  const updatePanelQuery = useCallback(
+    (
+      patch: Partial<{
+        reportPageId: string | null;
+        reportScanId: string | null;
+        reportPanelTab: "report" | "preview" | null;
+      }>
+    ) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      const nextPageId = patch.reportPageId === undefined ? params.get("reportPageId") : patch.reportPageId;
+      const nextScanId = patch.reportScanId === undefined ? params.get("reportScanId") : patch.reportScanId;
+      const nextPanelTab = patch.reportPanelTab === undefined ? params.get("reportPanelTab") : patch.reportPanelTab;
+
+      if (nextPageId) params.set("reportPageId", nextPageId);
+      else params.delete("reportPageId");
+
+      if (nextScanId) params.set("reportScanId", nextScanId);
+      else params.delete("reportScanId");
+
+      if (nextPanelTab) params.set("reportPanelTab", nextPanelTab);
+      else params.delete("reportPanelTab");
+
+      const hash = typeof window !== "undefined" ? window.location.hash : "";
+      const qs = params.toString();
+      const url = `${pathname}${qs ? `?${qs}` : ""}${hash}`;
+      router.push(url, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
   /**
    * Opens the report for a page.
    * - If an `artifactUrl` exists, open it in a new tab.
@@ -234,10 +264,13 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
         window.open(page.artifactUrl, "_blank", "noopener,noreferrer");
         return;
       }
-
-      router.push(`/workspace/projects/${projectId}/page-report/${page.id}`);
+      updatePanelQuery({
+        reportPageId: page.id,
+        reportScanId: null,
+        reportPanelTab: "report"
+      });
     },
-    [projectId, router]
+    [projectId, updatePanelQuery]
   );
 
   const deletePage = useCallback((page: PageDoc) => {
@@ -256,7 +289,7 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
         return;
 
       void removePage(projectId, page);
-      
+
       // Remove from selection if it was selected
       if (selectedPages.has(page.id)) {
         togglePage(page.id, false);
@@ -296,7 +329,7 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
 
       await removePages(projectId, Array.from(selectedPages));
       clearSelection();
-      
+
       await alert({
         title: "Success",
         message: `${selectedCount} page${selectedCount > 1 ? 's' : ''} deleted successfully.`,
@@ -309,7 +342,7 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
    */
   const non2xxCount = allItems.filter(page => {
     const status = page.httpStatus;
-    return !status || status < 200 || status >= 300;
+    return status != null && (status < 200 || status >= 300);
   }).length;
 
   /**
@@ -330,18 +363,18 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
       if (!ok) return;
 
       const deletedCount = await removeNon2xxPages(projectId, allItems);
-      
+
       // Clear selection since some selected pages may have been deleted
       clearSelection();
-      
+
       // Clear 404 filter if it was active
       if (is404Filtered) {
         setIs404Filtered(false);
       }
-      
+
       // Close the menu
       setShow404Menu(false);
-      
+
       await alert({
         title: "Success",
         message: `${deletedCount} page${deletedCount > 1 ? 's' : ''} deleted successfully.`,
@@ -377,12 +410,23 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
       throw new Error(`URL domain must match project domain: ${projectDomain}`);
     }
 
-    // Add page via cloud function (includes URL validation)
-    await callServerFunction("addPage", { projectId, url: fullUrl });
-    
-    // Close modal and show success alert
-    setShowAddPageModal(false);
-    
+    // Add page via Next.js API route
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("User not authenticated");
+    const token = await currentUser.getIdToken();
+    const response = await fetch("/api/pages/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ projectId, url: fullUrl }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as any).error || `Server returned ${response.status}`);
+    }
+
+    // Close drawer and show success alert
+    setAddDrawerOpen(false);
+
     await alert({
       title: "Success",
       message: "Page added successfully!",
@@ -393,31 +437,42 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
   const handleUploadSitemap = useCallback(async (file: File) => {
     try {
       const text = await file.text();
-      
+
       // Parse URLs from sitemap XML
       const urlMatches = text.match(/<loc>(.*?)<\/loc>/g);
       if (!urlMatches) {
-        setShowSitemapModal(false);
+        setAddDrawerOpen(false);
         await alert({ title: "Error", message: "No URLs found in sitemap" });
         return;
       }
 
       const urls = urlMatches.map(match => match.replace(/<\/?loc>/g, ""));
-      
-      // Add pages via cloud function
-      await callServerFunction("uploadSitemap", { projectId, urls });
-      
+
+      // Add pages via Next.js API route
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("User not authenticated");
+      const token = await currentUser.getIdToken();
+      const response = await fetch("/api/pages/upload-sitemap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ projectId, urls }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as any).error || `Server returned ${response.status}`);
+      }
+
       // Close modal first, then show success alert
-      setShowSitemapModal(false);
-      
+      setAddDrawerOpen(false);
+
       await alert({
         title: "Success",
         message: `${urls.length} pages added from sitemap!`,
       });
     } catch (err) {
       // Close modal first, then show error alert
-      setShowSitemapModal(false);
-      
+      setAddDrawerOpen(false);
+
       await alert({
         title: "Error",
         message: err instanceof Error ? err.message : "Failed to upload sitemap",
@@ -437,11 +492,28 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
     if (!ok) return;
 
     try {
-      await callServerFunction("startPageCollection", { 
-        projectId, 
-        domain: project.domain 
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      const token = await currentUser.getIdToken();
+
+      const response = await fetch('/api/page-collection/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId }),
       });
-      
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to start page collection');
+      }
+
+      setAddDrawerOpen(false);
       await alert({
         title: "Collection Started",
         message: "Website collection has started. Pages will be populated automatically.",
@@ -458,7 +530,7 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
     <PageContainer inner>
       <div className="flex flex-col gap-medium w-full p-[var(--spacing-m)]">
         {/* Toolbar */}
-        <div className="flex items-center justify-between border-b border-solid border-white/6 pb-[var(--spacing-m)]">
+        <div className="flex items-center justify-between border-b border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)]">
           <div className="flex gap-small items-center">
             {/* Select all checkbox */}
             <Checkbox
@@ -472,85 +544,89 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               placeholder="Filter pages by url or title"
-              className="input"
+              className="input w-80"
             />
 
-            {/* Clear selection */}
-            <Button
-              variant="secondary"
-              icon={<PiX size={20} />}
-              onClick={clearSelection}
-              title="Clear selection"
-            />
+            {/* Clear selection — only visible when pages are selected */}
+            {selectedCount > 0 && (
+              <DSIconButton
+                variant="neutral"
+                icon={<PiX size={20} />}
+                label="Clear selection"
+                onClick={clearSelection}
+              />
+            )}
 
             {/* Scan selected pages */}
-            <Button
-              variant="primary"
-              icon={<PiPlay size={20} />}
-              onClick={handleRunSelected}
-              title={selectedCount > 0 ? `Scan selected (${selectedCount})` : 'Scan all'}
-              badge={selectedCount}
-            />
+            <div className="relative">
+              <DSIconButton
+                variant="brand"
+                icon={<PiPlay size={20} />}
+                label={selectedCount > 0 ? `Scan selected (${selectedCount})` : 'Scan all'}
+                onClick={handleRunSelected}
+              />
+              {selectedCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-brand text-white text-[10px] font-semibold flex items-center justify-center">
+                  {selectedCount}
+                </span>
+              )}
+            </div>
 
             {/* Delete selected pages */}
             {selectedCount > 0 && (
-              <Button
-                variant="danger"
-                icon={<PiTrash size={20} />}
-                onClick={handleDeleteSelected}
-                title={`Delete selected (${selectedCount})`}
-                badge={selectedCount}
-              />
+              <div className="relative">
+                <DSIconButton
+                  variant="danger"
+                  icon={<PiTrash size={20} />}
+                  label={`Delete selected (${selectedCount})`}
+                  onClick={handleDeleteSelected}
+                />
+                <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-[var(--color-error)] text-white text-[10px] font-semibold flex items-center justify-center">
+                  {selectedCount}
+                </span>
+              </div>
             )}
 
             {/* Delete 404 pages - Expandable menu */}
             {non2xxCount > 0 && (
               <div className="relative" ref={menu404Ref}>
                 {!show404Menu ? (
-                  /* Default button - shows warning or filter icon */
-                  <Button
-                    variant="danger"
-                    icon={is404Filtered ? <PiFunnelSimple size={20} /> : <PiWarning size={20} />}
-                    onClick={() => setShow404Menu(true)}
-                    title={is404Filtered ? `Filtering ${non2xxCount} non-2xx pages` : `${non2xxCount} non-2xx pages`}
-                    badge={non2xxCount}
-                  />
+                  <div className="relative">
+                    <DSIconButton
+                      variant="danger"
+                      icon={is404Filtered ? <PiFunnelSimple size={20} /> : <PiWarning size={20} />}
+                      onClick={() => setShow404Menu(true)}
+                      label={is404Filtered ? `Filtering ${non2xxCount} non-2xx pages` : `${non2xxCount} non-2xx pages`}
+                    />
+                    <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-[var(--color-error)] text-white text-[10px] font-semibold flex items-center justify-center">
+                      {non2xxCount}
+                    </span>
+                  </div>
                 ) : (
-                  /* Expanded menu with subtle red background and group badge */
                   <div className="relative inline-flex items-center gap-1 p-1 bg-red-500/10 rounded-lg border border-red-500/30">
-                    {/* Group badge */}
                     <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center z-10">
                       {non2xxCount}
                     </span>
-                    
-                    {/* Close button */}
-                    <Button
-                      variant="secondary"
+                    <DSIconButton
+                      variant="neutral"
                       icon={<PiX size={18} />}
                       onClick={() => setShow404Menu(false)}
-                      title="Close"
-                      size="small"
+                      label="Close"
                     />
-                    
-                    {/* Filter/Unfilter button */}
-                    <Button
-                      variant="secondary"
+                    <DSIconButton
+                      variant="neutral"
                       icon={is404Filtered ? <PiFunnelX size={18} /> : <PiFunnelSimple size={18} />}
                       onClick={() => {
                         setIs404Filtered(!is404Filtered);
                         setShow404Menu(false);
                       }}
-                      title={is404Filtered ? 'Clear filter' : `Filter ${non2xxCount} non-2xx pages`}
-                      size="small"
+                      label={is404Filtered ? 'Clear filter' : `Filter ${non2xxCount} non-2xx pages`}
                     />
-                    
-                    {/* Delete button */}
-                    <Button
+                    <DSIconButton
                       variant="danger"
                       icon={<PiTrash size={18} />}
                       onClick={handleDeleteNon2xxPages}
-                      title={`Delete ${non2xxCount} non-2xx page${non2xxCount > 1 ? 's' : ''}`}
-                      size="small"
+                      label={`Delete ${non2xxCount} non-2xx page${non2xxCount > 1 ? 's' : ''}`}
                     />
                   </div>
                 )}
@@ -564,50 +640,13 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
               {is404Filtered ? `${displayedItems.length} of ${totalCount}` : `${totalCount}`} pages
               {is404Filtered && <span className="text-red-400 ml-1">(filtered)</span>}
             </div>
-            
-            {/* Add Pages Dropdown */}
-            <div className="relative" ref={addMenuRef}>
-              <button
-                onClick={() => setShowAddMenu(!showAddMenu)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                <FiPlus size={16} />
-                Add Pages
-                <FiChevronDown size={16} />
-              </button>
-              
-              {showAddMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-10">
-                  <button
-                    onClick={() => {
-                      setShowAddPageModal(true);
-                      setShowAddMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700"
-                  >
-                    Add Page Manually
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowSitemapModal(true);
-                      setShowAddMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700"
-                  >
-                    Upload Sitemap
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleCollectFromWebsite();
-                      setShowAddMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700"
-                  >
-                    Collect from Website
-                  </button>
-                </div>
-              )}
-            </div>
+
+            {/* Add Pages */}
+            <DSIconButton
+              label="Add pages"
+              icon={<FiPlus size={18} />}
+              onClick={() => setAddDrawerOpen(true)}
+            />
           </div>
         </div>
 
@@ -636,26 +675,50 @@ export function PagesTab({ project, onPageCountChange }: PagesTabProps) {
 
           {/* Empty state */}
           {displayedItems.length === 0 && (
-            <div className="text-slate-400">
-              {is404Filtered ? 'No non-2xx pages on this page' : 'No pages found'}
-            </div>
+            <EmptyState
+              icon={<PiFileText />}
+              title={is404Filtered ? 'No non-2xx pages on this page' : 'No pages found'}
+              description={is404Filtered ? 'No non-2xx pages found on this page.' : 'Define your first page set to start generating comprehensive accessibility reports and track issues effectively.'}
+
+            />
+
           )}
         </div>
       </div>
 
-      {/* Add Page Modal */}
-      <AddPageModal
-        open={showAddPageModal}
+      {/* Add Pages Drawer */}
+      <AddPagesDrawer
+        open={addDrawerOpen}
         projectDomain={project.domain.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-        onClose={() => setShowAddPageModal(false)}
-        onSubmit={handleAddPage}
+        onClose={() => setAddDrawerOpen(false)}
+        onAddPage={handleAddPage}
+        onUploadSitemap={handleUploadSitemap}
+        onCollect={handleCollectFromWebsite}
       />
 
-      {/* Upload Sitemap Modal */}
-      <UploadSitemapModal
-        open={showSitemapModal}
-        onClose={() => setShowSitemapModal(false)}
-        onSubmit={handleUploadSitemap}
+      <PageReportDrawer
+        open={isPanelOpen}
+        projectId={projectId}
+        pageId={panelPageId}
+        activeTab={panelTab}
+        scanIdFromUrl={panelScanId}
+        onClose={() =>
+          updatePanelQuery({
+            reportPageId: null,
+            reportScanId: null,
+            reportPanelTab: null
+          })
+        }
+        onTabChange={(nextTab) =>
+          updatePanelQuery({
+            reportPanelTab: nextTab
+          })
+        }
+        onScanChange={(nextScanId) =>
+          updatePanelQuery({
+            reportScanId: nextScanId
+          })
+        }
       />
     </PageContainer>
   );

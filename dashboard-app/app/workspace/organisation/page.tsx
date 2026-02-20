@@ -7,6 +7,7 @@ import { useAuth, db } from "@/utils/firebase";
 import { PageContainer } from "@/components/molecule/page-container";
 import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
+import { DSTabs } from "@/components/molecule/ds-tabs";
 import { OrganisationSettingsTab } from "@/components/tabs/organisation-settings-tab";
 import { MembersTab } from "@/components/tabs/organisation-members-tab";
 import { BrandingTab } from "@/components/tabs/organisation-branding-tab";
@@ -274,45 +275,18 @@ export default function OrganisationPage() {
             )}
 
             {/* Tab Navigation */}
-            <div className="mb-6 border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
-                <button
-                  onClick={() => setActiveTab("settings")}
-                  className={`${activeTab === "settings"
-                    ? "border-purple-600 text-purple-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
-                >
-                  Organisation
-                </button>
-                <button
-                  onClick={() => setActiveTab("members")}
-                  className={`${activeTab === "members"
-                    ? "border-purple-600 text-purple-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
-                >
-                  Members
-                </button>
-                <button
-                  onClick={() => setActiveTab("whitelabel")}
-                  className={`${activeTab === "whitelabel"
-                    ? "border-purple-600 text-purple-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
-                >
-                  Branding
-                </button>
-                <button
-                  onClick={() => setActiveTab("integrations")}
-                  className={`${activeTab === "integrations"
-                    ? "border-purple-600 text-purple-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
-                >
-                  Integrations
-                </button>
-              </nav>
+            <div className="mb-6">
+              <DSTabs
+                variant="page"
+                value={activeTab}
+                onChange={setActiveTab}
+                items={[
+                  { key: "settings", label: "Organisation" },
+                  { key: "members", label: "Members" },
+                  { key: "whitelabel", label: "Branding" },
+                  { key: "integrations", label: "Integrations" },
+                ]}
+              />
             </div>
 
             {/* Tab Content */}
@@ -350,7 +324,6 @@ export default function OrganisationPage() {
                 onSave={handleSaveIntegrations}
               />
             )}
-          
         </PageWrapper>
       </WorkspaceLayout>
     </PrivateRoute>

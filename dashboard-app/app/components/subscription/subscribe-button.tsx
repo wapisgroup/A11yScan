@@ -1,3 +1,8 @@
+/**
+ * Subscribe Button
+ * Shared component in subscription/subscribe-button.tsx.
+ */
+
 'use client';
 
 import { useState } from 'react';
@@ -11,6 +16,7 @@ interface SubscribeButtonProps {
   email: string;
   customerName?: string;
   organizationStripeCustomerId?: string;
+  cancelTrialSubscriptionId?: string;
   buttonText?: string;
   className?: string;
   children?: React.ReactNode;
@@ -24,6 +30,7 @@ export function SubscribeButton({
   email,
   customerName,
   organizationStripeCustomerId,
+  cancelTrialSubscriptionId,
   buttonText = 'Subscribe',
   className = '',
   children,
@@ -44,6 +51,7 @@ export function SubscribeButton({
         email,
         customerName,
         organizationStripeCustomerId,
+        cancelTrialSubscriptionId,
       });
     } catch (err) {
       console.error('Checkout error:', err);

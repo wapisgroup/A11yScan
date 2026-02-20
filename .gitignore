@@ -39,6 +39,7 @@ public/build/
 .env.test.local
 .env.production.local
 .local.env
+accessibilitychecker-c6585-fc416a671de9.json
 
 # Firebase
 .firebase/
@@ -144,3 +145,10 @@ Icon?
 # Keep any user-specific files out of git
 *.envrc
 .vercel
+
+
+#emulator
+dashboard-app/emulator-data/
+
+#local-artifacts
+worker/local-artifacts/

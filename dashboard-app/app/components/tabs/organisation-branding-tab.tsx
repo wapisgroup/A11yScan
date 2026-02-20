@@ -1,4 +1,10 @@
 "use client";
+/**
+ * Organisation Branding Tab
+ * Shared component in tabs/organisation-branding-tab.tsx.
+ */
+
+import { DSButton } from "@/components/atom/ds-button";
 
 type BrandingTabProps = {
   customLogo: string;
@@ -22,7 +28,7 @@ export function BrandingTab({
   onSave,
 }: BrandingTabProps) {
   return (
-    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-[var(--color-border-light)] p-6">
       <form onSubmit={onSave} className="space-y-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
@@ -39,22 +45,22 @@ export function BrandingTab({
           </h3>
           <input
             type="text"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
             placeholder="Enter logo URL (e.g., https://example.com/logo.png)"
             value={customLogo}
             onChange={(e) => setCustomLogo(e.target.value)}
           />
           {customLogo && (
-            <div className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="mt-4 p-6 bg-[var(--color-bg-light)] rounded-lg border border-[var(--color-border-light)]">
               <p className="text-sm font-semibold text-gray-700 mb-3">Preview:</p>
-              <div className="bg-white p-4 rounded-lg border border-gray-200 inline-block">
+              <div className="bg-white p-4 rounded-lg border border-[var(--color-border-light)] inline-block">
                 <img src={customLogo} alt="Custom logo" className="max-h-16" />
               </div>
             </div>
           )}
         </div>
 
-        <div className="border-t border-gray-200 pt-6">
+        <div className="border-t border-[var(--color-border-light)] pt-6">
           <h3 className="text-base font-medium text-gray-900 mb-6">
             Custom Colors
           </h3>
@@ -70,13 +76,13 @@ export function BrandingTab({
                 />
                 <input
                   type="text"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-mono focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-mono focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                   value={primaryColor}
                   onChange={(e) => setPrimaryColor(e.target.value)}
                 />
               </div>
               <div
-                className="mt-3 h-12 rounded-lg border border-gray-200 shadow-sm"
+                className="mt-3 h-12 rounded-lg border border-[var(--color-border-light)] shadow-sm"
                 style={{ backgroundColor: primaryColor }}
               />
             </div>
@@ -92,27 +98,26 @@ export function BrandingTab({
                 />
                 <input
                   type="text"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-mono focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-mono focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
                   value={secondaryColor}
                   onChange={(e) => setSecondaryColor(e.target.value)}
                 />
               </div>
               <div
-                className="mt-3 h-12 rounded-lg border border-gray-200 shadow-sm"
+                className="mt-3 h-12 rounded-lg border border-[var(--color-border-light)] shadow-sm"
                 style={{ backgroundColor: secondaryColor }}
               />
             </div>
           </div>
         </div>
 
-        <div className="pt-6 border-t border-gray-200">
-          <button
+        <div className="pt-6 border-t border-[var(--color-border-light)]">
+          <DSButton
             type="submit"
             disabled={saving}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save Branding Settings"}
-          </button>
+          </DSButton>
         </div>
       </form>
     </div>

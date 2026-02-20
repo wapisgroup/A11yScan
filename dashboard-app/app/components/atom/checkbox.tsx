@@ -1,3 +1,8 @@
+/**
+ * Checkbox
+ * Shared component in atom/checkbox.tsx.
+ */
+
 import { ReactEventHandler } from "react";
 
 type CheckboxProps = {

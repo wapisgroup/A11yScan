@@ -88,6 +88,71 @@ export default async function DocPage({
                       <p className="mt-1">{section.callout.body}</p>
                     </div>
                   ) : null}
+                  {section.endpoints ? (
+                    <div className="mt-5 space-y-4">
+                      {section.endpoints.map((endpoint) => (
+                        <article key={endpoint.id} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-bold ${
+                              endpoint.method === "GET"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : endpoint.method === "POST"
+                                ? "bg-blue-100 text-blue-800"
+                                : endpoint.method === "PATCH"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-rose-100 text-rose-800"
+                            }`}>
+                              {endpoint.method}
+                            </span>
+                            <code className="text-xs md:text-sm rounded bg-white border border-slate-200 px-2 py-1">
+                              {endpoint.path}
+                            </code>
+                          </div>
+                          <p className="text-slate-700 text-sm">{endpoint.description}</p>
+                          {endpoint.auth ? (
+                            <p className="text-slate-600 text-sm mt-2">
+                              <span className="font-semibold">Auth:</span> {endpoint.auth}
+                            </p>
+                          ) : null}
+                          {endpoint.requestBody ? (
+                            <div className="mt-3">
+                              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Request Payload</p>
+                              <pre className="overflow-x-auto rounded-lg bg-slate-900 text-slate-100 text-xs p-3">
+                                {endpoint.requestBody}
+                              </pre>
+                            </div>
+                          ) : null}
+                          {endpoint.responseBody ? (
+                            <div className="mt-3">
+                              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Response</p>
+                              <pre className="overflow-x-auto rounded-lg bg-slate-900 text-slate-100 text-xs p-3">
+                                {endpoint.responseBody}
+                              </pre>
+                            </div>
+                          ) : null}
+                          {endpoint.statusCodes?.length ? (
+                            <div className="mt-3">
+                              <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Status Codes</p>
+                              <div className="flex flex-wrap gap-2">
+                                {endpoint.statusCodes.map((statusCode) => (
+                                  <span key={statusCode} className="inline-flex rounded bg-white border border-slate-200 px-2 py-1 text-xs text-slate-700">
+                                    {statusCode}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                          {endpoint.notes?.length ? (
+                            <ul className="mt-3 list-disc list-inside text-slate-600 text-sm space-y-1">
+                              {endpoint.notes.map((note) => (
+                                <li key={note}>{note}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
                 </section>
               ))}
 

@@ -118,7 +118,7 @@ export const usePageReportState = (
   projectId: string | undefined,
   pageId: string | undefined
 ): PageReportState | null => {
-  if (!projectId || !pageId) return null;
+  const enabled = Boolean(projectId && pageId);
 
   const [project, setProject] = useState<Project | null>(null);
   const [page, setPage] = useState<PageDoc | null>(null);
@@ -289,6 +289,8 @@ export const usePageReportState = (
     () => summary.critical + summary.serious + summary.moderate + summary.minor,
     [summary]
   );
+
+  if (!enabled || !projectId || !pageId) return null;
 
   return {
     projectId,

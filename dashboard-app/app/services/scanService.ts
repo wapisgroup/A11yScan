@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db } from "@/utils/firebase";
 
 export type PageReport = {
@@ -38,7 +38,7 @@ export async function loadPageReports(
 ): Promise<{ reports: PageReport[]; projects: ProjectInfo[] }> {
   try {
     const reportsList: PageReport[] = [];
-    
+
     // Load projects
     const projectsQuery = projectIdFilter 
       ? query(
@@ -60,123 +60,85 @@ export async function loadPageReports(
       name: (data as any).name || 'Unknown Project'
     }));
 
-    // Load pages for each project
-    for (const [projectId, projectData] of projectsMap) {
-      // Try subcollection first
-      const pagesSubcollectionQuery = query(
-        collection(db, "projects", projectId, "pages")
-      );
-      let pagesSnap = await getDocs(pagesSubcollectionQuery);
-      
-      // If no pages in subcollection, try top-level
-      if (pagesSnap.size === 0) {
-        const pagesQuery = query(
-          collection(db, "pages"),
-          where("projectId", "==", projectId)
+    // Fast path: read from denormalized index produced by worker.
+    // One document per page, scoped by organisationId.
+    const scanIndexQuery = projectIdFilter
+      ? query(
+          collection(db, "scanIndex"),
+          where("organisationId", "==", organisationId),
+          where("projectId", "==", projectIdFilter),
+          orderBy("lastScanned", "desc")
+        )
+      : query(
+          collection(db, "scanIndex"),
+          where("organisationId", "==", organisationId),
+          orderBy("lastScanned", "desc")
         );
-        pagesSnap = await getDocs(pagesQuery);
-      }
 
-      for (const pageDoc of pagesSnap.docs) {
-        const pageData = pageDoc.data();
-        const lastScanned = pageData.lastScan?.toDate?.() || pageData.updatedAt?.toDate?.();
-        
-        const summary = await getPageIssueSummary(projectId, pageDoc.id, pageData, true);
-        const totalIssues = summary.critical + summary.serious + summary.moderate + summary.minor;
-        
-        reportsList.push({
-          id: pageDoc.id,
-          url: pageData.url || 'Unknown URL',
-          projectId,
-          projectName: (projectData as any).name || 'Unknown Project',
-          status: pageData.status || 'scanned',
-          criticalIssues: summary.critical,
-          seriousIssues: summary.serious,
-          moderateIssues: summary.moderate,
-          minorIssues: summary.minor,
-          totalIssues,
-          lastScanned,
-          scanId: pageData.lastScanId || pageData.scanId,
-        });
+    const scanIndexSnap = await getDocs(scanIndexQuery);
+    scanIndexSnap.docs.forEach((d) => {
+      const data = d.data() as any;
+      const summary = data.summary || {};
+      reportsList.push({
+        id: String(data.pageId || d.id),
+        url: String(data.url || "Unknown URL"),
+        projectId: String(data.projectId || ""),
+        projectName: String(data.projectName || projectsMap.get(String(data.projectId || ""))?.name || "Unknown Project"),
+        status: String(data.status || "scanned"),
+        criticalIssues: Number(summary.critical || 0),
+        seriousIssues: Number(summary.serious || 0),
+        moderateIssues: Number(summary.moderate || 0),
+        minorIssues: Number(summary.minor || 0),
+        totalIssues:
+          Number(data.totalIssues || 0) ||
+          Number(summary.critical || 0) +
+            Number(summary.serious || 0) +
+            Number(summary.moderate || 0) +
+            Number(summary.minor || 0),
+        lastScanned: data.lastScanned?.toDate?.() || data.updatedAt?.toDate?.(),
+        scanId: String(data.runId || ""),
+      });
+    });
+
+    // Backward compatibility fallback for projects that do not have scanIndex yet.
+    if (reportsList.length === 0 && projectsMap.size > 0) {
+      for (const [projectId, projectData] of projectsMap) {
+        const pagesSubcollectionQuery = query(collection(db, "projects", projectId, "pages"));
+        let pagesSnap = await getDocs(pagesSubcollectionQuery);
+
+        if (pagesSnap.size === 0) {
+          const pagesQuery = query(collection(db, "pages"), where("projectId", "==", projectId));
+          pagesSnap = await getDocs(pagesQuery);
+        }
+
+        for (const pageDoc of pagesSnap.docs) {
+          const pageData = pageDoc.data() as any;
+          const summary = pageData.lastScan?.summary || pageData.summary || pageData.violationsCount || {};
+          reportsList.push({
+            id: pageDoc.id,
+            url: pageData.url || "Unknown URL",
+            projectId,
+            projectName: (projectData as any).name || "Unknown Project",
+            status: pageData.status || "scanned",
+            criticalIssues: Number(summary.critical || 0),
+            seriousIssues: Number(summary.serious || 0),
+            moderateIssues: Number(summary.moderate || 0),
+            minorIssues: Number(summary.minor || 0),
+            totalIssues:
+              Number(summary.critical || 0) +
+              Number(summary.serious || 0) +
+              Number(summary.moderate || 0) +
+              Number(summary.minor || 0),
+            lastScanned: pageData.lastScan?.createdAt?.toDate?.() || pageData.updatedAt?.toDate?.(),
+            scanId: String(pageData.lastRunId || pageData.lastScanId || ""),
+          });
+        }
       }
     }
-    
+
     return { reports: reportsList, projects };
   } catch (err) {
     console.error("Failed to load page reports:", err);
     throw err;
   }
-}
-
-/**
- * Get issue summary for a page from various possible data sources
- */
-async function getPageIssueSummary(
-  projectId: string,
-  pageId: string,
-  pageData: any,
-  skipScanLookup = false
-): Promise<IssueSummary> {
-  let summary: IssueSummary = { critical: 0, serious: 0, moderate: 0, minor: 0 };
-  
-  // Check for summary in page data
-  if (pageData.summary) {
-    summary = {
-      critical: pageData.summary.critical || 0,
-      serious: pageData.summary.serious || 0,
-      moderate: pageData.summary.moderate || 0,
-      minor: pageData.summary.minor || 0,
-    };
-  } else if (pageData.lastScan?.summary) {
-    summary = {
-      critical: pageData.lastScan.summary.critical || 0,
-      serious: pageData.lastScan.summary.serious || 0,
-      moderate: pageData.lastScan.summary.moderate || 0,
-      minor: pageData.lastScan.summary.minor || 0,
-    };
-  } else if (pageData.violations && Array.isArray(pageData.violations)) {
-    // Count from violations array
-    pageData.violations.forEach((violation: any) => {
-      const impact = violation.impact?.toLowerCase();
-      if (impact === 'critical') summary.critical++;
-      else if (impact === 'serious') summary.serious++;
-      else if (impact === 'moderate') summary.moderate++;
-      else if (impact === 'minor') summary.minor++;
-    });
-  } else if (!skipScanLookup) {
-    // Try to get latest scan (optional fallback)
-    try {
-      const scansQuery = query(
-        collection(db, "projects", projectId, "scans"),
-        where("pageId", "==", pageId),
-        orderBy("createdAt", "desc"),
-        limit(1)
-      );
-      const scansSnap = await getDocs(scansQuery);
-      
-      if (!scansSnap.empty) {
-        const scanData = scansSnap.docs[0].data();
-        if (scanData.summary) {
-          summary = {
-            critical: scanData.summary.critical || 0,
-            serious: scanData.summary.serious || 0,
-            moderate: scanData.summary.moderate || 0,
-            minor: scanData.summary.minor || 0,
-          };
-        } else if (scanData.violations && Array.isArray(scanData.violations)) {
-          scanData.violations.forEach((violation: any) => {
-            const impact = violation.impact?.toLowerCase();
-            if (impact === 'critical') summary.critical++;
-            else if (impact === 'serious') summary.serious++;
-            else if (impact === 'moderate') summary.moderate++;
-            else if (impact === 'minor') summary.minor++;
-          });
-        }
-      }
-    } catch (scanErr) {
-      console.log("Could not fetch scan data for page:", pageId);
-    }
-  }
-  
-  return summary;
 }

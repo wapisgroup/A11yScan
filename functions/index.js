@@ -1,86 +1,72 @@
 // functions/index.js
-// firebase-functions v5 defaults to v2. This project uses the v1 API surface (functions.https.onCall).
-// Import the v1 compatibility layer so the emulator can correctly discover functions.
-const functions = require('firebase-functions/v1');
+// Minimal Firebase Functions - Only scheduled tasks and webhooks
+// Most functionality moved to dashboard-app API routes
+
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin SDK once
 admin.initializeApp();
 
-// Import handlers from separate modules
-const { 
-  startPageCollectionHandler, 
-  startPageCollectionHttpHandler 
-} = require('./handlers/pageCollection');
-
-const { startSitemapHandler } = require('./handlers/sitemap');
-const { scanPageHandler } = require('./handlers/pageScanning');
-const { 
-  createPageSetHandler, 
-  createPageSetHttpHandler 
-} = require('./handlers/pageSet');
-const { startScanHandler } = require('./handlers/fullScan');
-const { addPageHandler } = require('./handlers/addPage');
-const { uploadSitemapHandler } = require('./handlers/uploadSitemap');
+// Import only the functions we're keeping
+const {
+  processEmailQueueScheduled,
+} = require('./handlers/emailQueue');
 const { stripeWebhook } = require('./handlers/stripeWebhook');
 
 // ============================================================================
-// Callable Functions (preferred for frontend)
+// Scheduled Functions (Cannot be moved to Vercel)
 // ============================================================================
 
 /**
- * Page Collection - Crawls and collects pages from a project
+ * Email Queue Processor
+ * Runs every 2 minutes to process queued notification emails
  */
-exports.startPageCollection = functions.https.onCall(startPageCollectionHandler);
-
-/**
- * Sitemap Generation - Converts collected pages to sitemap format
- */
-exports.startSitemap = functions.https.onCall(startSitemapHandler);
-
-/**
- * Page Scanning - Scans specific pages for accessibility issues
- */
-exports.scanPage = functions.https.onCall(scanPageHandler);
-
-/**
- * Page Set Creation - Creates filtered collections of pages
- */
-exports.createPageSet = functions.https.onCall(createPageSetHandler);
-
-/**
- * Full Scan - Scans all pages within a project
- */
-exports.startScan = functions.https.onCall(startScanHandler);
-
-/**
- * Add Page - Adds a single page to a project
- */
-exports.addPage = functions.https.onCall(addPageHandler);
-
-/**
- * Upload Sitemap - Uploads multiple pages from a sitemap
- */
-exports.uploadSitemap = functions.https.onCall(uploadSitemapHandler);
+exports.processEmailQueueScheduled = processEmailQueueScheduled;
 
 // ============================================================================
-// HTTP Debug Endpoints (no auth - for local testing only)
+// Webhooks (Better on Firebase for reliability)
 // ============================================================================
-
-/**
- * HTTP wrapper for startPageCollection (debugging)
- * WARNING: Do NOT use in production without proper auth checks
- */
-exports.startPageCollectionHttp = functions.https.onRequest(startPageCollectionHttpHandler);
-
-/**
- * HTTP wrapper for createPageSet (debugging)
- * WARNING: Do NOT use in production without proper auth checks
- */
-exports.createPageSetHttp = functions.https.onRequest(createPageSetHttpHandler);
 
 /**
  * Stripe Webhook Handler
  * Handles payment events from Stripe
  */
 exports.stripeWebhook = stripeWebhook;
+
+// ============================================================================
+// Public REST API (Express, API key auth)
+// ============================================================================
+
+/**
+ * Public REST API for external integrations
+ * Endpoints: /v1/projects, /v1/scans, /v1/reports, etc.
+ * Authentication: x-api-key header
+ * Usage: CI/CD pipelines, third-party integrations
+ */
+const functions = require('firebase-functions');
+const apiApp = require('./api/router');
+exports.api = functions.https.onRequest(apiApp);
+
+// ============================================================================
+// MIGRATED TO DASHBOARD-APP
+// ============================================================================
+// The following functions have been moved to dashboard-app/app/api:
+//
+// - startScan → /api/scans/start
+// - addPage → /api/pages/add
+// - startPageCollection → (to be migrated)
+// - startSitemap → (to be migrated)
+// - scanPage → (to be migrated)
+// - createPageSet → (to be migrated)
+// - uploadSitemap → (to be migrated)
+// - getEmailDeliveryStats → (to be migrated)
+// - retryFailedEmails → (to be migrated)
+// - processEmailQueueNow → (to be migrated)
+// - getAdminOrganizations → (to be migrated)
+// - getAdminOrganizationDetail → (to be migrated)
+// - resetAdminOrganizationUsage → (to be migrated)
+// - setAdminOrganizationLimitsOverride → (to be migrated)
+// - api (REST API) → (to be migrated)
+//
+// ============================================================================
+

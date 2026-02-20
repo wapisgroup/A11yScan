@@ -5,33 +5,33 @@ import { SITE_URL } from './libs/metadata'
 // Static routes for the website
 const staticRoutes = [
   '',
-  '/features',
-  '/pricing',
-  '/why-accessibility',
-  '/solutions',
-  '/integrations',
-  '/blog',
-  '/guides',
-  '/faqs',
-  '/contact',
-  '/accessibility-rules',
-  '/login',
-  '/signup',
-  '/privacy',
-  '/terms',
-  '/cookies',
+  '/features/',
+  '/pricing/',
+  '/why-accessibility/',
+  '/solutions/',
+  '/integrations/',
+  '/blog/',
+  '/guides/',
+  '/faqs/',
+  '/contact/',
+  '/accessibility-rules/',
+  '/login/',
+  '/signup/',
+  '/privacy/',
+  '/terms/',
+  '/cookies/',
 ]
 
 // Static guides
 const guideRoutes = [
-  '/guides/getting-started',
-  '/guides/scan-configuration',
-  '/guides/interpreting-results',
-  '/guides/reporting-and-evidence',
-  '/guides/ai-fix-suggestions',
-  '/guides/team-collaboration',
-  '/guides/wcag-compliance-workflows',
-  '/guides/enterprise-integrations',
+  '/guides/getting-started/',
+  '/guides/scan-configuration/',
+  '/guides/interpreting-results/',
+  '/guides/reporting-and-evidence/',
+  '/guides/ai-fix-suggestions/',
+  '/guides/team-collaboration/',
+  '/guides/wcag-compliance-workflows/',
+  '/guides/enterprise-integrations/',
 ]
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -61,7 +61,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Map blog posts
   const blogPages: MetadataRoute.Sitemap = blogPosts.map(post => ({
-    url: `${SITE_URL}/blog/${post.slug}`,
+    url: `${SITE_URL}/blog/${post.slug}/`,
     lastModified: new Date(post.publishedAt),
     changeFrequency: 'monthly',
     priority: 0.6,

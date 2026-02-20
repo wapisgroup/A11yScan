@@ -2,6 +2,7 @@ import { auth, db } from "@/utils/firebase";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
@@ -70,6 +71,22 @@ export async function updateSchedule(id: string, patch: ScheduleUpdateInput): Pr
     ...(patch.status !== undefined ? { status: patch.status } : {}),
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  if (!id) throw new Error("schedule id required");
+  await deleteDoc(doc(db, "schedules", id));
+
+  // Best-effort: decrement usage counter (non-critical).
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const { incrementUsage } = await import("@/services/subscriptionService");
+      await incrementUsage(user.uid, "scheduledScans", -1);
+    }
+  } catch {
+    // Ignore — usage will self-correct on next subscription sync.
+  }
 }
 
 export function subscribeSchedules(

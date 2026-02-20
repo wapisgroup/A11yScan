@@ -1,5 +1,4 @@
-import { callServerFunction } from "@/services/serverService";
-import { db } from "@/utils/firebase";
+import { db, auth } from "@/utils/firebase";
 import {
   doc,
   getDoc,
@@ -40,6 +39,7 @@ export async function loadProject(id: string): Promise<Project> {
 export type MessageResult = {
   title: string;
   message: string;
+  noPages?: boolean;
 };
 
 export const startPageCollection = async (projectId: string): Promise<MessageResult> => {
@@ -51,21 +51,34 @@ export const startPageCollection = async (projectId: string): Promise<MessageRes
   }
 
   try {
-    const payload = { projectId };
+    // Get authentication token
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+    
+    const token = await currentUser.getIdToken();
 
-    // Expected to return something like { ok: true, runId: string }.
-    // We keep this flexible since emulator/prod responses may differ.
-    const res = await callServerFunction("startPageCollection", payload);
+    // Call the new API route
+    const response = await fetch('/api/page-collection/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ projectId }),
+    });
 
-    // Prefer a server-provided message if available.
-    const serverMessage =
-      res && typeof res === "object" && "message" in res
-        ? String((res as Record<string, unknown>).message ?? "")
-        : "";
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to start page collection');
+    }
+
+    const result = await response.json();
 
     return {
       title: "Information",
-      message: serverMessage || "Sitemap generation started",
+      message: result.message || "Page collection started successfully",
     };
   } catch (err: unknown) {
     // eslint-disable-next-line no-console
@@ -119,20 +132,33 @@ export async function scanSinglePage(
   }
 
   try {
-    // The backend expects `pagesIds` (array) even for a single page.
-    const res = await callServerFunction("scanPage", {
-      projectId,
-      pagesIds: [page.id],
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+    
+    const token = await currentUser.getIdToken();
+
+    const response = await fetch('/api/pages/scan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        projectId,
+        pagesIds: [page.id],
+      }),
     });
 
-    const serverMessage =
-      res && typeof res === "object" && "message" in res
-        ? String((res as Record<string, unknown>).message ?? "")
-        : "";
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to scan page');
+    }
 
     return {
       title: "Information",
-      message: serverMessage || "Page scan queued",
+      message: "Page scan queued",
     };
   } catch (err: unknown) {
     // eslint-disable-next-line no-console
@@ -155,7 +181,10 @@ export async function scanSinglePage(
  * - This function is intentionally side-effect free (no alert/toast).
  * - The UI layer decides how to present the returned MessageResult.
  */
-export async function startFullScan(projectId: string): Promise<MessageResult> {
+export async function startFullScan(
+  projectId: string,
+  options?: { includePageCollection?: boolean }
+): Promise<MessageResult> {
   if (!projectId) {
     return {
       title: "System exception",
@@ -164,17 +193,47 @@ export async function startFullScan(projectId: string): Promise<MessageResult> {
   }
 
   try {
-    const payload = { projectId, type: "full_scan" };
-    const res = await callServerFunction("startScan", payload);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+    
+    const token = await currentUser.getIdToken();
 
-    const serverMessage =
-      res && typeof res === "object" && "message" in res
-        ? String((res as Record<string, unknown>).message ?? "")
-        : "";
+    const response = await fetch('/api/scans/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        projectId,
+        type: "full_scan",
+        includePageCollection: Boolean(options?.includePageCollection),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to start scan');
+    }
+
+    const res = await response.json();
+
+    const serverMessage = res.message || "";
+    const noPages =
+      Boolean(
+        res &&
+          typeof res === "object" &&
+          ("noPages" in res
+            ? (res as Record<string, unknown>).noPages
+            : false)
+      );
 
     return {
       title: "Information",
-      message: serverMessage || "Full scan started",
+      message: serverMessage || (noPages ? "No pages found for this project" : "Full scan started"),
+      noPages,
     };
   } catch (err: unknown) {
     // eslint-disable-next-line no-console
@@ -206,17 +265,30 @@ export async function startSitemap(projectId: string): Promise<MessageResult> {
   }
 
   try {
-    const payload = { projectId };
-    const res = await callServerFunction("startSitemap", payload);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+    
+    const token = await currentUser.getIdToken();
 
-    const serverMessage =
-      res && typeof res === "object" && "message" in res
-        ? String((res as Record<string, unknown>).message ?? "")
-        : "";
+    const response = await fetch('/api/sitemap/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ projectId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to start sitemap generation');
+    }
 
     return {
       title: "Information",
-      message: serverMessage || "Sitemap generation started",
+      message: "Sitemap generation started",
     };
   } catch (err: unknown) {
     // eslint-disable-next-line no-console

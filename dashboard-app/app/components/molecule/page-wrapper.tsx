@@ -1,3 +1,8 @@
+/**
+ * Page Wrapper
+ * Shared component in molecule/page-wrapper.tsx.
+ */
+
 type PageWrapperProps = {
     title: string;
     breadcrumbs?: { title: string; href?: string }[];

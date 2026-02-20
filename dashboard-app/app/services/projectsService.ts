@@ -118,11 +118,21 @@ export type Project = {
   owner: string | null;
   organisationId?: string | null;
   createdAt?: Timestamp | Date | null;
+  lastScanAt?: Timestamp | Date | null;
+};
+
+export type ProjectConfig = {
+  maxPages?: number;
+  crawlDelayMs?: number;
+  robotsRespect?: boolean;
+  storeArtifacts?: boolean;
+  complianceProfiles?: string[];
 };
 
 export type CreateProjectInput = {
   name?: string;
   domain: string;
+  config?: ProjectConfig;
 };
 
 export type UpdateProjectInput = {
@@ -153,6 +163,7 @@ export async function loadProjects(): Promise<Project[]> {
       owner: (data.owner ?? null) as string | null,
       organisationId: (data.organisationId ?? null) as string | null,
       createdAt: (data.createdAt ?? null) as Timestamp | Date | null,
+      lastScanAt: (data.lastScanAt ?? null) as Timestamp | Date | null,
     };
   });
 }
@@ -214,7 +225,8 @@ export function subscribeProjects(
           domain: String(data.domain ?? ""),
           owner: (data.owner ?? null) as string | null,
           organisationId: (data.organisationId ?? null) as string | null,
-          createdAt: (data.createdAt ?? null) as any,
+          createdAt: (data.createdAt ?? null) as Timestamp | Date | null,
+          lastScanAt: (data.lastScanAt ?? null) as Timestamp | Date | null,
         };
       });
 
@@ -233,7 +245,7 @@ export function subscribeProjects(
   };
 }
 
-export async function createProject({ name, domain }: CreateProjectInput): Promise<Project> {
+export async function createProject({ name, domain, config }: CreateProjectInput): Promise<Project> {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Not authenticated");
 
@@ -255,12 +267,13 @@ export async function createProject({ name, domain }: CreateProjectInput): Promi
   // Generate name from URL if not provided
   const projectName = name?.trim() || generateNameFromUrl(domain);
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     name: projectName || null,
     domain,
     owner: uid,
     organisationId: organisationId || null,
     createdAt: serverTimestamp(),
+    ...(config ? { config } : {}),
   };
 
   const ref = await addDoc(collection(db, "projects"), payload);
@@ -306,10 +319,40 @@ export async function deleteProject(id: string): Promise<void> {
 export async function startProjectScan(project: Pick<Project, "id" | "domain">): Promise<string> {
   if (!project?.id) throw new Error("project.id required");
 
-  // Use startPageCollection to crawl and collect pages
+  // Use startPageCollection API route to crawl and collect pages
   try {
-    const res = await callServerFunction("startPageCollection", { projectId: project.id });
-    const runId = res && typeof res === "object" && "runId" in res ? String((res as any).runId) : "unknown";
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+    
+    const token = await currentUser.getIdToken();
+
+    const response = await fetch('/api/page-collection/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ projectId: project.id }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to start page collection');
+    }
+
+    const result = await response.json();
+    const runId = result.runId || "unknown";
+
+    // Denormalize scan start time onto the project so the projects list
+    // can show it without extra queries.
+    try {
+      await updateDoc(doc(db, "projects", project.id), { lastScanAt: serverTimestamp() });
+    } catch {
+      // Non-critical — don't fail the scan trigger if this write fails.
+    }
+
     return runId;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

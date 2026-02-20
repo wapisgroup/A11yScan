@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Project Detail Tab Runs
+ * Shared component in tabs/project-detail-tab-runs.tsx.
+ */
+
 import React, { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { RunRow } from "../molecule/project-detail-run-row";
@@ -8,7 +13,6 @@ import { useProjectRunsPageState } from "@/state-services/project-detail-runs-st
 import { Pagination } from "../molecule/pagination";
 import { Project } from "@/types/project";
 import { RunDoc, runTypesList } from "@/types/run";
-import { Button } from "../atom/button";
 
 import { deleteProjectRun, hideProjectRun } from "@/services/projectRunsService";
 import { useConfirm } from "../providers/window-provider";
@@ -56,7 +60,12 @@ export function RunsTab({ project }: RunsTabProps) {
       if (ok) {
 
         if (!projectId) return;
-        await deleteProjectRun(projectId, run.id);
+        const runsToDelete = Array.isArray((run as any).groupedRuns) && (run as any).groupedRuns.length > 0
+          ? (run as any).groupedRuns
+          : [run];
+        for (const r of runsToDelete) {
+          await deleteProjectRun(projectId, r.id);
+        }
       }
     },
     [projectId]
@@ -65,7 +74,12 @@ export function RunsTab({ project }: RunsTabProps) {
   const handleHideRun  = useCallback(
     async (run: RunDoc) => {
        if (!projectId) return;
-        await hideProjectRun(projectId, run.id);
+        const runsToHide = Array.isArray((run as any).groupedRuns) && (run as any).groupedRuns.length > 0
+          ? (run as any).groupedRuns
+          : [run];
+        for (const r of runsToHide) {
+          await hideProjectRun(projectId, r.id);
+        }
     }, [projectId]);
 
   return (
@@ -73,7 +87,7 @@ export function RunsTab({ project }: RunsTabProps) {
       <PageContainer >
         <div className="flex flex-col gap-medium w-full p-[var(--spacing-m)]">
           {/* Toolbar */}
-          <div className="flex items-center justify-between border-b border-solid border-white/6 pb-[var(--spacing-m)]">
+          <div className="flex items-center justify-between border-b border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)]">
             <div className="flex gap-small items-center">
               {/* Filter input */}
               <input

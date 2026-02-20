@@ -1,3 +1,8 @@
+/**
+ * Project Info Line
+ * Shared component in atom/project-info-line.tsx.
+ */
+
 import { PageDoc } from "@/types/page-types";
 import { useState } from "react";
 import { PiInfoLight } from "react-icons/pi";
