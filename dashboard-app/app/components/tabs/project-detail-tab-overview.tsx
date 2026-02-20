@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Project Detail Tab Overview
+ * Shared component in tabs/project-detail-tab-overview.tsx.
+ */
+
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { subscribeProjectRuns } from "@/services/projectRunsService";
@@ -12,7 +17,7 @@ import {
 } from "@/services/projectDetailService";
 import { OverviewTaskRow } from "../molecule/overview-task-row";
 import { PageContainer } from "../molecule/page-container";
-import { Button } from "../atom/button";
+import { DSButton } from "../atom/ds-button";
 import { useAlert } from "../providers/window-provider";
 
 type Run = {
@@ -85,11 +90,12 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
           <p className="text-sm text-slate-600 mb-4">
             Automatically discover and collect all pages from your website's sitemap and internal links.
           </p>
-          <Button
-            variant="secondary"
-            title="Collect pages from website"
+          <DSButton
+            variant="outline"
             onClick={handleStartPageCollection}
-          />
+          >
+            Collect pages from website
+          </DSButton>
         </div>
 
         {/* Full Scan Card */}
@@ -103,11 +109,7 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
           <p className="text-sm text-slate-600 mb-4">
             Run a comprehensive accessibility scan across all collected pages to identify issues.
           </p>
-          <Button
-            variant="primary"
-            title="Start full scan"
-            onClick={handleStartFullScan}
-          />
+          <DSButton onClick={handleStartFullScan}>Start full scan</DSButton>
         </div>
       </div>
 
@@ -167,11 +169,9 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
                   </Link>
                 </div>
 
-                <Button 
-                  onClick={handleStartSitemap} 
-                  variant="secondary" 
-                  title="Regenerate sitemap" 
-                />
+                <DSButton onClick={handleStartSitemap} variant="outline">
+                  Regenerate sitemap
+                </DSButton>
               </>
             ) : (
               <>
@@ -184,11 +184,9 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
                     <p className="text-xs text-slate-500">Generate a sitemap to visualize your site structure</p>
                   </div>
                 </div>
-                <Button 
-                  onClick={handleStartSitemap} 
-                  variant="primary" 
-                  title="Generate sitemap" 
-                />
+                <DSButton onClick={handleStartSitemap}>
+                  Generate sitemap
+                </DSButton>
               </>
             )}
           </div>

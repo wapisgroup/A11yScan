@@ -67,6 +67,20 @@ async function startPageCollectionHandler(payload, context) {
  * This passes a fake context with a uid so the handler behaves the same.
  */
 async function startPageCollectionHttpHandler(req, res) {
+  const origin = req.headers.origin || '*';
+  res.set('Vary', 'Origin');
+  res.set('Access-Control-Allow-Origin', origin);
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, error: 'Method not allowed' });
+    return;
+  }
+
   try {
     const body = (req.body && req.body.data) ? req.body.data : req.body || {};
     if (!body.projectId) {

@@ -84,6 +84,12 @@ export interface Subscription {
   // Trial
   trialStart: Date | Timestamp | null;
   trialEnd: Date | Timestamp | null;
+  trialExtended: boolean;
+  trialExtendedAt: Date | Timestamp | null;
+  trialExtensionDays: number;
+  hasPaymentMethod: boolean;
+  convertedFromTrial: boolean;
+  convertedAt: Date | Timestamp | null;
 
   // Usage tracking
   currentUsage: {

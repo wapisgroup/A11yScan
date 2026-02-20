@@ -8,13 +8,15 @@ import { PrivateRoute } from "@/utils/private-router";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { PageContainer } from "@/components/molecule/page-container";
 import { EmptyState } from "@/components/atom/EmptyState";
-import { Button } from "@/components/atom/button";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSIconButton } from "@/components/atom/ds-icon-button";
 import ScheduleModal from "@/components/modals/ScheduleModal";
 import { useAuth } from "@/utils/firebase";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useSchedulesPageState } from "@/state-services/schedules-state";
 import { createSchedule, updateSchedule } from "@/services/schedulesService";
 import type { ScheduleDoc } from "@/types/schedule";
+import { PageDataLoading } from "@/components/molecule/page-data-loading";
 
 const toDateInputValue = (value?: ScheduleDoc["startDate"]) => {
   if (!value) return "";
@@ -40,30 +42,27 @@ export default function SchedulesPage() {
     <PrivateRoute>
       <WorkspaceLayout>
         <PageWrapper title="Schedules">
-          <PageContainer title="Scheduled Scans">
+          <PageContainer
+            title="Scheduled Scans"
+            description="Create recurring scans to keep your accessibility status up to date."
+            buttons={
+              <DSButton
+                leadingIcon={<PiPlus size={18} />}
+                disabled={limitReached}
+                onClick={() => setShowCreateModal(true)}
+              >
+                New schedule
+              </DSButton>
+            }
+          >
             <div className="flex flex-col gap-medium w-full">
-              <div className="flex items-center justify-between border-b border-solid border-white/6 pb-[var(--spacing-m)]">
+              <div className="border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)] text-right">
                 <div>
-                  <h2 className="as-h3-text primary-text-color">
-                    Schedules ({schedules.length})
-                  </h2>
-                  <p className="as-p2-text secondary-text-color mt-1">
-                    Create recurring scans to keep your accessibility status up to date.
-                  </p>
                   {subscription && (
                     <p className="as-p3-text secondary-text-color mt-2">
                       Scheduled scans used: {scheduledUsage.used} / {String(scheduledUsage.limit)}
                     </p>
                   )}
-                </div>
-                <div className="flex items-center gap-small">
-                  <Button
-                    variant="brand"
-                    icon={<PiPlus size={18} />}
-                    title="New schedule"
-                    disabled={limitReached}
-                    onClick={() => setShowCreateModal(true)}
-                  />
                 </div>
               </div>
 
@@ -74,39 +73,39 @@ export default function SchedulesPage() {
               )}
 
               {loading ? (
-                <div className="py-12 text-center as-p2-text secondary-text-color">Loading schedules...</div>
+                <PageDataLoading>Loading schedules...</PageDataLoading>
               ) : schedules.length === 0 ? (
                 <EmptyState
                   icon={<PiCalendar />}
                   title="No schedules yet"
                   description="Create your first scheduled scan to automate recurring checks."
                   action={
-                    <Button
-                      variant="brand"
-                      title="Create schedule"
+                    <DSButton
                       disabled={limitReached}
                       onClick={() => setShowCreateModal(true)}
-                    />
+                    >
+                      Create schedule
+                    </DSButton>
                   }
                 />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="my-table">
                     <thead>
-                      <tr className="text-left as-p2-text table-heading-text-color font-bold border-b border-gray-200">
-                        <th className="py-4 pr-4">Project</th>
-                        <th className="py-4 pr-4">Type</th>
-                        <th className="py-4 pr-4">Cadence</th>
-                        <th className="py-4 pr-4">Start date</th>
-                        <th className="py-4 pr-4">Options</th>
-                        <th className="py-4 pr-4">Status</th>
-                        <th className="py-4 pr-4 text-right">&nbsp;</th>
+                      <tr className="as-p3-text table-heading-text-color border-b border-[var(--color-border-light)] uppercase tracking-wider">
+                        <th className="py-3 px-6">Project</th>
+                        <th className="py-3 px-6">Type</th>
+                        <th className="py-3 px-6">Cadence</th>
+                        <th className="py-3 px-6">Start date</th>
+                        <th className="py-3 px-6">Options</th>
+                        <th className="py-3 px-6">Status</th>
+                        <th className="py-3 px-6 text-right">&nbsp;</th>
                       </tr>
                     </thead>
                     <tbody>
                       {schedules.map((schedule) => (
-                        <tr key={schedule.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-                          <td className="py-4 pr-4">
+                        <tr key={schedule.id} className="border-t border-[var(--color-border-light)] hover:bg-[var(--color-bg-light)] transition-colors">
+                          <td className="py-4 px-6">
                             <div className="flex flex-col">
                               <span className="as-p2-text primary-text-color">
                                 {schedule.projectName}
@@ -118,59 +117,60 @@ export default function SchedulesPage() {
                               )}
                             </div>
                           </td>
-                          <td className="py-4 pr-4">
+                          <td className="py-4 px-6">
                             <span className="as-p2-text secondary-text-color">
                               {schedule.type === "full_scan" ? "Full scan" : "Page set"}
                               {schedule.pageSetName ? ` · ${schedule.pageSetName}` : ""}
                             </span>
                           </td>
-                          <td className="py-4 pr-4">
+                          <td className="py-4 px-6">
                             <span className="as-p2-text secondary-text-color capitalize">
                               {schedule.cadence}
                             </span>
                           </td>
-                          <td className="py-4 pr-4">
+                          <td className="py-4 px-6">
                             <span className="as-p2-text secondary-text-color">
                               {toDateInputValue(schedule.startDate) || "—"}
                             </span>
                           </td>
-                          <td className="py-4 pr-4">
+                          <td className="py-4 px-6">
                             <div className="flex flex-wrap gap-2">
                               {schedule.includePageCollection && (
-                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                                <span className="inline-flex items-center rounded-full bg-[var(--color-bg-light)] px-2 py-1 text-xs secondary-text-color">
                                   Crawl first
                                 </span>
                               )}
                               {schedule.includeReport && (
-                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                                <span className="inline-flex items-center rounded-full bg-[var(--color-bg-light)] px-2 py-1 text-xs secondary-text-color">
                                   Generate report
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="py-4 pr-4">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${schedule.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                          <td className="py-4 px-6">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${schedule.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-[var(--color-bg-light)] secondary-text-color"}`}>
                               <PiPlayCircle size={14} />
                               {schedule.status}
                             </span>
                           </td>
-                          <td className="py-4 text-right">
+                          <td className="py-4 px-6 text-right">
                             <div className="flex items-center justify-end gap-small">
-                              <Button
-                                variant="secondary"
+                              <DSIconButton
                                 icon={<PiPencilSimple size={16} />}
-                                title="Edit"
+                                label="Edit schedule"
                                 onClick={() => setEditingSchedule(schedule)}
                               />
-                              <Button
-                                variant="secondary"
-                                title={schedule.status === "active" ? "Pause" : "Resume"}
+                              <DSButton
+                                variant="outline"
+                                size="sm"
                                 onClick={async () => {
                                   await updateSchedule(schedule.id, {
                                     status: schedule.status === "active" ? "paused" : "active",
                                   });
                                 }}
-                              />
+                              >
+                                {schedule.status === "active" ? "Pause" : "Resume"}
+                              </DSButton>
                             </div>
                           </td>
                         </tr>

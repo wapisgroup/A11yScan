@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Project Detail Stats
+ * Shared component in molecule/project-detail-stats.tsx.
+ */
+
 import { ProjectStatsTDO } from "@/types/project";
 import { StatPill } from "../atom/stat-pill";
 import React, { useEffect, useState, useMemo } from "react";

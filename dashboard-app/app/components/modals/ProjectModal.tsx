@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * ProjectModal
+ * Shared component in modals/ProjectModal.tsx.
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Project } from "@/services/projectsService";

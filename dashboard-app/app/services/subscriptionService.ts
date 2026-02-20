@@ -1,13 +1,8 @@
 import { db } from '../utils/firebase';
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs,
-  setDoc, 
+import {
+  doc,
+  getDoc,
   updateDoc,
-  query,
-  where,
   Timestamp,
   increment,
 } from 'firebase/firestore';
@@ -85,45 +80,27 @@ export async function getOrganizationSubscription(organizationId: string): Promi
 }
 
 /**
- * Create a trial subscription for new user
+ * Create a trial subscription for new user via Stripe
  */
 export async function createTrialSubscription(
-  userId: string, 
-  organizationId: string
-): Promise<Subscription> {
+  userId: string,
+  organizationId: string,
+  email: string,
+  packageName: string = TRIAL_CONFIG.DEFAULT_PACKAGE
+): Promise<{ subscriptionId: string; customerId: string; trialEnd: number }> {
   try {
-    const now = Timestamp.now();
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + TRIAL_CONFIG.DURATION_DAYS);
-    
-    const subscription: Subscription = {
-      userId,
-      organizationId,
-      packageName: TRIAL_CONFIG.DEFAULT_PACKAGE,
-      status: 'trial' as SubscriptionStatus,
-      billingCycle: 'monthly',
-      paymentMethod: null,
-      limits: SUBSCRIPTION_PACKAGES[TRIAL_CONFIG.DEFAULT_PACKAGE].limits,
-      features: SUBSCRIPTION_PACKAGES[TRIAL_CONFIG.DEFAULT_PACKAGE].features,
-      currentUsage: {
-        activeProjects: 0,
-        scansThisMonth: 0,
-        apiCallsToday: 0,
-        scheduledScans: 0,
-      },
-      isTrialUsed: true,
-      trialStartDate: now,
-      trialEndDate: Timestamp.fromDate(trialEndDate),
-      currentPeriodStart: now,
-      currentPeriodEnd: Timestamp.fromDate(trialEndDate),
-      createdAt: now,
-      updatedAt: now,
-    };
-    
-    const subscriptionRef = doc(db, 'subscriptions', userId);
-    await setDoc(subscriptionRef, subscription);
-    
-    return subscription;
+    const response = await fetch('/api/stripe/create-trial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, organizationId, email, packageName }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create trial subscription');
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('Error creating trial subscription:', error);
     throw error;
@@ -303,15 +280,22 @@ function shouldResetUsageCounters(subscription: Subscription, now: Date): boolea
  * Calculate days remaining in trial
  */
 export function getTrialDaysRemaining(subscription: Subscription): number {
-  if (subscription.status !== 'trial' || !subscription.trialEndDate) {
+  const status = String(subscription.status || '').toLowerCase();
+  if (status !== 'trial' && status !== 'trialing') {
     return 0;
   }
-  
+
+  // Support multiple field names for trial end date
+  const trialEnd = (subscription as any).trialEndDate
+    || subscription.trialEnd
+    || (subscription as any).trialEndsAt;
+  if (!trialEnd) return 0;
+
   const now = new Date();
-  const endDate = subscription.trialEndDate.toDate();
+  const endDate = typeof trialEnd.toDate === 'function' ? trialEnd.toDate() : new Date(trialEnd);
   const diffTime = endDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   return Math.max(0, diffDays);
 }
 
@@ -330,6 +314,7 @@ export function needsUpgrade(subscription: Subscription | null): boolean {
   
   return (
     subscription.status === 'trial' ||
+    subscription.status === 'trialing' ||
     subscription.status === 'past_due' ||
     subscription.status === 'grace_period' ||
     subscription.status === 'suspended'
@@ -346,8 +331,10 @@ export function getStatusMessage(subscription: Subscription | null): string {
   
   switch (subscription.status) {
     case 'trial':
+    case 'trialing': {
       const daysRemaining = getTrialDaysRemaining(subscription);
       return `Trial: ${daysRemaining} days remaining`;
+    }
     case 'active':
       return 'Active';
     case 'past_due':

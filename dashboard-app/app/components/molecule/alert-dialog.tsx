@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Alert Dialog
+ * Shared component in molecule/alert-dialog.tsx.
+ */
+
 import { type ReactNode, useEffect } from "react";
 import { Popup } from "@/components/molecule/popup";
 

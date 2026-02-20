@@ -19,7 +19,47 @@ const { fetchHtml, normalizeUrl, escapeXml } = require('../helpers/generic');
 const { notifyPageCollectionFinished, getSlackConfigFromOrg } = require('../helpers/slack');
 
 const MAX_PAGES_DEFAULT = Number(process.env.MAX_PAGES) || 2000;
-const CRAWL_DELAY_MS = Number(process.env.CRAWL_DELAY_MS) || 100; // polite delay
+const CRAWL_DELAY_MS = Number(process.env.CRAWL_DELAY_MS) || 100; // env fallback
+
+/**
+ * Fetches robots.txt for a domain and returns all Disallow paths for User-agent: *
+ */
+async function fetchRobotsDisallowed(domain) {
+    try {
+        const robotsUrl = new URL('/robots.txt', domain).href;
+        const result = await fetchHtml(robotsUrl);
+        if (!result || result.status >= 400) return [];
+        const disallowed = [];
+        let isWildcard = false;
+        for (const rawLine of result.text.split('\n')) {
+            const line = rawLine.trim();
+            if (!line || line.startsWith('#')) continue;
+            const colonIdx = line.indexOf(':');
+            if (colonIdx === -1) continue;
+            const field = line.slice(0, colonIdx).trim().toLowerCase();
+            const value = line.slice(colonIdx + 1).trim();
+            if (field === 'user-agent') {
+                isWildcard = value === '*';
+            } else if (field === 'disallow' && isWildcard && value) {
+                disallowed.push(value);
+            }
+        }
+        return disallowed;
+    } catch (e) {
+        console.warn('[robots.txt] Failed to fetch or parse:', e.message);
+        return [];
+    }
+}
+
+function isDisallowedByRobots(urlStr, disallowedPaths) {
+    if (!disallowedPaths.length) return false;
+    try {
+        const path = new URL(urlStr).pathname;
+        return disallowedPaths.some(d => path.startsWith(d));
+    } catch {
+        return false;
+    }
+}
 
 // Initialize Storage client based on emulator mode
 let storage = null;
@@ -34,7 +74,13 @@ if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
     console.log('[Storage] Using emulator at', apiEndpoint);
 } else {
     // Initialize Storage client for production
-    storage = new Storage();
+    const storageOpts = {
+        projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
+    };
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        storageOpts.credentials = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    }
+    storage = new Storage(storageOpts);
     console.log('[Storage] Using production GCS');
 }
 
@@ -51,6 +97,10 @@ async function handlePageCollectionJob(db, projectId, runId) {
     if (!domain) throw new Error('Project missing domain');
 
     const maxPages = (project.config && project.config.maxPages) || MAX_PAGES_DEFAULT;
+    const crawlDelayMs = (project.config && typeof project.config.crawlDelayMs === 'number')
+        ? project.config.crawlDelayMs
+        : CRAWL_DELAY_MS;
+    const robotsRespect = project.config ? project.config.robotsRespect !== false : true;
 
     // Update run status -> running
     const runRef = projectRef.collection('runs').doc(runId);
@@ -64,6 +114,15 @@ async function handlePageCollectionJob(db, projectId, runId) {
     queue.push(domain);
     visited.add(domain);
 
+    // Fetch robots.txt disallow rules if robotsRespect is enabled
+    let disallowedPaths = [];
+    if (robotsRespect) {
+        disallowedPaths = await fetchRobotsDisallowed(domain);
+        if (disallowedPaths.length > 0) {
+            console.log(`[robots.txt] Respecting ${disallowedPaths.length} disallowed path(s):`, disallowedPaths);
+        }
+    }
+
     // concurrency limit
     const limit = pLimit(5);
 
@@ -76,7 +135,7 @@ async function handlePageCollectionJob(db, projectId, runId) {
 
         // fetch all in parallel with concurrency
         await Promise.all(chunk.map(u => limit(async () => {
-            await new Promise(r => setTimeout(r, CRAWL_DELAY_MS)); // polite delay
+            await new Promise(r => setTimeout(r, crawlDelayMs)); // polite delay (project config)
             const pageData = await fetchHtml(u);
             if (!pageData) return;
 
@@ -112,7 +171,7 @@ async function handlePageCollectionJob(db, projectId, runId) {
                 }
                 edges.push({ source: u, target: n });
 
-                if (!visited.has(n) && visited.size < maxPages) {
+                if (!visited.has(n) && visited.size < maxPages && !isDisallowedByRobots(n, disallowedPaths)) {
                     visited.add(n);
                     queue.push(n);
                 }

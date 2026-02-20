@@ -11,9 +11,14 @@ import { DashboardRecentPages } from "@/components/organism/dashboard-recent-pag
 import { DashboardTopIssues } from "@/components/organism/dashboard-top-issues";
 import { DashboardPast7Days } from "@/components/organism/dashboard-past-7-days";
 import { DashboardProblemPages } from "@/components/organism/dashboard-problem-pages";
+import { DashboardEmailDelivery } from "@/components/organism/dashboard-email-delivery";
 import { useDashboardState } from "@/state-services/dashboard-state";
 import { formatTimeAgo } from "@/ui-helpers/default";
 import { useRouter } from "next/navigation";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSSurface } from "@/components/organism/ds-surface";
+import { DSSectionHeader } from "@/components/molecule/ds-section-header";
+import { PageDataLoading } from "@/components/molecule/page-data-loading";
 import { 
   PiFolderOpen,
   PiPlay,
@@ -21,7 +26,6 @@ import {
   PiWarning,
   PiX,
   PiClock,
-  PiSpinner,
   PiPlus,
   PiListChecks,
   PiFileText,
@@ -35,11 +39,15 @@ export default function Dashboard() {
   // Use dashboard state hook
   const {
     totalProjects,
+    totalPages,
     activeScans,
     pagesScanned,
-    failedPages,
+    pagesUnscanned,
+    scannedLast7Days,
+    stalePages,
     lastScanTime,
     issueBreakdown,
+    topIssueRules,
     activeRuns,
     recentPages,
     problemPages,
@@ -50,10 +58,8 @@ export default function Dashboard() {
     return (
       <PrivateRoute>
         <WorkspaceLayout>
-          <PageContainer title="Dashboard">
-            <div className="flex items-center justify-center h-64">
-              <PiSpinner className="text-4xl text-[#649DAD] animate-spin" />
-            </div>
+          <PageContainer title="Dashboard" coloredBg>
+            <PageDataLoading>Loading dashboard data...</PageDataLoading>
           </PageContainer>
         </WorkspaceLayout>
       </PrivateRoute>
@@ -65,7 +71,7 @@ export default function Dashboard() {
   return (
     <PrivateRoute>
       <WorkspaceLayout>
-        <PageContainer title="Dashboard">
+        <PageContainer title="Dashboard" coloredBg>
           <div className="max-w-7xl mx-auto space-y-6">
             
             {/* 1. Top-level Summary Cards */}
@@ -81,7 +87,7 @@ export default function Dashboard() {
 
               <DashboardCard
                 title="Total Pages"
-                value={pagesScanned}
+                value={totalPages}
                 icon={<PiGlobe />}
                 iconColor="text-blue-600"
               />
@@ -105,8 +111,8 @@ export default function Dashboard() {
               />
 
               <DashboardCard
-                title="Failed Pages"
-                value={failedPages}
+                title="Unscanned Pages"
+                value={pagesUnscanned}
                 icon={<PiX />}
                 iconColor="text-red-600"
               />
@@ -142,11 +148,15 @@ export default function Dashboard() {
                 <DashboardViolationOverview issueBreakdown={issueBreakdown} />
                 
                 {/* Top Issues */}
-                <DashboardTopIssues issueBreakdown={issueBreakdown} />
+                <DashboardTopIssues topIssueRules={topIssueRules} />
                 
                 {/* Past 7 Days Summary */}
                 <DashboardPast7Days 
+                  totalPages={totalPages}
                   pagesScanned={pagesScanned}
+                  pagesUnscanned={pagesUnscanned}
+                  scannedLast7Days={scannedLast7Days}
+                  stalePages={stalePages}
                   totalIssues={totalIssues}
                 />
               </div>
@@ -155,40 +165,43 @@ export default function Dashboard() {
             {/* 5. Problems That Need Attention */}
             <DashboardProblemPages problemPages={problemPages} />
 
+            {/* 6. Email Delivery */}
+            <DashboardEmailDelivery organizationId={user?.organisationId} />
+
             {/* 7. Quick Actions */}
-            <div className="bg-[#649DAD] rounded-2xl p-6">
-              <h2 className="text-lg font-bold text-white mb-4">Quick Actions</h2>
+            <DSSurface>
+              <DSSectionHeader title="Quick Actions" subtitle="Common workflows in one place." />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button
+                <DSButton
                   onClick={() => router.push('/workspace/projects')}
-                  className="bg-[#4a7b8a] hover:bg-[#3d6573] rounded-xl p-6 transition-all text-center"
+                  className="h-auto flex-col py-5"
                 >
-                  <PiPlus className="text-4xl mx-auto mb-2 text-white" />
-                  <span className="text-sm font-semibold text-white">Add Project</span>
-                </button>
-                <button
+                  <PiPlus className="text-3xl" />
+                  <span>Add Project</span>
+                </DSButton>
+                <DSButton
                   onClick={() => router.push('/workspace/projects')}
-                  className="bg-[#4a7b8a] hover:bg-[#3d6573] rounded-xl p-6 transition-all text-center"
+                  className="h-auto flex-col py-5"
                 >
-                  <PiPlay className="text-4xl mx-auto mb-2 text-white" />
-                  <span className="text-sm font-semibold text-white">Start Scan</span>
-                </button>
-                <button
+                  <PiPlay className="text-3xl" />
+                  <span>Start Scan</span>
+                </DSButton>
+                <DSButton
                   onClick={() => router.push('/workspace/projects')}
-                  className="bg-[#4a7b8a] hover:bg-[#3d6573] rounded-xl p-6 transition-all text-center"
+                  className="h-auto flex-col py-5"
                 >
-                  <PiListChecks className="text-4xl mx-auto mb-2 text-white" />
-                  <span className="text-sm font-semibold text-white">Create Page Set</span>
-                </button>
-                <button
+                  <PiListChecks className="text-3xl" />
+                  <span>Create Page Set</span>
+                </DSButton>
+                <DSButton
                   onClick={() => router.push('/workspace/reports')}
-                  className="bg-[#4a7b8a] hover:bg-[#3d6573] rounded-xl p-6 transition-all text-center"
+                  className="h-auto flex-col py-5"
                 >
-                  <PiFileText className="text-4xl mx-auto mb-2 text-white" />
-                  <span className="text-sm font-semibold text-white">View Reports</span>
-                </button>
+                  <PiFileText className="text-3xl" />
+                  <span>View Reports</span>
+                </DSButton>
               </div>
-            </div>
+            </DSSurface>
 
           </div>
         </PageContainer>

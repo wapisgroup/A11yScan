@@ -14,6 +14,7 @@ import { StatPill } from "@/components/atom/stat-pill";
 import { useScansPageState } from "@/state-services/scan-state";
 import { formatTimeAgo } from "@/ui-helpers/default";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
+import { PageDataLoading } from "@/components/molecule/page-data-loading";
 
 // Disable static generation for this route (uses useSearchParams)
 export const dynamic = 'force-dynamic';
@@ -47,9 +48,7 @@ export default function Scans() {
           <PageWrapper title="Scans">
 
             <PageContainer title="Page Scans">
-              <div className="flex items-center justify-center h-64">
-                <div className="as-p2-text secondary-text-color">Loading scans...</div>
-              </div>
+              <PageDataLoading>Loading scans...</PageDataLoading>
             </PageContainer>
           </PageWrapper>
         </WorkspaceLayout>
@@ -61,11 +60,11 @@ export default function Scans() {
     <PrivateRoute>
       <WorkspaceLayout>
         <PageWrapper title="Scans">
-          <PageContainer title="Page Scans">
+          <PageContainer title="Page Scans" description="View and manage all your page scans. Filter by project or severity to find specific results.">
             {error && <div className="text-red-600 mb-4">{error}</div>}
 
             {/* Filters */}
-            <div className="mb-6 flex flex-col gap-4">
+            <div className="w-full mb-6 pb-4 border-b border-[var(--color-border-light)] flex flex-col gap-4">
               {/* Project Filter */}
               <div className="flex items-center gap-small">
                 <span className="as-p2-text primary-text-color">Filter by project:</span>
@@ -125,16 +124,16 @@ export default function Scans() {
               <div className="overflow-x-auto">
                 <table className="my-table">
                   <thead>
-                    <tr className="text-left as-p2-text table-heading-text-color font-bold border-b border-gray-200">
-                      <th className="py-4 pr-4">Page URL</th>
-                      <th className="py-4 pr-4">Project</th>
-                      <th className="py-4 pr-4 text-center">Critical</th>
-                      <th className="py-4 pr-4 text-center">Serious</th>
-                      <th className="py-4 pr-4 text-center">Moderate</th>
-                      <th className="py-4 pr-4 text-center">Minor</th>
-                      <th className="py-4 pr-4 text-center">Total</th>
-                      <th className="py-4 pr-4">Last Scanned</th>
-                      <th className="py-4 pr-4 text-right">&nbsp;</th>
+                    <tr className="as-p3-text table-heading-text-color border-b border-[var(--color-border-light)] uppercase tracking-wider">
+                      <th className="py-3 px-6 min-w-[360px]">Page URL</th>
+                      <th className="py-3 px-6">Project</th>
+                      <th className="py-3 px-6 text-center">Critical</th>
+                      <th className="py-3 px-6 text-center">Serious</th>
+                      <th className="py-3 px-6 text-center">Moderate</th>
+                      <th className="py-3 px-6 text-center">Minor</th>
+                      <th className="py-3 px-6 text-center">Total</th>
+                      <th className="py-3 px-6 whitespace-nowrap min-w-[160px]">Last Scanned</th>
+                      <th className="py-3 px-6 text-right">&nbsp;</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -153,8 +152,8 @@ export default function Scans() {
                       </tr>
                     ) : (
                       pagedScans.map((scan) => (
-                        <tr key={scan.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-                          <td className="py-4 pr-4">
+                        <tr key={scan.id} className="border-t border-[var(--color-border-light)] hover:bg-[var(--color-bg-light)] transition-colors">
+                          <td className="py-4 px-6">
                             <div className="flex items-center gap-2">
                               <PiGlobe className="text-[#649DAD] flex-shrink-0" />
                               <div className="max-w-sm truncate" title={scan.url}>
@@ -162,7 +161,7 @@ export default function Scans() {
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 pr-4">
+                          <td className="py-4 px-6">
                             <Link
                               href={`/workspace/projects/${scan.projectId}`}
                               className="as-p2-text secondary-text-color hover:underline"
@@ -170,7 +169,7 @@ export default function Scans() {
                               {scan.projectName}
                             </Link>
                           </td>
-                          <td className="py-4 pr-4 text-center">
+                          <td className="py-4 px-6 text-center">
                             {scan.criticalIssues > 0 ? (
                               <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-1 bg-red-100 text-red-700 rounded-full as-p3-text">
                                 {scan.criticalIssues}
@@ -179,7 +178,7 @@ export default function Scans() {
                               <span className="table-heading-text-color">—</span>
                             )}
                           </td>
-                          <td className="py-4 pr-4 text-center">
+                          <td className="py-4 px-6 text-center">
                             {scan.seriousIssues > 0 ? (
                               <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-1 bg-orange-100 text-orange-700 rounded-full as-p3-text">
                                 {scan.seriousIssues}
@@ -188,7 +187,7 @@ export default function Scans() {
                               <span className="table-heading-text-color">—</span>
                             )}
                           </td>
-                          <td className="py-4 pr-4 text-center">
+                          <td className="py-4 px-6 text-center">
                             {scan.moderateIssues > 0 ? (
                               <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full as-p3-text">
                                 {scan.moderateIssues}
@@ -197,7 +196,7 @@ export default function Scans() {
                               <span className="table-heading-text-color">—</span>
                             )}
                           </td>
-                          <td className="py-4 pr-4 text-center">
+                          <td className="py-4 px-6 text-center">
                             {scan.minorIssues > 0 ? (
                               <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-1 bg-blue-100 text-blue-700 rounded-full as-p3-text">
                                 {scan.minorIssues}
@@ -206,21 +205,21 @@ export default function Scans() {
                               <span className="table-heading-text-color">—</span>
                             )}
                           </td>
-                          <td className="py-4 pr-4 text-center">
-                            <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-1 bg-gray-100 primary-text-color rounded-full as-p3-text">
+                          <td className="py-4 px-6 text-center">
+                            <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-1 bg-[var(--color-bg-light)] primary-text-color rounded-full as-p3-text">
                               {scan.totalIssues}
                             </span>
                           </td>
-                          <td className="py-4 pr-4">
-                            <div className="flex items-center gap-1 text-sm text-gray-600">
-                              <PiCalendar className="text-gray-400" />
+                          <td className="py-4 px-6 whitespace-nowrap">
+                            <div className="flex items-center gap-1 text-sm secondary-text-color">
+                              <PiCalendar className="table-heading-text-color" />
                               {formatTimeAgo(scan.lastScanned)}
                             </div>
                           </td>
-                          <td className="py-4 text-right">
+                          <td className="py-4 px-6 text-right">
                             <Link
                               href={`/workspace/projects/${scan.projectId}`}
-                              className="p-2 rounded hover:bg-slate-50"
+                              className="p-2 rounded hover:bg-[var(--color-bg-light)]"
                               aria-label="View scans"
                               title="View scans"
                             >

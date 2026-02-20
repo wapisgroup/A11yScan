@@ -257,6 +257,8 @@ export const SUBSCRIPTION_PACKAGES: Record<string, PackageConfig> = {
 // Trial configuration
 export const TRIAL_CONFIG = {
   DURATION_DAYS: 14,
+  EXTENSION_DAYS: 7,
+  MAX_TRIAL_DAYS: 21,
   DEFAULT_PACKAGE: 'basic' as const,
   REMINDER_DAYS: [11, 13, 14], // Send reminders on these days before expiry
   GRACE_PERIOD_DAYS: 30, // After expiry, before data deletion countdown

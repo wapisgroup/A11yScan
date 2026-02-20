@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Header
+ * Shared component in molecule/header.tsx.
+ */
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 

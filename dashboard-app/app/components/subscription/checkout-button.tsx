@@ -1,3 +1,8 @@
+/**
+ * Checkout Button
+ * Shared component in subscription/checkout-button.tsx.
+ */
+
 'use client';
 
 import { useState } from 'react';

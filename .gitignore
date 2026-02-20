@@ -39,6 +39,7 @@ public/build/
 .env.test.local
 .env.production.local
 .local.env
+accessibilitychecker-c6585-fc416a671de9.json
 
 # Firebase
 .firebase/

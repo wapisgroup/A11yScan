@@ -1,3 +1,8 @@
+/**
+ * LoadingState
+ * Shared component in atom/LoadingState.tsx.
+ */
+
 import { PiSpinner } from "react-icons/pi";
 
 type LoadingStateProps = {
