@@ -1,9 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PiFileText, PiGlobe, PiCalendar, PiNotepadLight } from "react-icons/pi";
-import { FiFileText } from "react-icons/fi";
 
 import { PageContainer } from "@/components/molecule/page-container";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
@@ -17,6 +17,9 @@ import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { PageDataLoading } from "@/components/molecule/page-data-loading";
 import { TableErrorBadge } from "@/components/atom/table-error-badge";
 import { EmptyState } from "@/components/atom/EmptyState";
+import { DSIconButton } from "@/components/atom/ds-icon-button";
+import PageReportDrawer from "@/components/modals/page-report-drawer";
+import type { PageReport } from "@/services/scanService";
 
 // Disable static generation for this route (uses useSearchParams)
 export const dynamic = 'force-dynamic';
@@ -27,6 +30,9 @@ export default function Scans() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectIdFilter = searchParams.get('projectId');
+
+  const [selectedScan, setSelectedScan] = useState<PageReport | null>(null);
+  const [drawerTab, setDrawerTab] = useState<"report" | "preview">("report");
 
   // Use scans page state hook
   const {
@@ -179,14 +185,14 @@ export default function Scans() {
                             </div>
                           </td>
                           <td className="py-4 px-6 text-right">
-                            <Link
-                              href={`/workspace/projects/${scan.projectId}`}
-                              className="p-2 rounded hover:bg-[var(--color-bg-light)]"
-                              aria-label="View scans"
-                              title="View scans"
-                            >
-                              <FiFileText />
-                            </Link>
+                            <DSIconButton
+                              icon={<PiFileText size={18} />}
+                              label="View report"
+                              onClick={() => {
+                                setSelectedScan(scan);
+                                setDrawerTab("report");
+                              }}
+                            />
                           </td>
                         </tr>
                       ))
@@ -208,6 +214,17 @@ export default function Scans() {
           </PageContainer>
         </PageWrapper>
       </WorkspaceLayout>
+
+      <PageReportDrawer
+        open={selectedScan !== null}
+        projectId={selectedScan?.projectId ?? ""}
+        pageId={selectedScan?.id ?? null}
+        activeTab={drawerTab}
+        scanIdFromUrl={selectedScan?.scanId ?? null}
+        onClose={() => setSelectedScan(null)}
+        onTabChange={setDrawerTab}
+        onScanChange={() => {}}
+      />
     </PrivateRoute>
   );
 }
