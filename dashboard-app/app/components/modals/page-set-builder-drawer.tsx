@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { PiPlus, PiTrash } from "react-icons/pi";
+import { PiPlus, PiTrash, PiInfo } from "react-icons/pi";
 
 import type { PageSetRule } from "@/types/page-types-set";
 import { resolvePageSetPages, type ResolvablePage } from "@/services/pageSetResolver";
@@ -95,6 +95,29 @@ export default function PageSetBuilderDrawer({ open, mode, initial, pages, onClo
       <div className="flex-1 grid grid-cols-2 overflow-hidden">
         <div className="border-r border-[var(--color-border-light)] p-6 overflow-y-auto">
           <div className="space-y-4">
+
+            {/* Onboarding callout — only shown in create mode with no rules yet */}
+            {mode === "create" && rules.length === 0 && (
+              <div className="flex gap-3 p-4 rounded-lg bg-[var(--color-info)]/10 border border-[var(--color-info)]/30">
+                <PiInfo size={20} className="text-[var(--color-info)] flex-shrink-0 mt-0.5" />
+                <div className="flex flex-col gap-1">
+                  <p className="as-p2-text primary-text-color font-medium">What is a page set?</p>
+                  <p className="as-p3-text secondary-text-color">
+                    A page set is a named group of pages from your project. Use rules to include or exclude pages by URL pattern — for example, group all <code className="font-mono">/blog/</code> pages together.
+                  </p>
+                  <p className="as-p3-text secondary-text-color mt-1">
+                    Once created, you can run a scan on the whole set and generate a single accessibility report for those pages.
+                  </p>
+                  <ol className="as-p3-text secondary-text-color list-decimal list-inside mt-2 flex flex-col gap-0.5">
+                    <li>Give your set a name below</li>
+                    <li>Click <strong>Add rule</strong> and enter a URL pattern to match</li>
+                    <li>Check the preview on the right to see which pages match</li>
+                    <li>Click <strong>Create set</strong> when ready</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block as-p3-text secondary-text-color mb-1">Set name</label>
               <input
@@ -106,7 +129,10 @@ export default function PageSetBuilderDrawer({ open, mode, initial, pages, onClo
             </div>
 
             <div className="flex items-center justify-between">
-              <h3 className="as-p2-text primary-text-color font-medium">Rules</h3>
+              <div className="flex flex-col gap-0.5">
+                <h3 className="as-p2-text primary-text-color font-medium">Rules</h3>
+                <p className="as-p3-text secondary-text-color">Include or exclude pages by URL pattern.</p>
+              </div>
               <DSButton
                 type="button"
                 variant="solid"
@@ -119,8 +145,8 @@ export default function PageSetBuilderDrawer({ open, mode, initial, pages, onClo
             </div>
 
             {rules.length === 0 ? (
-              <div className="p-3 rounded-md bg-[var(--color-bg-light)] as-p3-text secondary-text-color">
-                No rules yet. Add include/exclude rules to build this set.
+              <div className="p-4 rounded-md border-2 border-dashed border-[var(--color-border-light)] as-p3-text secondary-text-color text-center">
+                No rules yet — click <strong>Add rule</strong> to start building your set.
               </div>
             ) : (
               <div className="space-y-3">
@@ -212,8 +238,10 @@ export default function PageSetBuilderDrawer({ open, mode, initial, pages, onClo
             <DSBadge tone="neutral" text={`${resolvedPages.length} pages`} />
           </div>
           {resolvedPages.length === 0 ? (
-            <div className="p-3 bg-white rounded-md border border-[var(--color-border-light)] as-p3-text secondary-text-color">
-              No pages matched. Add include rules first, then optionally exclude rules.
+            <div className="p-4 bg-white rounded-md border border-[var(--color-border-light)] as-p3-text secondary-text-color flex flex-col gap-1">
+              <p className="font-medium primary-text-color">No pages matched yet</p>
+              <p>Add an <strong>Include</strong> rule on the left with a URL pattern to see matching pages appear here.</p>
+              <p className="mt-1">Example: include pages where URL <em>contains</em> <code className="font-mono">/blog/</code></p>
             </div>
           ) : (
             <div className="space-y-2">

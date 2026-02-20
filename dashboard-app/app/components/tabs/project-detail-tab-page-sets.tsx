@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PageSetRow } from "@/components/molecule/project-detail-page-set-row";
 import { PageContainer } from "@/components/molecule/page-container";
 import { DSButton } from "@/components/atom/ds-button";
+import { DSIconButton } from "@/components/atom/ds-icon-button";
 import { useAlert, useConfirm } from "@/components/providers/window-provider";
 import PageSetBuilderDrawer from "@/components/modals/page-set-builder-drawer";
 
@@ -22,7 +23,7 @@ import { isLikelyScanned, resolvePageSetPages } from "@/services/pageSetResolver
 import { createReport } from "@/services/reportService";
 import { auth } from "@/utils/firebase";
 import { EmptyState } from "../atom/EmptyState";
-import { PiFileText } from "react-icons/pi";
+import { PiFileText, PiPlus } from "react-icons/pi";
 
 type PageSetsTabProps = {
   project: Project;
@@ -36,6 +37,7 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
   const [allPages, setAllPages] = useState<any[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PageSetTDO | null>(null);
+  const [filterText, setFilterText] = useState("");
 
   useEffect(() => {
     if (!projectId) return;
@@ -150,12 +152,30 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
     });
   };
 
+  const filteredItems = pagedItems.filter((s) =>
+    !filterText.trim() || s.name.toLowerCase().includes(filterText.toLowerCase())
+  );
+
   return (
     <div>
       <PageContainer
         inner
-        title="Page sets"
-        buttons={<DSButton onClick={openCreate}>Add page set</DSButton>}
+        buttons={
+          <div className="flex items-center gap-small">
+            <input
+              type="text"
+              placeholder="Filter page sets…"
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="input w-48"
+            />
+            <DSIconButton
+              label="Create page set"
+              icon={<PiPlus size={18} />}
+              onClick={openCreate}
+            />
+          </div>
+        }
       >
         <div className="md:col-span-2 space-y-2 w-full">
           {loading && (
@@ -170,7 +190,7 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
             </div>
           )}
 
-          {!loading && !error && pagedItems.map((setDoc) => (
+          {!loading && !error && filteredItems.map((setDoc) => (
             <PageSetRow
               key={setDoc.id}
               setDoc={setDoc}
@@ -188,13 +208,17 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
               title="No page sets yet"
               description="Define your first page set to start generating comprehensive accessibility reports and track issues effectively."
               action={
-                <DSButton
-                  onClick={() => openCreate()}
-                >
-                  Generate Your First Report
+                <DSButton onClick={openCreate}>
+                  Create a new page set
                 </DSButton>
               }
             />
+          )}
+
+          {!loading && !error && pagedItems.length > 0 && filteredItems.length === 0 && (
+            <div className="as-p2-text secondary-text-color p-4 text-center">
+              No page sets match &ldquo;{filterText}&rdquo;
+            </div>
           )}
         </div>
       </PageContainer>
