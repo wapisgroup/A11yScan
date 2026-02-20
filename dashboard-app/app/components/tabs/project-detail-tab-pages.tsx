@@ -7,8 +7,8 @@
 
 import React, { useCallback, useState, useRef, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { FiPlus, FiChevronDown } from "react-icons/fi";
-import { PiX, PiPlay, PiTrash, PiWarning, PiFunnelSimple, PiFunnelX } from "react-icons/pi";
+import { FiPlus } from "react-icons/fi";
+import { PiX, PiPlay, PiTrash, PiWarning, PiFunnelSimple, PiFunnelX, PiFileText } from "react-icons/pi";
 
 import { PageRow } from "../molecule/project-detail-page-row";
 import { PageContainer } from "../molecule/page-container";
@@ -16,8 +16,7 @@ import { DSButton } from "../atom/ds-button";
 import { DSIconButton } from "../atom/ds-icon-button";
 import { Checkbox } from "../atom/checkbox";
 import { useAlert, useConfirm } from "../providers/window-provider";
-import AddPageModal from "../modals/AddPageModal";
-import UploadSitemapModal from "../modals/UploadSitemapModal";
+import { AddPagesDrawer } from "../modals/add-pages-drawer";
 import PageReportDrawer from "../modals/page-report-drawer";
 
 import type { Project } from "@/types/project";
@@ -26,7 +25,8 @@ import { Pagination } from "../molecule/pagination";
 import type { PageDoc } from "@/state-services/project-detail-states_old";
 import { removePage, runSelectedPages, removePages, removeNon2xxPages } from "@/services/projectPagesService";
 import { scanSinglePage } from "@/services/projectDetailService";
-import { callServerFunction } from "@/services/serverService";
+import { auth } from "@/utils/firebase";
+import { EmptyState } from "../atom/EmptyState";
 
 /**
  * PagesTabProps
@@ -128,17 +128,14 @@ export function PagesTab({ project }: PagesTabProps) {
 
   const projectId = project?.id;
 
-  // Add page modal states
-  const [showAddPageModal, setShowAddPageModal] = useState(false);
-  const [showSitemapModal, setShowSitemapModal] = useState(false);
-  const [showAddMenu, setShowAddMenu] = useState(false);
-  const addMenuRef = useRef<HTMLDivElement>(null);
+  // Add pages drawer
+  const [addDrawerOpen, setAddDrawerOpen] = useState(false);
 
   // 404 pages menu state
   const [show404Menu, setShow404Menu] = useState(false);
   const [is404Filtered, setIs404Filtered] = useState(false);
   const menu404Ref = useRef<HTMLDivElement>(null);
-  
+
   // Manual pagination for filtered items
   const [filtered404Page, setFiltered404Page] = useState(1);
   const FILTERED_PAGE_SIZE = 10;
@@ -151,22 +148,19 @@ export function PagesTab({ project }: PagesTabProps) {
   // State-service hook that owns data + actions for this tab.
   const state = useProjectPagesPageState(projectId);
 
-  // Close dropdown when clicking outside
+  // Close 404 dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
-        setShowAddMenu(false);
-      }
       if (menu404Ref.current && !menu404Ref.current.contains(event.target as Node)) {
         setShow404Menu(false);
       }
     };
 
-    if (showAddMenu || show404Menu) {
+    if (show404Menu) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showAddMenu, show404Menu]);
+  }, [show404Menu]);
 
   // Preserve original behavior: show a lightweight loading placeholder
   // until we have a project id and state.
@@ -175,9 +169,10 @@ export function PagesTab({ project }: PagesTabProps) {
   const { pagedItems, allItems, totalCount, setPage, pagination, filterText, setFilterText, selection } = state;
 
   // Filter to show only non-2xx pages when 404 filter is active
+  // Pages with no httpStatus yet (manually added, sitemap upload) are excluded — they are unknown, not errors.
   const filtered404Items = allItems.filter(page => {
     const status = page.httpStatus;
-    return !status || status < 200 || status >= 300;
+    return status != null && (status < 200 || status >= 300);
   });
 
   // Paginate filtered items manually
@@ -294,7 +289,7 @@ export function PagesTab({ project }: PagesTabProps) {
         return;
 
       void removePage(projectId, page);
-      
+
       // Remove from selection if it was selected
       if (selectedPages.has(page.id)) {
         togglePage(page.id, false);
@@ -334,7 +329,7 @@ export function PagesTab({ project }: PagesTabProps) {
 
       await removePages(projectId, Array.from(selectedPages));
       clearSelection();
-      
+
       await alert({
         title: "Success",
         message: `${selectedCount} page${selectedCount > 1 ? 's' : ''} deleted successfully.`,
@@ -347,7 +342,7 @@ export function PagesTab({ project }: PagesTabProps) {
    */
   const non2xxCount = allItems.filter(page => {
     const status = page.httpStatus;
-    return !status || status < 200 || status >= 300;
+    return status != null && (status < 200 || status >= 300);
   }).length;
 
   /**
@@ -368,18 +363,18 @@ export function PagesTab({ project }: PagesTabProps) {
       if (!ok) return;
 
       const deletedCount = await removeNon2xxPages(projectId, allItems);
-      
+
       // Clear selection since some selected pages may have been deleted
       clearSelection();
-      
+
       // Clear 404 filter if it was active
       if (is404Filtered) {
         setIs404Filtered(false);
       }
-      
+
       // Close the menu
       setShow404Menu(false);
-      
+
       await alert({
         title: "Success",
         message: `${deletedCount} page${deletedCount > 1 ? 's' : ''} deleted successfully.`,
@@ -415,12 +410,23 @@ export function PagesTab({ project }: PagesTabProps) {
       throw new Error(`URL domain must match project domain: ${projectDomain}`);
     }
 
-    // Add page via cloud function (includes URL validation)
-    await callServerFunction("addPage", { projectId, url: fullUrl });
-    
-    // Close modal and show success alert
-    setShowAddPageModal(false);
-    
+    // Add page via Next.js API route
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("User not authenticated");
+    const token = await currentUser.getIdToken();
+    const response = await fetch("/api/pages/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ projectId, url: fullUrl }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as any).error || `Server returned ${response.status}`);
+    }
+
+    // Close drawer and show success alert
+    setAddDrawerOpen(false);
+
     await alert({
       title: "Success",
       message: "Page added successfully!",
@@ -431,31 +437,42 @@ export function PagesTab({ project }: PagesTabProps) {
   const handleUploadSitemap = useCallback(async (file: File) => {
     try {
       const text = await file.text();
-      
+
       // Parse URLs from sitemap XML
       const urlMatches = text.match(/<loc>(.*?)<\/loc>/g);
       if (!urlMatches) {
-        setShowSitemapModal(false);
+        setAddDrawerOpen(false);
         await alert({ title: "Error", message: "No URLs found in sitemap" });
         return;
       }
 
       const urls = urlMatches.map(match => match.replace(/<\/?loc>/g, ""));
-      
-      // Add pages via cloud function
-      await callServerFunction("uploadSitemap", { projectId, urls });
-      
+
+      // Add pages via Next.js API route
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("User not authenticated");
+      const token = await currentUser.getIdToken();
+      const response = await fetch("/api/pages/upload-sitemap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ projectId, urls }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as any).error || `Server returned ${response.status}`);
+      }
+
       // Close modal first, then show success alert
-      setShowSitemapModal(false);
-      
+      setAddDrawerOpen(false);
+
       await alert({
         title: "Success",
         message: `${urls.length} pages added from sitemap!`,
       });
     } catch (err) {
       // Close modal first, then show error alert
-      setShowSitemapModal(false);
-      
+      setAddDrawerOpen(false);
+
       await alert({
         title: "Error",
         message: err instanceof Error ? err.message : "Failed to upload sitemap",
@@ -475,11 +492,28 @@ export function PagesTab({ project }: PagesTabProps) {
     if (!ok) return;
 
     try {
-      await callServerFunction("startPageCollection", { 
-        projectId, 
-        domain: project.domain 
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      const token = await currentUser.getIdToken();
+
+      const response = await fetch('/api/page-collection/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId }),
       });
-      
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to start page collection');
+      }
+
+      setAddDrawerOpen(false);
       await alert({
         title: "Collection Started",
         message: "Website collection has started. Pages will be populated automatically.",
@@ -510,16 +544,18 @@ export function PagesTab({ project }: PagesTabProps) {
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               placeholder="Filter pages by url or title"
-              className="input"
+              className="input w-80"
             />
 
-            {/* Clear selection */}
-            <DSIconButton
-              variant="neutral"
-              icon={<PiX size={20} />}
-              label="Clear selection"
-              onClick={clearSelection}
-            />
+            {/* Clear selection — only visible when pages are selected */}
+            {selectedCount > 0 && (
+              <DSIconButton
+                variant="neutral"
+                icon={<PiX size={20} />}
+                label="Clear selection"
+                onClick={clearSelection}
+              />
+            )}
 
             {/* Scan selected pages */}
             <div className="relative">
@@ -604,50 +640,13 @@ export function PagesTab({ project }: PagesTabProps) {
               {is404Filtered ? `${displayedItems.length} of ${totalCount}` : `${totalCount}`} pages
               {is404Filtered && <span className="text-red-400 ml-1">(filtered)</span>}
             </div>
-            
-            {/* Add Pages Dropdown */}
-            <div className="relative" ref={addMenuRef}>
-              <DSButton
-                onClick={() => setShowAddMenu(!showAddMenu)}
-                variant="solid"
-                leadingIcon={<FiPlus size={16} />}
-                trailingIcon={<FiChevronDown size={16} />}
-              >
-                Add Pages
-              </DSButton>
-              
-              {showAddMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-10">
-                  <button
-                    onClick={() => {
-                      setShowAddPageModal(true);
-                      setShowAddMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700"
-                  >
-                    Add Page Manually
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowSitemapModal(true);
-                      setShowAddMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700"
-                  >
-                    Upload Sitemap
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleCollectFromWebsite();
-                      setShowAddMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700"
-                  >
-                    Collect from Website
-                  </button>
-                </div>
-              )}
-            </div>
+
+            {/* Add Pages */}
+            <DSIconButton
+              label="Add pages"
+              icon={<FiPlus size={18} />}
+              onClick={() => setAddDrawerOpen(true)}
+            />
           </div>
         </div>
 
@@ -676,26 +675,25 @@ export function PagesTab({ project }: PagesTabProps) {
 
           {/* Empty state */}
           {displayedItems.length === 0 && (
-            <div className="text-slate-400">
-              {is404Filtered ? 'No non-2xx pages on this page' : 'No pages found'}
-            </div>
+            <EmptyState
+              icon={<PiFileText />}
+              title={is404Filtered ? 'No non-2xx pages on this page' : 'No pages found'}
+              description={is404Filtered ? 'No non-2xx pages found on this page.' : 'Define your first page set to start generating comprehensive accessibility reports and track issues effectively.'}
+
+            />
+
           )}
         </div>
       </div>
 
-      {/* Add Page Modal */}
-      <AddPageModal
-        open={showAddPageModal}
+      {/* Add Pages Drawer */}
+      <AddPagesDrawer
+        open={addDrawerOpen}
         projectDomain={project.domain.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-        onClose={() => setShowAddPageModal(false)}
-        onSubmit={handleAddPage}
-      />
-
-      {/* Upload Sitemap Modal */}
-      <UploadSitemapModal
-        open={showSitemapModal}
-        onClose={() => setShowSitemapModal(false)}
-        onSubmit={handleUploadSitemap}
+        onClose={() => setAddDrawerOpen(false)}
+        onAddPage={handleAddPage}
+        onUploadSitemap={handleUploadSitemap}
+        onCollect={handleCollectFromWebsite}
       />
 
       <PageReportDrawer

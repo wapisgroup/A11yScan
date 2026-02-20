@@ -45,8 +45,10 @@ type PageRowProps = {
 };
 
 export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowProps) {
-  const httpStatus = Number(page.httpStatus);
-  const isHttpOk = httpStatus >= 200 && httpStatus < 300;
+  const httpStatus = page.httpStatus != null ? Number(page.httpStatus) : null;
+  // Treat missing httpStatus as OK — pages added via sitemap upload or manually before
+  // a status check have no httpStatus yet; the scan itself will validate them.
+  const isHttpOk = httpStatus === null || (httpStatus >= 200 && httpStatus < 300);
   const [referencingRun, setReferencingRun] = useState<RunDoc | null>(null);
 
 
