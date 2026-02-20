@@ -8,167 +8,91 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Popup } from "@/components/molecule/popup";
+import { UIButton } from "@/components/ui/ui-button";
+
+type ScanOption = "discover-and-test" | "discover-and-choose" | "add-manually";
 
 type Props = {
-  /** Whether the modal is visible. */
   open: boolean;
-
-  /** Called when user cancels or presses Escape. */
   onClose: () => void;
-
-  /** Called when user submits with selected option. */
-  onSubmit: (option: "discover-and-test" | "discover-and-choose" | "add-manually") => void | Promise<void>;
+  onSubmit: (option: ScanOption) => void | Promise<void>;
 };
 
-/**
- * NoPagesScanModal
- * ----------------
- * Modal shown when user tries to start full scan but no pages exist yet.
- *
- * Provides 3 options:
- * - Discover all pages and test them
- * - Discover all pages and choose pages to test
- * - Add pages manually
- */
-export default function NoPagesScanModal({
-  open,
-  onClose,
-  onSubmit,
-}: Props) {
+const OPTIONS: { value: ScanOption; label: string; description: string }[] = [
+  {
+    value: "discover-and-test",
+    label: "Discover all pages and test them",
+    description: "Crawl the website, collect all pages, then run a full accessibility scan automatically.",
+  },
+  {
+    value: "discover-and-choose",
+    label: "Discover pages, then choose which to test",
+    description: "Collect all pages first so you can select which ones to scan.",
+  },
+  {
+    value: "add-manually",
+    label: "Add pages manually",
+    description: "Specify individual URLs to add and test.",
+  },
+];
+
+export default function NoPagesScanModal({ open, onClose, onSubmit }: Props) {
   const [mounted, setMounted] = useState(false);
-  const [selectedOption, setSelectedOption] = useState<"discover-and-test" | "discover-and-choose" | "add-manually">("discover-and-test");
+  const [selectedOption, setSelectedOption] = useState<ScanOption>("discover-and-test");
 
-  // Mark as mounted to avoid SSR/DOM mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
-  // Reset selection when modal opens
   useEffect(() => {
-    if (open) {
-      setSelectedOption("discover-and-test");
-    }
+    if (open) setSelectedOption("discover-and-test");
   }, [open]);
 
-  // Escape key closes the modal
   useEffect(() => {
     if (!open) return;
-
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "Enter") handleSubmit();
+      if (e.key === "Enter") onSubmit(selectedOption);
     };
-
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, selectedOption]);
-
-  const handleSubmit = () => {
-    onSubmit(selectedOption);
-  };
+  }, [open, onClose, onSubmit, selectedOption]);
 
   const body = open ? (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* backdrop */}
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50"
-        aria-label="Close no pages modal"
-        onClick={onClose}
-      />
+    <Popup title="No Pages Found" onClose={onClose} size="md">
+      <p className="as-p2-text secondary-text-color">
+        This project has no pages yet. How would you like to proceed?
+      </p>
 
-      {/* dialog */}
-      <div className="relative w-full max-w-2xl px-4">
-        <Popup title="No Pages Found">
-          <div className="flex flex-col gap-medium w-full">
-            <div className="flex flex-col gap-small">
-              <p className="text-slate-700">
-                You haven't added any pages to this project yet.
-              </p>
-              
-              <p className="text-slate-700">
-                To run a full scan, you can:
-              </p>
-              
-              <ul className="list-disc list-inside text-slate-600 text-sm space-y-1 ml-2">
-                <li>automatically discover all pages and test them, or</li>
-                <li>discover all pages first and choose which ones to test, or</li>
-                <li>add pages manually.</li>
-              </ul>
-
-              <p className="text-slate-700 font-semibold mt-4">
-                How would you like to proceed?
-              </p>
-
-              <div className="flex flex-col gap-3 mt-2">
-                <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                  <input
-                    type="radio"
-                    name="scan-option"
-                    value="discover-and-test"
-                    checked={selectedOption === "discover-and-test"}
-                    onChange={(e) => setSelectedOption(e.target.value as any)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="font-semibold text-slate-700">Discover all pages and test them</div>
-                    <div className="text-sm text-slate-600">Collect pages from the website (you can start the scan once pages are ready)</div>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                  <input
-                    type="radio"
-                    name="scan-option"
-                    value="discover-and-choose"
-                    checked={selectedOption === "discover-and-choose"}
-                    onChange={(e) => setSelectedOption(e.target.value as any)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="font-semibold text-slate-700">Discover all pages and choose pages to test</div>
-                    <div className="text-sm text-slate-600">Collect all pages first, then select which ones to scan</div>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                  <input
-                    type="radio"
-                    name="scan-option"
-                    value="add-manually"
-                    checked={selectedOption === "add-manually"}
-                    onChange={(e) => setSelectedOption(e.target.value as any)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="font-semibold text-slate-700">Add pages manually</div>
-                    <div className="text-sm text-slate-600">Choose specific pages to add and test</div>
-                  </div>
-                </label>
-              </div>
+      <div className="flex flex-col gap-[var(--spacing-s)]">
+        {OPTIONS.map((opt) => (
+          <label
+            key={opt.value}
+            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
+              selectedOption === opt.value
+                ? "border-[var(--color-primary)] bg-[var(--color-primary-light)]"
+                : "border-[var(--color-border-light)] hover:border-[var(--color-border-medium)] hover:bg-[var(--color-bg-light)]"
+            }`}
+          >
+            <input
+              type="radio"
+              name="scan-option"
+              value={opt.value}
+              checked={selectedOption === opt.value}
+              onChange={() => setSelectedOption(opt.value)}
+              className="mt-0.5 accent-[var(--color-primary)]"
+            />
+            <div>
+              <p className="as-b2-text primary-text-color">{opt.label}</p>
+              <p className="as-p3-text secondary-text-color mt-0.5">{opt.description}</p>
             </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                className="px-5 py-2 rounded-xl border border-slate-200"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                className="px-5 py-2 rounded-xl text-white bg-gradient-to-r from-purple-500 to-cyan-400"
-                onClick={handleSubmit}
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </Popup>
+          </label>
+        ))}
       </div>
-    </div>
+
+      <div className="flex justify-end gap-3 pt-2">
+        <UIButton variant="outline" onClick={onClose}>Cancel</UIButton>
+        <UIButton onClick={() => onSubmit(selectedOption)}>Continue</UIButton>
+      </div>
+    </Popup>
   ) : null;
 
   if (!mounted) return null;

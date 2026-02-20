@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot, type DocumentData } from "firebase/firestore";
 
 import { db } from "@/utils/firebase";
@@ -59,21 +60,25 @@ export type ProjectDetailPageState = {
 export const useProjectDetailPageState = (
   projectId: string | undefined
 ): ProjectDetailPageState | null => {
+  // useSearchParams must be called unconditionally (before any early returns)
+  // so React's hook call order stays consistent across renders.
+  const searchParams = useSearchParams();
+
   if (!projectId) return null;
 
   // Keep tabs stable. If you ever need to conditionally hide tabs, replace this
   // with a memo that depends on feature flags / project state.
   const tabs = useMemo(() => DEFAULT_TABS, []);
 
-  // Initialize tab from URL query (?tab=pages) if present.
-  const getInitialTab = (): ProjectTabKey => {
-    if (typeof window === "undefined") return "overview";
-    const params = new URLSearchParams(window.location.search);
-    const queryTab = params.get("tab");
-    return DEFAULT_TABS.includes(queryTab as ProjectTabKey) ? (queryTab as ProjectTabKey) : "overview";
-  };
+  // Initialize tab from the URL query param. useSearchParams is SSR-safe, so
+  // this returns the correct value during both server pre-rendering and client
+  // hydration — avoiding the mismatch that caused the URL to reset to ?tab=overview.
+  const queryTab = searchParams.get("tab");
+  const initialTab: ProjectTabKey = DEFAULT_TABS.includes(queryTab as ProjectTabKey)
+    ? (queryTab as ProjectTabKey)
+    : "overview";
 
-  const [tab, setTabState] = useState<ProjectTabKey>(getInitialTab);
+  const [tab, setTabState] = useState<ProjectTabKey>(initialTab);
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");

@@ -130,9 +130,23 @@ export function hasFeature(
   subscription: Subscription | null, 
   featureKey: keyof PackageConfig['features']
 ): boolean {
-  if (!subscription) return false;
-  return subscription.features[featureKey] || false;
+
+  const packageId = subscription?.packageId;
+  const packageConfig = getPackageConfig(packageId || '');
+  
+  if (!packageConfig) {
+    console.warn('Package config not found for packageId:', packageId);
+    return false;
+  }
+  
+  if (!packageConfig?.features) {
+    console.warn('No features found in packageConfig');
+    return false;
+  }
+
+  return packageConfig.features[featureKey] || false;
 }
+
 
 /**
  * Check if user can perform an action based on limits

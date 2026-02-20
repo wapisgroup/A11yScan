@@ -23,7 +23,7 @@ export function PageContainer({ title, buttons, excludePadding = false, excludeH
       {(title || buttons) && (
         <div className={`flex pt-[var(--spacing-m)] pb-[var(--spacing-m)] justify-between items-center self-stretch ${!excludeHeaderBorder ? "border-b border-solid border-[var(--color-border-light)]" : "pb-0"} ${inner ? "px-[var(--spacing-m)]" : "px-[var(--spacing-l)]"}`}>
           <div className={`flex justify-center items-end gap-2.5 ${inner ? "as-h4-text" : "as-h3-text"} primary-text-color max-w-[50%]` }>
-            {(description) ? <div>{title}<div className={`as-p3-text text-slate-500`}>{description}</div></div> : title}
+            {(description) ? <div className="flex flex-col gap-1">{title}<div className={`as-p3-text text-slate-500`}>{description}</div></div> : title}
           </div>
           <div className="flex items-center gap-2.5">{buttons}</div>
         </div>

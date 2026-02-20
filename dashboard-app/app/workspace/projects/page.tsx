@@ -16,14 +16,17 @@
  */
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FiExternalLink, FiFileText, FiPlus, FiSettings, FiSlash, FiUpload } from "react-icons/fi";
+import { UITooltip } from "@/components/ui/ui-tooltip";
 
 import { PageContainer } from "@/components/molecule/page-container";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
 import { createProject, deleteProject, startProjectScan, updateProject, type Project } from "@/services/projectsService";
+import { getLastScanDates } from "@/services/projectRunsService";
 
 import dynamic from "next/dynamic";
 import { useConfirm } from "@/components/providers/window-provider";
@@ -57,10 +60,19 @@ const ProjectModal = dynamic(() => import("@/components/modals/ProjectModal"), {
  */
 export default function ProjectsPage() {
 
+  const searchParams = useSearchParams();
+
   /**
    * Local modal state for the create/edit ProjectModal.
    */
   const [modal, setModal] = useState<ModalState<Project>>({ open: false });
+
+  // Auto-open the create modal when arriving with ?action=add (e.g. from Quick Actions)
+  useEffect(() => {
+    if (searchParams.get("action") === "add") {
+      setModal({ open: true, mode: "create", initial: null });
+    }
+  }, [searchParams]);
 
   /**
    * Track which project is being edited inline
@@ -144,6 +156,18 @@ export default function ProjectsPage() {
   const { totalPages, safePage, startIdx } = pagination;
 
   /**
+   * Last scan date per project, fetched from the runs subcollection.
+   * Falls back to the denormalized `lastScanAt` on the project doc.
+   */
+  const [lastScanDates, setLastScanDates] = useState<Map<string, Date | null>>(new Map());
+
+  useEffect(() => {
+    if (!pagedItems.length) return;
+    const ids = pagedItems.map((p) => p.id);
+    void getLastScanDates(ids).then(setLastScanDates);
+  }, [pagedItems]);
+
+  /**
    * Handles submission from the ProjectModal.
    *
    * - Creates a new project when modal.mode === "create"
@@ -151,13 +175,13 @@ export default function ProjectsPage() {
    * - Refreshes the project list on success
    * - Surfaces any error message to the page
    */
-  const handleModalSubmission = async (values: { name: string; domain: string }) => {
+  const handleModalSubmission = async (values: { name: string; domain: string; config?: import("@/services/projectsService").ProjectConfig }) => {
     setError("");
     try {
       if (!modal.open) return;
 
       if (modal.mode === "create") {
-        await createProject({ name: values.name || undefined, domain: values.domain });
+        await createProject({ name: values.name || undefined, domain: values.domain, config: values.config });
       } else {
         await updateProject({
           id: modal.initial.id,
@@ -230,7 +254,7 @@ export default function ProjectsPage() {
             {error && <div style={{ color: 'var(--color-error)' }} className="as-p2-text">{error}</div>}
 
             <div className="w-full">
-              <div className="overflow-x-auto">
+              <div className="">
                 <table className="my-table">
                   <thead>
                     <tr>
@@ -251,20 +275,21 @@ export default function ProjectsPage() {
                       pagedItems.map((p) => {
                         const projectName = p.name || p.domain;
                         const url = p.domain?.startsWith("http") ? p.domain : `https://${p.domain}`;
-                        // We only have createdAt in the current data model; show it as a placeholder for "Last scan".
-                        const lastScan = p.createdAt
-                          ? (() => {
-                            try {
-                              // Firestore Timestamp has toDate()
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              const v: any = p.createdAt;
-                              const d: Date = typeof v?.toDate === "function" ? v.toDate() : new Date(v);
-                              return d.toLocaleString();
-                            } catch {
-                              return "—";
-                            }
-                          })()
-                          : "—";
+                        const toDateString = (value: unknown): string => {
+                          if (!value) return "—";
+                          try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const v = value as any;
+                            const d: Date = typeof v?.toDate === "function" ? v.toDate() : new Date(v);
+                            return d.toLocaleString();
+                          } catch {
+                            return "—";
+                          }
+                        };
+                        // Prefer the date fetched from runs subcollection; fall back to
+                        // the denormalized field on the project doc (set when scan is triggered).
+                        const lastScanDate = lastScanDates.get(p.id) ?? p.lastScanAt ?? null;
+                        const lastScan = toDateString(lastScanDate);
 
                         return (
                           <tr key={p.id}>
@@ -288,20 +313,25 @@ export default function ProjectsPage() {
                                   onClick={() => void start(p)}
                                 />
 
-                                <Link
-                                  href={`/workspace/reports?projectId=${encodeURIComponent(p.id)}`}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg secondary-text-color bg-[var(--color-bg-light)] hover:bg-[var(--color-bg-light)]/70 transition-colors"
-                                  aria-label="View reports"
-                                  title="View reports"
-                                >
-                                  <FiFileText />
-                                </Link>
+                                <UITooltip text="View reports">
+                                  <Link
+                                    href={`/workspace/projects/${encodeURIComponent(p.id)}?tab=reports`}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg secondary-text-color bg-[var(--color-bg-light)] hover:bg-[var(--color-bg-light)]/70 transition-colors"
+                                    aria-label="View reports"
+                                  >
+                                    <FiFileText />
+                                  </Link>
+                                </UITooltip>
 
-                                <DSIconButton
-                                  icon={<FiSettings />}
-                                  label="Project settings"
-                                  onClick={() => openEdit(p)}
-                                />
+                                <UITooltip text="Project settings">
+                                  <Link
+                                    href={`/workspace/projects/${encodeURIComponent(p.id)}?tab=settings`}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg secondary-text-color bg-[var(--color-bg-light)] hover:bg-[var(--color-bg-light)]/70 transition-colors"
+                                    aria-label="Project settings"
+                                  >
+                                    <FiSettings />
+                                  </Link>
+                                </UITooltip>
 
                                 <DSIconButton
                                   variant="danger"

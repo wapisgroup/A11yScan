@@ -40,10 +40,23 @@ if (process.env.EMULATOR_MODE === '1') {
 }
 
 // Prefer explicit projectId and storageBucket so admin.app().options aren't undefined.
-admin.initializeApp({ 
+const appConfig = {
   projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
   storageBucket: process.env.STORAGE_BUCKET
-});
+};
+
+// When running locally outside the emulator, use the service account key from env.
+if (process.env.EMULATOR_MODE !== '1' && process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    appConfig.credential = admin.credential.cert(serviceAccount);
+  } catch (e) {
+    console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:', e.message);
+    process.exit(1);
+  }
+}
+
+admin.initializeApp(appConfig);
 const db = admin.firestore();
 const MAX_PARALLEL_JOBS = Math.max(1, Number(process.env.WORKER_MAX_PARALLEL_JOBS || '1'));
 
@@ -56,10 +69,13 @@ console.log('FIREBASE_STORAGE_EMULATOR_HOST:', process.env.FIREBASE_STORAGE_EMUL
 console.log('STORAGE_BUCKET:', process.env.STORAGE_BUCKET);
 
 // Firestore jobs fallback (used in emulator / local dev). The worker will watch /jobs for queued jobs.
-if (process.env.EMULATOR_MODE === '1' || process.env.FIRESTORE_EMULATOR_HOST) {
+if (process.env.EMULATOR_MODE === '1' && process.env.FIRESTORE_EMULATOR_HOST) {
     // Firestore Admin SDK routes to the emulator automatically when FIRESTORE_EMULATOR_HOST is set.
     console.log('[firebase-admin] Using Firestore emulator at', process.env.FIRESTORE_EMULATOR_HOST);
     console.log('Worker: enabling Firestore jobs listener (emulator mode)');
+}
+
+
     const jobsCol = db.collection('jobs');
     let activeJobs = 0;
     let draining = false;
@@ -216,6 +232,6 @@ if (process.env.EMULATOR_MODE === '1' || process.env.FIRESTORE_EMULATOR_HOST) {
     setInterval(() => {
         void drainQueue();
     }, 3000);
-}
+
 
 console.log('Worker started successfully. Listening for jobs...');

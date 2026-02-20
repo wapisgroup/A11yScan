@@ -14,7 +14,8 @@ type ActiveRun = {
   projectId: string;
   projectName: string;
   status: 'queued' | 'running' | 'done' | 'failed';
-  progress?: number;
+  pagesScanned: number;
+  pagesTotal: number;
   startedAt?: Date;
   runType?: string;
 };
@@ -54,62 +55,69 @@ export function DashboardActiveScans({
         </div>
       ) : (
         <div className="space-y-3">
-          {activeRuns.map((run) => (
-            <div key={run.id} className="border border-[var(--color-border-light)] rounded-lg p-4">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="p-3 bg-[var(--color-bg-light)] rounded-lg">
-                  <PiGlobe className="text-2xl text-[#649DAD]" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold primary-text-color">{run.projectName}</h3>
-                  <p className="text-sm text-gray-500">{run.projectId}</p>
-                </div>
-              </div>
-              
-              <div className="text-xs text-gray-600 mb-2">
-                {run.status === 'running' ? 'Running' : 'Starting'} • {formatTimeAgo(run.startedAt)}
-              </div>
-              
-              {run.status === 'running' && run.progress !== undefined ? (
-                <>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-gray-600">Progress: {Math.floor(run.progress * 840 / 100)}/840</span>
-                    <span className="font-bold text-gray-900">{Math.floor(run.progress)}%</span>
+          {activeRuns.map((run) => {
+            const progressPct =
+              run.pagesTotal > 0
+                ? Math.round((run.pagesScanned / run.pagesTotal) * 100)
+                : 0;
+
+            return (
+              <div key={run.id} className="border border-[var(--color-border-light)] rounded-lg p-4">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="p-3 bg-[var(--color-bg-light)] rounded-lg">
+                    <PiGlobe className="text-2xl text-[#649DAD]" />
                   </div>
-                  <div className="w-full bg-[var(--color-bg-light)] rounded-full h-2 overflow-hidden mb-3">
-                    <div 
-                      className="h-full bg-[#649DAD] transition-all duration-500"
-                      style={{ width: `${run.progress}%` }}
-                    />
+                  <div className="flex-1">
+                    <h3 className="font-bold primary-text-color">{run.projectName}</h3>
+                    <p className="text-sm text-gray-500">{run.runType ?? "full-scan"}</p>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-1">
-                      <PiSpinner className="text-[#649DAD] animate-spin" />
-                      <span className="text-[#649DAD] font-semibold">Scanning</span>
+                </div>
+
+                <div className="text-xs text-gray-600 mb-2">
+                  {run.status === 'running' ? 'Running' : 'Starting'} • {formatTimeAgo(run.startedAt)}
+                </div>
+
+                {run.status === 'running' ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-gray-600">
+                        {run.pagesScanned} / {run.pagesTotal} pages
+                      </span>
+                      <span className="font-bold text-gray-900">{progressPct}%</span>
                     </div>
-                    <span className="text-gray-600">{Math.floor(run.progress)}%</span>
-                    <span className="text-gray-400">
-                      {Math.floor((100 - run.progress) * 0.5)}m left
-                    </span>
-                    <span className="text-gray-600">{Math.floor(run.progress * 840 / 100)}/840</span>
+                    <div className="w-full bg-[var(--color-bg-light)] rounded-full h-2 overflow-hidden mb-3">
+                      <div
+                        className="h-full bg-[#649DAD] transition-all duration-500"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-1">
+                        <PiSpinner className="text-[#649DAD] animate-spin" />
+                        <span className="text-[#649DAD] font-semibold">Scanning</span>
+                      </div>
+                      <span className="text-gray-600">
+                        {run.pagesScanned} / {run.pagesTotal}
+                      </span>
+                    </div>
+                  </>
+                ) : run.status === 'queued' ? (
+                  <div className="py-3 text-center">
+                    <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                      <PiSpinner className="animate-spin" />
+                      <span>Waiting to start...</span>
+                    </div>
                   </div>
-                </>
-              ) : run.status === 'queued' ? (
-                <div className="py-3 text-center">
-                  <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                    <PiSpinner className="animate-spin" />
-                    <span>Waiting to start...</span>
-                  </div>
+                ) : null}
+
+                <div className="mt-4">
+                  <Link href={`/workspace/projects/${run.projectId}`}>
+                    <DSButton className="w-full">View Active Scan</DSButton>
+                  </Link>
                 </div>
-              ) : null}
-              
-              <div className="mt-4">
-                <Link href={`/workspace/projects/${run.projectId}`}>
-                  <DSButton className="w-full">View Active Scan</DSButton>
-                </Link>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </DSSurface>

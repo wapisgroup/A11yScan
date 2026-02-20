@@ -1,0 +1,50 @@
+name: "Ablelytics Scan"
+description: "Trigger page collection and accessibility scans via the Ablelytics API."
+author: "Wapis Group"
+
+inputs:
+  api-base-url:
+    description: "Ablelytics API base URL, including /v1 (example: https://us-central1-<project>.cloudfunctions.net/api/v1)"
+    required: true
+  api-key:
+    description: "API key used in x-api-key header"
+    required: true
+  project-id:
+    description: "Ablelytics project id"
+    required: true
+  scan-mode:
+    description: "Scan mode: full or page-set"
+    required: false
+    default: "full"
+  page-set-id:
+    description: "Required only when scan-mode is page-set"
+    required: false
+  include-page-collection:
+    description: "Run page collection before scanning (true/false)"
+    required: false
+    default: "false"
+  wait-for-completion:
+    description: "Wait for page collection/scan run completion (true/false)"
+    required: false
+    default: "true"
+  poll-interval-seconds:
+    description: "Polling interval in seconds while waiting for run completion"
+    required: false
+    default: "10"
+  timeout-seconds:
+    description: "Maximum wait time in seconds for each run"
+    required: false
+    default: "1800"
+
+outputs:
+  page-collection-run-id:
+    description: "Run id for page collection step (if enabled)"
+  scan-run-id:
+    description: "Run id for scan step"
+  final-status:
+    description: "Final run status (done/completed/failed/error/queued)"
+
+runs:
+  using: "node20"
+  main: "index.js"
+

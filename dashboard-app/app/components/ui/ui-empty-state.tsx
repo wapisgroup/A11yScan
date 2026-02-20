@@ -16,7 +16,7 @@ type UIEmptyStateProps = {
 
 export function UIEmptyState({ icon, title, description, action }: UIEmptyStateProps) {
   return (
-    <UISurface className="text-center">
+    <UISurface className="text-center p-8 py-12">
       {icon ? <div className="mx-auto mb-3 w-fit text-4xl table-heading-text-color">{icon}</div> : null}
       <h3 className="as-h4-text primary-text-color">{title}</h3>
       {description ? <p className="mt-2 as-p2-text secondary-text-color">{description}</p> : null}

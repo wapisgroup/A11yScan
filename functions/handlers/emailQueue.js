@@ -1,4 +1,5 @@
-const functions = require('firebase-functions/v1');
+const functions = require('firebase-functions');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 const db = getFirestore();
@@ -314,13 +315,11 @@ function summarizeEmailDocs(docs) {
   return summary;
 }
 
-exports.processEmailQueueScheduled = functions.pubsub
-  .schedule('every 2 minutes')
-  .onRun(async () => {
-    const result = await processEmailQueue();
-    console.log('[emailQueue] scheduled run:', result);
-    return null;
-  });
+exports.processEmailQueueScheduled = onSchedule('every 2 minutes', async (event) => {
+  const result = await processEmailQueue();
+  console.log('[emailQueue] scheduled run:', result);
+  return null;
+});
 
 exports.processEmailQueueHttp = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') {

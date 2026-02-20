@@ -21,6 +21,8 @@ import { subscribeProjectPages, runSelectedPages } from "@/services/projectPages
 import { isLikelyScanned, resolvePageSetPages } from "@/services/pageSetResolver";
 import { createReport } from "@/services/reportService";
 import { auth } from "@/utils/firebase";
+import { EmptyState } from "../atom/EmptyState";
+import { PiFileText } from "react-icons/pi";
 
 type PageSetsTabProps = {
   project: Project;
@@ -181,9 +183,18 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
           ))}
 
           {!loading && !error && pagedItems.length === 0 && (
-            <div className="text-slate-400 p-3 bg-[var(--color-bg-light)] rounded border border-[var(--color-border-light)]">
-              No page sets created yet.
-            </div>
+            <EmptyState
+              icon={<PiFileText />}
+              title="No page sets yet"
+              description="Define your first page set to start generating comprehensive accessibility reports and track issues effectively."
+              action={
+                <DSButton
+                  onClick={() => openCreate()}
+                >
+                  Generate Your First Report
+                </DSButton>
+              }
+            />
           )}
         </div>
       </PageContainer>

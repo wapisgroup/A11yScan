@@ -143,6 +143,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // API usage logs written by backend middleware.
+    // Users can read only their own logs from `apiLogs/{uid}/entries`.
+    match /apiLogs/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // backend/admin only
+
+      match /entries/{entryId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false; // backend/admin only
+      }
+    }
+
     // Default deny for everything else
     match /{document=**} {
       allow read, write: if false;

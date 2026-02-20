@@ -10,6 +10,7 @@ import {
   updateDoc,
   where,
   orderBy,
+  limit,
 } from "firebase/firestore";
 
 import { db } from "@/utils/firebase";
@@ -235,4 +236,59 @@ export async function hideProjectRun(projectId: string, id: string): Promise<voi
   // We store `hidden` as a boolean for simplicity.
   // If you later want auditability, add `hiddenAt` (serverTimestamp) and `hiddenBy`.
   await updateDoc(runRef, { hidden: true });
+}
+
+const SCAN_RUN_TYPES = new Set(["scan_pages", "full_scan"]);
+
+const tsToDate = (ts: unknown): Date | null => {
+  if (!ts) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v = ts as any;
+    return typeof v.toDate === "function" ? v.toDate() : new Date(v);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * getLastScanDates
+ * ----------------
+ * For each project ID, finds the most recent `scan_pages` or `full_scan` run
+ * and returns its `startedAt` timestamp.
+ *
+ * Queries all runs per project client-side to avoid needing a composite index.
+ * Suitable for the projects list where N is small (typical user has <50 projects).
+ */
+export async function getLastScanDates(
+  projectIds: string[]
+): Promise<Map<string, Date | null>> {
+  const result = new Map<string, Date | null>();
+  if (!projectIds.length) return result;
+
+  await Promise.all(
+    projectIds.map(async (projectId) => {
+      try {
+        const snap = await getDocs(collection(db, "projects", projectId, "runs"));
+        let latestMs = 0;
+
+        for (const d of snap.docs) {
+          const data = d.data() as DocumentData;
+          if (!SCAN_RUN_TYPES.has(String(data.type ?? ""))) continue;
+
+          const date = tsToDate(data.startedAt) ?? tsToDate(data.createdAt);
+          if (date) {
+            const ms = date.getTime();
+            if (ms > latestMs) latestMs = ms;
+          }
+        }
+
+        result.set(projectId, latestMs > 0 ? new Date(latestMs) : null);
+      } catch {
+        result.set(projectId, null);
+      }
+    })
+  );
+
+  return result;
 }

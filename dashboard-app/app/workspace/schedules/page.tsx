@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PiCalendar, PiPlus, PiPlayCircle, PiPencilSimple } from "react-icons/pi";
+import { PiCalendar, PiPlus, PiPlayCircle, PiPencilSimple, PiTrash, PiAirplayLight, PiPlayLight, PiPauseLight } from "react-icons/pi";
 
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
@@ -14,7 +14,8 @@ import ScheduleModal from "@/components/modals/ScheduleModal";
 import { useAuth } from "@/utils/firebase";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useSchedulesPageState } from "@/state-services/schedules-state";
-import { createSchedule, updateSchedule } from "@/services/schedulesService";
+import { createSchedule, updateSchedule, deleteSchedule } from "@/services/schedulesService";
+import { useConfirm } from "@/components/providers/window-provider";
 import type { ScheduleDoc } from "@/types/schedule";
 import { PageDataLoading } from "@/components/molecule/page-data-loading";
 
@@ -32,8 +33,25 @@ export default function SchedulesPage() {
   const { subscription, usageLimits, canPerformAction } = useSubscription();
   const { schedules, loading, error } = useSchedulesPageState(user?.organisationId);
 
+  const confirm = useConfirm();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleDoc | null>(null);
+
+  const handleDelete = async (schedule: ScheduleDoc) => {
+    const ok = await confirm({
+      title: "Delete schedule",
+      message: (
+        <>
+          Delete the scheduled scan for <span className="font-medium">{schedule.projectName}</span>? This cannot be undone.
+        </>
+      ),
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      tone: "danger",
+    });
+    if (!ok) return;
+    await deleteSchedule(schedule.id);
+  };
 
   const limitReached = !canPerformAction("scheduledScans");
   const scheduledUsage = usageLimits.scheduledScans;
@@ -89,13 +107,12 @@ export default function SchedulesPage() {
                   }
                 />
               ) : (
-                <div className="overflow-x-auto">
+                <div className="">
                   <table className="my-table">
                     <thead>
                       <tr className="as-p3-text table-heading-text-color border-b border-[var(--color-border-light)] uppercase tracking-wider">
                         <th className="py-3 px-6">Project</th>
                         <th className="py-3 px-6">Type</th>
-                        <th className="py-3 px-6">Cadence</th>
                         <th className="py-3 px-6">Start date</th>
                         <th className="py-3 px-6">Options</th>
                         <th className="py-3 px-6">Status</th>
@@ -104,7 +121,7 @@ export default function SchedulesPage() {
                     </thead>
                     <tbody>
                       {schedules.map((schedule) => (
-                        <tr key={schedule.id} className="border-t border-[var(--color-border-light)] hover:bg-[var(--color-bg-light)] transition-colors">
+                        <tr key={schedule.id} className="border-t border-[var(--color-border-light)] ">
                           <td className="py-4 px-6">
                             <div className="flex flex-col">
                               <span className="as-p2-text primary-text-color">
@@ -118,18 +135,15 @@ export default function SchedulesPage() {
                             </div>
                           </td>
                           <td className="py-4 px-6">
-                            <span className="as-p2-text secondary-text-color">
+                            <span className="as-p3-text secondary-text-color">
+                              <div>
                               {schedule.type === "full_scan" ? "Full scan" : "Page set"}
-                              {schedule.pageSetName ? ` · ${schedule.pageSetName}` : ""}
+                              {schedule.pageSetName ? ` · ${schedule.pageSetName}` : ""}</div>
+                              <div>- {schedule.cadence}</div>
                             </span>
                           </td>
                           <td className="py-4 px-6">
-                            <span className="as-p2-text secondary-text-color capitalize">
-                              {schedule.cadence}
-                            </span>
-                          </td>
-                          <td className="py-4 px-6">
-                            <span className="as-p2-text secondary-text-color">
+                            <span className="as-p3-text secondary-text-color">
                               {toDateInputValue(schedule.startDate) || "—"}
                             </span>
                           </td>
@@ -160,17 +174,23 @@ export default function SchedulesPage() {
                                 label="Edit schedule"
                                 onClick={() => setEditingSchedule(schedule)}
                               />
-                              <DSButton
-                                variant="outline"
-                                size="sm"
+                              <DSIconButton
+                                icon={schedule.status === "active" ? <PiPauseLight size={16}/> : <PiPlayLight size={16}/>}
+                                label={schedule.status === "active" ? "Pause schedule" : "Resume schedule"}
                                 onClick={async () => {
                                   await updateSchedule(schedule.id, {
                                     status: schedule.status === "active" ? "paused" : "active",
                                   });
                                 }}
-                              >
-                                {schedule.status === "active" ? "Pause" : "Resume"}
-                              </DSButton>
+                              />
+                                
+
+                              <DSIconButton
+                                variant="danger"
+                                icon={<PiTrash size={16} />}
+                                label="Delete schedule"
+                                onClick={() => void handleDelete(schedule)}
+                              />
                             </div>
                           </td>
                         </tr>

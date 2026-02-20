@@ -12,8 +12,10 @@
     "scenarios:subscriptions:e2e:all": "node scripts/stripe-subscription-e2e.js --mode=all"
   },
   "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "firebase-admin": "^11.10.1",
-    "firebase-functions": "^4.7.0",
+    "firebase-functions": "^7.0.5",
     "stripe": "^20.3.0"
   }
 }

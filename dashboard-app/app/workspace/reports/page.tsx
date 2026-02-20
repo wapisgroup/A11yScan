@@ -117,7 +117,7 @@ export default function Reports() {
     <PrivateRoute>
       <WorkspaceLayout>
         <PageWrapper title="Reports">
-          <PageContainer title="Generated Reports" description="View and manage all your generated accessibility reports. Filter by type, status, or project to find specific reports. Click on a report to view details or download the PDF." buttons={<><div className="mt-4 flex items-center gap-3">
+          <PageContainer title="Generated Reports" excludePadding description="View and manage all your generated accessibility reports. Filter by type, status, or project to find specific reports. Click on a report to view details or download the PDF." buttons={<><div className="mt-4 flex items-center gap-3">
                 <DSButton
                   leadingIcon={<PiPlus size={20} />}
                   onClick={() => router.push('/workspace/projects')}
@@ -136,7 +136,7 @@ export default function Reports() {
 
             
             {/* Filters */}
-            <div className="mb-6 flex flex-wrap gap-4">
+            <div className="mb-6 flex flex-wrap gap-4 px-8 border-b border-[var(--color-border-light)] pb-4 w-full">
               {/* Type Filter */}
               <div className="flex items-center gap-small">
                 <span className="as-p2-text primary-text-color">Type:</span>
@@ -184,9 +184,9 @@ export default function Reports() {
               </div>
             </div>
 
-            <div className="w-full">
+            <div className="w-full px-3 mb-6">
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="my-table">
                   <thead>
                     <tr className="as-p3-text table-heading-text-color border-b border-[var(--color-border-light)] uppercase tracking-wider">
                       <th className="py-3 px-6">Report</th>

@@ -1,5 +1,5 @@
 // functions/handlers/pageSet.js
-const functions = require('firebase-functions/v1');
+const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { nowTimestamp } = require('../utils/helpers');
 

@@ -17,8 +17,9 @@ import {
   URL_APP_SCANS,
   URL_APP_SCHEDULES,
   URL_APP_DESIGN_SYSTEM,
+  URL_APP_API,
 } from "@/utils/urls";
-import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight, PiCalendar, PiPaletteLight } from "react-icons/pi";
+import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight, PiCalendar, PiPaletteLight, PiCode } from "react-icons/pi";
 import { FiUser, FiLogOut, FiSettings, FiCreditCard, FiShield } from "react-icons/fi";
 import { useToast } from "../providers/window-provider";
 import { subscribeToJobsWithToasts } from "@/services/jobsService";
@@ -27,6 +28,7 @@ import { useAuth } from "@/utils/firebase";
 import { URL_APP_PROFILE, URL_APP_ORGANISATION, URL_APP_BILLING, URL_APP_ADMIN } from "@/utils/urls";
 import { useRouter } from "next/navigation";
 import { isPlatformAdminUser } from "@/utils/platform-admin";
+import { useSubscription } from "@/hooks/use-subscription";
 
 type WorkspaceLayoutProps = {
   children: ReactNode;
@@ -37,6 +39,7 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const isAdmin = isPlatformAdminUser(user as Record<string, any>);
+  const { hasFeature } = useSubscription();
 
   useEffect(() => {
     const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user?.uid ?? null });
@@ -63,6 +66,7 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     { href: URL_APP_SCANS, label: "Scans", icon: <PiNotepadLight /> },
     { href: URL_APP_SCHEDULES, label: "Schedules", icon: <PiCalendar /> },
     { href: URL_APP_REPORTS, label: "Reports", icon: <PiNotepadLight /> },
+    ...(hasFeature('apiAccess') ? [{ href: URL_APP_API, label: "API", icon: <PiCode /> }] : []),
     ...(isAdmin ? [{ href: URL_APP_ADMIN, label: "Admin", icon: <FiShield /> }] : []),
     { href: URL_APP_DESIGN_SYSTEM, label: "Design System", icon: <PiPaletteLight /> },
   ];

@@ -145,3 +145,10 @@ Icon?
 # Keep any user-specific files out of git
 *.envrc
 .vercel
+
+
+#emulator
+dashboard-app/emulator-data/
+
+#local-artifacts
+worker/local-artifacts/

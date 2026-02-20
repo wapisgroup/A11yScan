@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, orderBy } from "firebase/firestore";
 import { db } from "@/utils/firebase";
 
 export type IssueBreakdown = {
@@ -20,7 +20,8 @@ export type ActiveRun = {
   projectId: string;
   projectName: string;
   status: "queued" | "running" | "done" | "failed";
-  progress?: number;
+  pagesScanned: number;
+  pagesTotal: number;
   startedAt?: Date;
   runType?: string;
 };
@@ -257,7 +258,8 @@ export async function loadActiveScans(organisationId: string): Promise<ActiveRun
           projectId,
           projectName: String(project.name ?? "Unknown Project"),
           status: (String(data.status ?? "queued") as ActiveRun["status"]),
-          progress: toNumber(data.progress),
+          pagesScanned: toNumber(data.pagesScanned),
+          pagesTotal: toNumber(data.pagesTotal),
           startedAt: asDate(data.startedAt) ?? asDate(data.createdAt) ?? undefined,
           runType: String(data.runType ?? data.type ?? "full-scan"),
         });
@@ -288,7 +290,8 @@ export async function loadActiveScans(organisationId: string): Promise<ActiveRun
             projectId,
             projectName: String(projectData.name ?? "Unknown Project"),
             status: (String(data.status ?? "queued") as ActiveRun["status"]),
-            progress: toNumber(data.progress),
+            pagesScanned: toNumber(data.pagesScanned),
+            pagesTotal: toNumber(data.pagesTotal),
             startedAt: asDate(data.startedAt) ?? asDate(data.createdAt) ?? undefined,
             runType: String(data.runType ?? data.type ?? "full-scan"),
           } as ActiveRun;
@@ -303,6 +306,290 @@ export async function loadActiveScans(organisationId: string): Promise<ActiveRun
   }
 }
 
+// ── Per-widget data types ────────────────────────────────────────────
+
+export type SummaryCardsData = {
+  totalProjects: number;
+  totalPages: number;
+  pagesScanned: number;
+  pagesUnscanned: number;
+  criticalIssues: number;
+  lastScanTime: Date | null;
+};
+
+export type ActiveScansData = {
+  activeRuns: ActiveRun[];
+  activeScans: number;
+};
+
+export type ViolationOverviewData = {
+  issueBreakdown: IssueBreakdown;
+};
+
+export type TopIssuesData = {
+  topIssueRules: TopIssueRule[];
+};
+
+export type HealthSnapshotData = {
+  totalPages: number;
+  pagesScanned: number;
+  pagesUnscanned: number;
+  scannedLast7Days: number;
+  stalePages: number;
+  totalIssues: number;
+};
+
+export type RecentPagesData = {
+  recentPages: RecentPage[];
+};
+
+export type ProblemPagesData = {
+  problemPages: ProblemPage[];
+};
+
+// ── Shared internal page aggregation ────────────────────────────────
+
+type PageAggregation = {
+  totalProjects: number;
+  totalPages: number;
+  pagesScanned: number;
+  pagesUnscanned: number;
+  failedPages: number;
+  stalePages: number;
+  scannedLast7Days: number;
+  lastScanTime: Date | null;
+  issueBreakdown: IssueBreakdown;
+  topIssueRules: TopIssueRule[];
+  recentPages: RecentPage[];
+  problemPages: ProblemPage[];
+};
+
+async function loadPageAggregation(
+  organisationId: string,
+  projectId?: string
+): Promise<PageAggregation> {
+  let projectsQuery;
+  if (projectId) {
+    // Single project — still verify it belongs to the org
+    projectsQuery = query(
+      collection(db, "projects"),
+      where("organisationId", "==", organisationId),
+      where("__name__", "==", projectId)
+    );
+  } else {
+    projectsQuery = query(
+      collection(db, "projects"),
+      where("organisationId", "==", organisationId)
+    );
+  }
+
+  const projectsSnap = await getDocs(projectsQuery);
+  const totalProjects = projectsSnap.size;
+  const projectsMap = new Map<string, Record<string, unknown>>(
+    projectsSnap.docs.map((docSnap) => [
+      docSnap.id,
+      { id: docSnap.id, ...(docSnap.data() as Record<string, unknown>) },
+    ])
+  );
+
+  const projectEntries = Array.from(projectsMap.entries());
+
+  const pageSnapshots = await Promise.all(
+    projectEntries.map(async ([pid]) => {
+      const subcollectionSnap = await getDocs(
+        collection(db, "projects", pid, "pages")
+      );
+      if (!subcollectionSnap.empty) return { projectId: pid, snap: subcollectionSnap };
+
+      const topLevelSnap = await getDocs(
+        query(collection(db, "pages"), where("projectId", "==", pid))
+      );
+      return { projectId: pid, snap: topLevelSnap };
+    })
+  );
+
+  let totalPages = 0;
+  let pagesScanned = 0;
+  let pagesUnscanned = 0;
+  let failedPages = 0;
+  let stalePages = 0;
+  let scannedLast7Days = 0;
+  let lastScanTime: Date | null = null;
+
+  const issueBreakdownAcc: IssueBreakdown = { ...ZERO_ISSUES };
+  const recentPagesAcc: RecentPage[] = [];
+  const problemPagesAcc: ProblemPage[] = [];
+  const issueRuleMap = new Map<string, TopIssueRule>();
+
+  const now = Date.now();
+  const staleThresholdMs = 30 * 24 * 60 * 60 * 1000;
+  const recentThresholdMs = 7 * 24 * 60 * 60 * 1000;
+
+  for (const { projectId: pid, snap } of pageSnapshots) {
+    const project = projectsMap.get(pid);
+    const projectName = String(project?.name ?? "Unknown Project");
+    totalPages += snap.size;
+
+    for (const pageDoc of snap.docs) {
+      const pageData = pageDoc.data() as Record<string, unknown>;
+      const summary = getPageSummary(pageData);
+      const lastScanned = getLastScannedAt(pageData);
+      const scanned = isPageScanned(pageData, summary, lastScanned);
+
+      if (scanned) pagesScanned += 1;
+      else pagesUnscanned += 1;
+
+      if (lastScanned) {
+        const scanMs = lastScanned.getTime();
+        if (!lastScanTime || scanMs > lastScanTime.getTime()) lastScanTime = lastScanned;
+        if (now - scanMs <= recentThresholdMs) scannedLast7Days += 1;
+        if (now - scanMs > staleThresholdMs) stalePages += 1;
+      }
+
+      const status = String(pageData.status ?? "").toLowerCase();
+      const scanStatus = String(pageData.scanStatus ?? "").toLowerCase();
+      if (status === "failed" || scanStatus === "failed") failedPages += 1;
+
+      mergeBreakdown(issueBreakdownAcc, summary);
+
+      if (lastScanned) {
+        recentPagesAcc.push({
+          id: pageDoc.id,
+          url: String(pageData.url ?? "Unknown URL"),
+          projectName,
+          projectId: pid,
+          status: status || "scanned",
+          criticalIssues: summary.critical,
+          lastScanned,
+        });
+      }
+
+      if (summary.critical > 5) {
+        problemPagesAcc.push({ id: pageDoc.id, url: String(pageData.url ?? "Unknown URL"), projectName, projectId: pid, criticalCount: summary.critical, type: "critical" });
+      } else if (status === "failed" || scanStatus === "failed") {
+        problemPagesAcc.push({ id: pageDoc.id, url: String(pageData.url ?? "Unknown URL"), projectName, projectId: pid, criticalCount: 0, type: "failed" });
+      } else if (lastScanned && now - lastScanned.getTime() > staleThresholdMs) {
+        problemPagesAcc.push({ id: pageDoc.id, url: String(pageData.url ?? "Unknown URL"), projectName, projectId: pid, criticalCount: 0, type: "stale" });
+      }
+    }
+  }
+
+  // Load recent scan docs per project for rule-level top issues aggregation.
+  // The page docs don't store individual violations — only the scans subcollection does.
+  await Promise.all(
+    projectEntries.map(async ([pid]) => {
+      try {
+        const scansSnap = await getDocs(
+          query(
+            collection(db, "projects", pid, "scans"),
+            orderBy("createdAt", "desc"),
+            limit(30)
+          )
+        );
+        for (const scanDoc of scansSnap.docs) {
+          const scanData = scanDoc.data() as Record<string, unknown>;
+          addRuleCounts(issueRuleMap, scanData.issues);
+        }
+      } catch {
+        // Scans subcollection may not exist or lack the index — skip silently.
+      }
+    })
+  );
+
+  recentPagesAcc.sort((a, b) => (b.lastScanned?.getTime() ?? 0) - (a.lastScanned?.getTime() ?? 0));
+
+  return {
+    totalProjects,
+    totalPages,
+    pagesScanned,
+    pagesUnscanned,
+    failedPages,
+    stalePages,
+    scannedLast7Days,
+    lastScanTime,
+    issueBreakdown: issueBreakdownAcc,
+    topIssueRules: toTopRules(issueRuleMap),
+    recentPages: recentPagesAcc.slice(0, 10),
+    problemPages: problemPagesAcc.slice(0, 10),
+  };
+}
+
+// ── Per-widget public loaders ───────────────────────────────────────
+
+export async function loadSummaryCards(
+  organisationId: string,
+  projectId?: string
+): Promise<SummaryCardsData> {
+  const agg = await loadPageAggregation(organisationId, projectId);
+  return {
+    totalProjects: agg.totalProjects,
+    totalPages: agg.totalPages,
+    pagesScanned: agg.pagesScanned,
+    pagesUnscanned: agg.pagesUnscanned,
+    criticalIssues: agg.issueBreakdown.critical,
+    lastScanTime: agg.lastScanTime,
+  };
+}
+
+export async function loadActiveScansData(
+  organisationId: string
+): Promise<ActiveScansData> {
+  const activeRuns = await loadActiveScans(organisationId);
+  return { activeRuns, activeScans: activeRuns.length };
+}
+
+export async function loadRecentPagesData(
+  organisationId: string,
+  projectId?: string
+): Promise<RecentPagesData> {
+  const agg = await loadPageAggregation(organisationId, projectId);
+  return { recentPages: agg.recentPages };
+}
+
+export async function loadViolationOverview(
+  organisationId: string,
+  projectId?: string
+): Promise<ViolationOverviewData> {
+  const agg = await loadPageAggregation(organisationId, projectId);
+  return { issueBreakdown: agg.issueBreakdown };
+}
+
+export async function loadTopIssuesData(
+  organisationId: string,
+  projectId?: string
+): Promise<TopIssuesData> {
+  const agg = await loadPageAggregation(organisationId, projectId);
+  return { topIssueRules: agg.topIssueRules };
+}
+
+export async function loadHealthSnapshot(
+  organisationId: string,
+  projectId?: string
+): Promise<HealthSnapshotData> {
+  const agg = await loadPageAggregation(organisationId, projectId);
+  const totalIssues =
+    agg.issueBreakdown.critical +
+    agg.issueBreakdown.serious +
+    agg.issueBreakdown.moderate +
+    agg.issueBreakdown.minor;
+  return {
+    totalPages: agg.totalPages,
+    pagesScanned: agg.pagesScanned,
+    pagesUnscanned: agg.pagesUnscanned,
+    scannedLast7Days: agg.scannedLast7Days,
+    stalePages: agg.stalePages,
+    totalIssues,
+  };
+}
+
+export async function loadProblemPagesData(
+  organisationId: string,
+  projectId?: string
+): Promise<ProblemPagesData> {
+  const agg = await loadPageAggregation(organisationId, projectId);
+  return { problemPages: agg.problemPages };
+}
+
 /**
  * Load all dashboard data for a given organisation.
  * Uses bounded queries and a single pass aggregation over page docs.
@@ -314,7 +601,7 @@ export async function loadDashboardData(organisationId: string): Promise<Dashboa
     );
 
     const totalProjects = projectsSnap.size;
-    const projectsMap = new Map(
+    const projectsMap = new Map<string, Record<string, unknown>>(
       projectsSnap.docs.map((docSnap) => [docSnap.id, { id: docSnap.id, ...(docSnap.data() as Record<string, unknown>) }])
     );
 
@@ -391,7 +678,6 @@ export async function loadDashboardData(organisationId: string): Promise<Dashboa
         }
 
         mergeBreakdown(issueBreakdown, summary);
-        addRuleCounts(issueRuleMap, pageData.violations);
 
         if (lastScanned) {
           recentPages.push({
@@ -435,6 +721,28 @@ export async function loadDashboardData(organisationId: string): Promise<Dashboa
         }
       }
     }
+
+    // Load recent scan docs per project for rule-level top issues aggregation.
+    // The page docs don't store individual violations — only the scans subcollection does.
+    await Promise.all(
+      projectEntries.map(async ([projectId]) => {
+        try {
+          const scansSnap = await getDocs(
+            query(
+              collection(db, "projects", projectId, "scans"),
+              orderBy("createdAt", "desc"),
+              limit(30)
+            )
+          );
+          for (const scanDoc of scansSnap.docs) {
+            const scanData = scanDoc.data() as Record<string, unknown>;
+            addRuleCounts(issueRuleMap, scanData.issues);
+          }
+        } catch {
+          // Scans subcollection may not exist or lack the index — skip silently.
+        }
+      })
+    );
 
     recentPages.sort((a, b) => {
       const aMs = a.lastScanned?.getTime() ?? 0;

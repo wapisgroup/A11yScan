@@ -17,9 +17,9 @@
 
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { PrivateRoute } from "@/utils/private-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PageContainer } from "@/components/molecule/page-container";
@@ -67,6 +67,8 @@ export default function ProjectDetailPage() {
   const id = params?.id;
 
   const [showNoPageModal, setShowNoPageModal] = useState(false);
+  const searchParams = useSearchParams();
+  const autoScanTriggered = useRef(false);
 
   /**
    * State-service hook: loads the project and owns the active tab state.
@@ -78,6 +80,23 @@ export default function ProjectDetailPage() {
   const project = state?.project;
   const tab = state?.tab ?? "overview";
   const tabs = state?.tabs ?? ["overview", "runs", "pages", "pageSets", "reports", "settings"];
+
+  // Auto-trigger scan when arriving with ?action=scan (e.g. from Quick Actions)
+  useEffect(() => {
+    if (
+      searchParams.get("action") === "scan" &&
+      project &&
+      !autoScanTriggered.current
+    ) {
+      autoScanTriggered.current = true;
+      void (async () => {
+        const result = await startFullScan(id);
+        if (result.noPages) {
+          setShowNoPageModal(true);
+        }
+      })();
+    }
+  }, [searchParams, project, id]);
 
   const handleCollectPages = () => {
     void startPageCollection(id);
