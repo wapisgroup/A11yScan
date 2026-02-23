@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDB } from '@/utils/firebase-admin';
 import { withAuth } from '@/utils/api-auth';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * POST /api/scans/start
- * Starts a scan by creating a job in Firestore for the worker to pick up
- * Replaces: functions/handlers/fullScan.js
+ * Starts a scan by creating a job in Firestore for the worker to pick up.
+ *
+ * When includePageCollection=true the flow is:
+ *   1. Create a page_collection run + job (status: queued)
+ *   2. Create a full_scan run (status: blocked) + job (status: blocked, dependsOnJobId = page_collection job ID)
+ *   Both runs share the same pipelineId so they're grouped in the UI.
+ *
+ * When includePageCollection=false (or not set):
+ *   Create a single full_scan run + job using the existing page list.
  */
 export async function POST(request: NextRequest) {
   return withAuth(request, async (req, user) => {
@@ -20,25 +28,101 @@ export async function POST(request: NextRequest) {
       // Ensure project exists
       const projectRef = adminDB.collection('projects').doc(projectId);
       const projectSnap = await projectRef.get();
-      
+
       if (!projectSnap.exists) {
         await projectRef.set({
-          createdAt: new Date(),
+          createdAt: FieldValue.serverTimestamp(),
           createdBy: user.uid,
         }, { merge: true });
       }
 
-      // Resolve page IDs
+      if (includePageCollection) {
+        // ---------------------------------------------------------------
+        // Pipeline: page_collection (queued) → full_scan (blocked)
+        // ---------------------------------------------------------------
+
+        // 1. Page collection run + job
+        const pcRunRef = await projectRef.collection('runs').add({
+          type: 'page_collection',
+          status: 'queued',
+          startedAt: FieldValue.serverTimestamp(),
+          creatorId: user.uid,
+          pagesTotal: 0,
+          pagesScanned: 0,
+          queuedVia: 'firestore',
+          stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
+        });
+
+        const pcJobRef = await adminDB.collection('jobs').add({
+          action: 'page_collection',
+          projectId,
+          runId: pcRunRef.id,
+          createdAt: FieldValue.serverTimestamp(),
+          startedAt: null,
+          doneAt: null,
+          status: 'queued',
+          createdBy: user.uid,
+        });
+
+        // Use the page_collection run ID as the shared pipelineId
+        const pipelineId = pcRunRef.id;
+
+        // Tag the page_collection run with pipelineId
+        await pcRunRef.update({ pipelineId });
+
+        // 2. Full scan run (blocked until page_collection completes)
+        const scanRunRef = await projectRef.collection('runs').add({
+          type,
+          status: 'blocked',
+          startedAt: FieldValue.serverTimestamp(),
+          creatorId: user.uid,
+          pagesIds: [],
+          pagesTotal: 0,
+          pagesScanned: 0,
+          queuedVia: 'firestore',
+          resolvePagesAtStart: true,
+          pipelineId,
+          dependsOnRunId: pcRunRef.id,
+          stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
+        });
+
+        const scanJobRef = await adminDB.collection('jobs').add({
+          action: type,
+          projectId,
+          runId: scanRunRef.id,
+          createdAt: FieldValue.serverTimestamp(),
+          startedAt: null,
+          doneAt: null,
+          status: 'blocked',
+          createdBy: user.uid,
+          pipelineId,
+          dependsOnJobId: pcJobRef.id,
+          pagesIds: null,
+        });
+
+        return NextResponse.json({
+          ok: true,
+          pipelineId,
+          pageCollectionRunId: pcRunRef.id,
+          pageCollectionJobId: pcJobRef.id,
+          scanRunId: scanRunRef.id,
+          scanJobId: scanJobRef.id,
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Simple scan (no page collection needed)
+      // ---------------------------------------------------------------
+
       let pageIds: string[] = [];
       if (Array.isArray(pagesIds) && pagesIds.length > 0) {
         pageIds = pagesIds;
-      } else if (!includePageCollection) {
+      } else {
         const pagesSnapshot = await projectRef.collection('pages').get();
-        pageIds = pagesSnapshot.docs.map(doc => doc.id);
+        pageIds = pagesSnapshot.docs.map((d) => d.id);
       }
 
-      // No pages and not collecting - return error
-      if (!includePageCollection && pageIds.length === 0) {
+      if (pageIds.length === 0) {
         return NextResponse.json({
           ok: false,
           noPages: true,
@@ -46,31 +130,29 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      // Create the run document
       const runRef = await projectRef.collection('runs').add({
         type,
-        status: includePageCollection ? 'blocked' : 'queued',
-        startedAt: new Date(),
+        status: 'queued',
+        startedAt: FieldValue.serverTimestamp(),
         creatorId: user.uid,
         pagesIds: pageIds,
         pagesTotal: pageIds.length,
         pagesScanned: 0,
         queuedVia: 'firestore',
-        resolvePagesAtStart: !pageIds.length,
+        resolvePagesAtStart: false,
         stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
       });
 
-      // Create the job for the worker
       const jobRef = await adminDB.collection('jobs').add({
-        action: 'full_scan',
+        action: type,
         projectId,
         runId: runRef.id,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
         startedAt: null,
         doneAt: null,
         status: 'queued',
         createdBy: user.uid,
-        pagesIds: pageIds.length > 0 ? pageIds : null,
+        pagesIds: pageIds,
       });
 
       return NextResponse.json({

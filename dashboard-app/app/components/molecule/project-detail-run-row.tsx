@@ -5,21 +5,23 @@
  * Shared component in molecule/project-detail-run-row.tsx.
  */
 
-import { RunDoc } from "@/types/run";
+import { RunDoc, runTypesList } from "@/types/run";
 import { safeInt, toDateSafe } from "@/ui-helpers/default";
 import React, { useMemo } from "react";
 import { DSButton } from "../atom/ds-button";
 import { DSIconButton } from "../atom/ds-icon-button";
 import { FaEyeSlash, FaTrashAlt } from "react-icons/fa";
+import { PiX } from "react-icons/pi";
 
 type RunRowProps = {
   run: RunDoc;
   onView: (run: RunDoc) => void;
   onRemove: (run: RunDoc) => void;
   onHide: (run: RunDoc) => void;
+  onCancel: (run: RunDoc) => void;
 };
 
-export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
+export function RunRow({ run, onView, onRemove, onHide, onCancel }: RunRowProps) {
   const pagesTotal = safeInt(run.pagesTotal) || (Array.isArray(run.pagesIds) ? run.pagesIds.length : 0);
   const pagesScanned = safeInt(run.pagesScanned);
 
@@ -39,7 +41,7 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
     return d.toLocaleString();
   }, [run.startedAt]);
 
-  const typeLabel = (run.type ?? "scan") as string;
+  const typeLabel = runTypesList[(run.type ?? "") as keyof typeof runTypesList] ?? run.type ?? "Scan";
   const statusLabel = (run.status ?? "-") as string;
   const isGrouped = Array.isArray(run.groupedRuns) && run.groupedRuns.length > 1;
   const groupedRuns = (run.groupedRuns ?? []) as RunDoc[];
@@ -115,9 +117,9 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
                 <span
                   key={stage.id}
                   className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 as-p3-text ${stageTone}`}
-                  title={`${stage.type ?? "stage"} · ${stageStatus}`}
+                  title={`${runTypesList[(stage.type ?? "") as keyof typeof runTypesList] ?? stage.type ?? "stage"} · ${stageStatus}`}
                 >
-                  <strong>{stage.type ?? "stage"}</strong>
+                  <strong>{runTypesList[(stage.type ?? "") as keyof typeof runTypesList] ?? stage.type ?? "stage"}</strong>
                   <span>{stageStatus}</span>
                   {stagePagesTotal > 0 && (
                     <span>
@@ -132,7 +134,6 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        
         {String(run.status ?? "").toLowerCase() === "done" && (
           <DSButton
             variant="outline"
@@ -141,6 +142,9 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
           >
             View
           </DSButton>
+        )}
+        {["queued", "running", "processing", "pending", "blocked"].includes(String(run.status ?? "").toLowerCase()) && (
+          <DSIconButton variant="danger" icon={<PiX size={16} />} label="Cancel run" onClick={() => onCancel(run)} />
         )}
         {run.status == 'queued' && <DSIconButton variant="danger" icon={<FaTrashAlt />} label="Delete queued run" onClick={()=>onRemove(run)} />}
         {run.status == 'done' && <DSIconButton variant="danger" icon={<FaEyeSlash />} label="Hide run" onClick={()=>onHide(run)} />}

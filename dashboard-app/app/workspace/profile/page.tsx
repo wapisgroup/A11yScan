@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
-import { useAuth, db } from "@/utils/firebase";
+import { useAuth, db, auth } from "@/utils/firebase";
 import { PageContainer } from "@/components/molecule/page-container";
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { DSButton } from "@/components/atom/ds-button";
@@ -22,7 +22,7 @@ function generateToken() {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, changePassword } = useAuth();
   const { hasFeature, packageConfig } = useSubscription();
   const confirm = useConfirm();
   const [firstName, setFirstName] = useState("");
@@ -36,6 +36,19 @@ export default function ProfilePage() {
   const [tokenCopied, setTokenCopied] = useState(false);
   const [generatingToken, setGeneratingToken] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'API'>('profile');
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+
+  // Detect if this is an email/password account
+  const isEmailPasswordUser = auth.currentUser?.providerData?.some(
+    (p) => p.providerId === "password"
+  ) ?? false;
 
   useEffect(() => {
     if (user) {
@@ -73,6 +86,40 @@ export default function ProfilePage() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPasswordSuccess("Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setPasswordSuccess(""), 4000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to change password";
+      setPasswordError(
+        msg.includes("wrong-password") || msg.includes("invalid-credential")
+          ? "Current password is incorrect."
+          : msg
+      );
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   return (
     <PrivateRoute>
       <WorkspaceLayout>
@@ -101,6 +148,7 @@ export default function ProfilePage() {
           </div>
 
           {activeTab === 'profile' && (
+          <>
           <PageContainer title="Personal Information" description="Update your personal details and preferences">
             <div className=" w-full max-w-4xl ">
               {/* Alerts */}
@@ -210,12 +258,81 @@ export default function ProfilePage() {
                     >
                       {saving ? "Saving..." : "Save Changes"}
                     </DSButton>
-                     
                   </div>
                 </form>
               </div>
             </div>
           </PageContainer>
+
+          {/* Password Change — only for email/password accounts */}
+          {isEmailPasswordUser && (
+          <PageContainer title="Change Password" description="Update your account password. You'll need to enter your current password to confirm.">
+            <div className="w-full max-w-4xl py-6">
+              {passwordError && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                  {passwordError}
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+                  {passwordSuccess}
+                </div>
+              )}
+              <form onSubmit={handleChangePassword} className="space-y-6">
+                <div>
+                  <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    Current Password
+                  </label>
+                  <input
+                    id="currentPassword"
+                    type="password"
+                    autoComplete="current-password"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    New Password
+                  </label>
+                  <input
+                    id="newPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={8}
+                  />
+                  <p className="text-gray-500 text-xs mt-1 ml-1">Minimum 8 characters</p>
+                </div>
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirm New Password
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4F7DEB] focus:border-transparent"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="pt-6 border-t border-gray-200">
+                  <DSButton disabled={changingPassword} type="submit">
+                    {changingPassword ? "Updating..." : "Update Password"}
+                  </DSButton>
+                </div>
+              </form>
+            </div>
+          </PageContainer>
+          )}
+          </>
           )}
 
           {activeTab === 'API' && (

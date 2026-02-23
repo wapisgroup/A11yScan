@@ -313,7 +313,20 @@ export async function updateProject(project: UpdateProjectInput): Promise<void> 
 
 export async function deleteProject(id: string): Promise<void> {
   if (!id) throw new Error("id required");
-  await deleteDoc(doc(db, "projects", id));
+
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("Not authenticated");
+  const token = await currentUser.getIdToken();
+
+  const response = await fetch(`/api/projects/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as any).error || `Failed to delete project (${response.status})`);
+  }
 }
 
 export async function startProjectScan(project: Pick<Project, "id" | "domain">): Promise<string> {

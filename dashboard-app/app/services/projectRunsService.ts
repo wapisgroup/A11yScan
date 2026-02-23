@@ -11,6 +11,7 @@ import {
   where,
   orderBy,
   limit,
+  serverTimestamp,
 } from "firebase/firestore";
 
 import { db } from "@/utils/firebase";
@@ -215,6 +216,32 @@ export async function deleteProjectRun(projectId: string, id: string): Promise<v
   await Promise.all(deletions);
 }
 
+
+/**
+ * Cancels a run and its associated queued/blocked jobs.
+ *
+ * @param projectId - Parent project id.
+ * @param id - Run document id.
+ */
+export async function cancelProjectRun(projectId: string, id: string): Promise<void> {
+  if (!projectId) throw new Error("projectId required");
+  if (!id) throw new Error("run id required");
+
+  const runRef = doc(db, "projects", projectId, "runs", id);
+  await updateDoc(runRef, { status: "cancelled", cancelledAt: serverTimestamp() });
+
+  // Cancel any associated jobs that haven't started yet
+  const jobsQuery = query(
+    collection(db, "jobs"),
+    where("projectId", "==", projectId),
+    where("runId", "==", id)
+  );
+  const jobsSnap = await getDocs(jobsQuery);
+  const updates = jobsSnap.docs
+    .filter((d) => ["queued", "blocked"].includes(String(d.data().status ?? "")))
+    .map((d) => updateDoc(d.ref, { status: "cancelled" }));
+  await Promise.all(updates);
+}
 
 /**
  * Soft-hides a run document under a project.
