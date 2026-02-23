@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { deleteDoc, doc } from "firebase/firestore";
@@ -17,11 +18,13 @@ import { DSEmptyState } from "@/components/molecule/ds-empty-state";
 import { useConfirm } from "@/components/providers/window-provider";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { PageDataLoading } from "@/components/molecule/page-data-loading";
+import { CreateReportModal } from "@/components/modals/CreateReportModal";
 
 export default function Reports() {
   const { user } = useAuth();
   const router = useRouter();
   const confirm = useConfirm();
+  const [showCreateReport, setShowCreateReport] = useState(false);
 
   // Use reports page state hook with real-time updates
   const {
@@ -120,7 +123,7 @@ export default function Reports() {
           <PageContainer title="Generated Reports" excludePadding description="View and manage all your generated accessibility reports. Filter by type, status, or project to find specific reports. Click on a report to view details or download the PDF." buttons={<><div className="mt-4 flex items-center gap-3">
                 <DSButton
                   leadingIcon={<PiPlus size={20} />}
-                  onClick={() => router.push('/workspace/projects')}
+                  onClick={() => setShowCreateReport(true)}
                 >
                   Generate New Report
                 </DSButton>
@@ -209,7 +212,7 @@ export default function Reports() {
                             action={
                               <DSButton
                                 leadingIcon={<PiPlus size={20} />}
-                                onClick={() => router.push('/workspace/projects')}
+                                onClick={() => setShowCreateReport(true)}
                               >
                                 Generate Report
                               </DSButton>
@@ -313,6 +316,13 @@ export default function Reports() {
             </div>
           </PageContainer>
         </PageWrapper>
+
+        <CreateReportModal
+          open={showCreateReport}
+          onClose={() => setShowCreateReport(false)}
+          userId={user?.uid ?? ''}
+          onSuccess={() => setShowCreateReport(false)}
+        />
       </WorkspaceLayout>
     </PrivateRoute>
   );

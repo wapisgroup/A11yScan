@@ -14,6 +14,7 @@ import IssueDetailModal, { type IssueData } from "@/components/modals/issue-deta
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { DSBadge } from "@/components/atom/ds-badge";
 import { scanSinglePage } from "@/services/projectDetailService";
+import { useOnboardingContext } from "@/contexts/onboarding-context";
 
 type DrawerTab = "report" | "preview";
 type SeverityFilter = "all" | "critical" | "serious" | "moderate" | "minor";
@@ -58,11 +59,19 @@ export default function PageReportDrawer({
   onScanChange
 }: DrawerProps) {
   const state = usePageReportState(projectId, pageId || undefined);
+  const onboarding = useOnboardingContext();
   const [selectedIssue, setSelectedIssue] = useState<IssueData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
   const [rescanning, setRescanning] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Mark report viewed for onboarding step 4
+  React.useEffect(() => {
+    if (open && pageId) {
+      onboarding?.markReportViewed();
+    }
+  }, [open, pageId, onboarding]);
 
   React.useEffect(() => {
     if (!open || !state) return;
@@ -80,11 +89,11 @@ export default function PageReportDrawer({
     setSeverityFilter("all");
   }, [state?.selectedScanId]);
 
-  // Inject a postMessage listener into the snapshot so we can highlight elements
+  // Inject a postMessage listener + CSS to disable links into the snapshot
   const snapshotWithScript = useMemo(() => {
     const html = state?.snapshotHtml;
     if (!html) return null;
-    const script = `<script>
+    const injection = `<style>a,button,input,select,textarea,label,[role="button"],[role="link"]{pointer-events:none!important;cursor:default!important;}a{text-decoration:none!important;}</style><script>
 (function(){
   var _hl = [];
   window.addEventListener('message', function(e) {
@@ -107,8 +116,8 @@ export default function PageReportDrawer({
 })();
 <\/script>`;
     return html.includes('</body>')
-      ? html.replace('</body>', script + '</body>')
-      : html + script;
+      ? html.replace('</body>', injection + '</body>')
+      : html + injection;
   }, [state?.snapshotHtml]);
 
   const handleIssueHover = useCallback((selector: string | null | undefined) => {

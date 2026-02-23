@@ -10,6 +10,7 @@ import { PiListChecks, PiGlobe, PiInfo, PiWarning } from "react-icons/pi";
 import { DSButton } from "@/components/atom/ds-button";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { createReport, getScannedPages, getPageSetPages } from "@/services/reportService";
+import { loadProjects, type Project } from "@/services/projectsService";
 import { collection, query, getDocs } from "firebase/firestore";
 import { db } from "@/utils/firebase";
 
@@ -24,12 +25,19 @@ type PageSet = {
 type CreateReportModalProps = {
   open: boolean;
   onClose: () => void;
-  projectId: string;
+  projectId?: string;
   userId: string;
   onSuccess?: () => void;
 };
 
-export function CreateReportModal({ open, onClose, projectId, userId, onSuccess }: CreateReportModalProps) {
+export function CreateReportModal({ open, onClose, projectId: initialProjectId, userId, onSuccess }: CreateReportModalProps) {
+  const needsProjectPicker = !initialProjectId;
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId ?? '');
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  const projectId = initialProjectId || selectedProjectId;
+
   const [selectedType, setSelectedType] = useState<ReportType>('full');
   const [pageSets, setPageSets] = useState<PageSet[]>([]);
   const [selectedPageSetId, setSelectedPageSetId] = useState<string>('');
@@ -39,6 +47,19 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
   const [loadingPageSets, setLoadingPageSets] = useState(false);
   const [scannedPageCount, setScannedPageCount] = useState<number | null>(null);
   const [loadingScannedCount, setLoadingScannedCount] = useState(false);
+
+  // Load projects when picker is needed
+  useEffect(() => {
+    if (!open || !needsProjectPicker) return;
+    setLoadingProjects(true);
+    loadProjects()
+      .then((list) => {
+        setProjects(list);
+        if (list.length > 0 && !selectedProjectId) setSelectedProjectId(list[0].id);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingProjects(false));
+  }, [open, needsProjectPicker]);
 
   useEffect(() => {
     if (!open) return;
@@ -144,6 +165,7 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
     setReportTitle('');
     setSelectedType('full');
     setSelectedPageSetId('');
+    if (needsProjectPicker) setSelectedProjectId('');
     setError('');
     onClose();
   };
@@ -170,6 +192,27 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
       }
     >
       <div className="p-6 space-y-6 overflow-y-auto h-full">
+          {/* Project picker (only when projectId not provided) */}
+          {needsProjectPicker && (
+            <div>
+              <label className="block as-p2-text primary-text-color mb-2">Project</label>
+              {loadingProjects ? (
+                <div className="as-p3-text secondary-text-color">Loading projects…</div>
+              ) : (
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent"
+                >
+                  <option value="">Select a project</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name || p.domain}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           {/* No scans warning */}
           {!loadingScannedCount && scannedPageCount === 0 && (
             <div className="flex gap-3 p-4 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30">

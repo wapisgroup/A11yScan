@@ -215,6 +215,10 @@ export async function startFullScan(
 
     if (!response.ok) {
       const error = await response.json();
+      // API signals "no pages yet" — caller shows the NoPagesScanModal
+      if (error.noPages) {
+        return { title: "No pages", message: error.message || "No pages found.", noPages: true };
+      }
       throw new Error(error.message || 'Failed to start scan');
     }
 

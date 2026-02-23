@@ -5,7 +5,7 @@
  * Shared component in organism/workspace-layout.tsx.
  */
 
-import React, { type ReactNode, useEffect } from "react";
+import React, { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -29,6 +29,10 @@ import { URL_APP_PROFILE, URL_APP_ORGANISATION, URL_APP_BILLING, URL_APP_ADMIN }
 import { useRouter } from "next/navigation";
 import { isPlatformAdminUser } from "@/utils/platform-admin";
 import { useSubscription } from "@/hooks/use-subscription";
+import { useOnboarding } from "@/hooks/use-onboarding";
+import { OnboardingContext } from "@/contexts/onboarding-context";
+import { WelcomeModal } from "@/components/modals/welcome-modal";
+import { OnboardingChecklist } from "@/components/organism/onboarding-checklist";
 
 type WorkspaceLayoutProps = {
   children: ReactNode;
@@ -40,6 +44,20 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const router = useRouter();
   const isAdmin = isPlatformAdminUser(user as Record<string, any>);
   const { hasFeature } = useSubscription();
+  const onboarding = useOnboarding(user?.uid);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+
+  // Show welcome modal once when welcomeSeen transitions from false → seen
+  useEffect(() => {
+    if (onboarding.welcomeSeen === false) {
+      setWelcomeOpen(true);
+    }
+  }, [onboarding.welcomeSeen]);
+
+  const handleCloseWelcome = () => {
+    setWelcomeOpen(false);
+    onboarding.markWelcomeSeen();
+  };
 
   useEffect(() => {
     const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user?.uid ?? null });
@@ -74,6 +92,7 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const pathname = usePathname();
 
   return (
+    <OnboardingContext.Provider value={onboarding}>
     <div className="min-h-screen">
       {/* <Header /> */}
 
@@ -214,6 +233,11 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
           </div>
         </div>
       </div>
+
+      {/* Onboarding */}
+      <WelcomeModal open={welcomeOpen} onClose={handleCloseWelcome} />
+      <OnboardingChecklist onboarding={onboarding} />
     </div>
+    </OnboardingContext.Provider>
   );
 }

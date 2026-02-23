@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Popup } from "@/components/molecule/popup";
+import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { DSButton } from "@/components/atom/ds-button";
 import { loadProjects, type Project } from "@/services/projectsService";
 import { loadPageSets } from "@/services/projectSetsService";
@@ -116,151 +116,157 @@ export default function ScheduleModal({
     return true;
   }, [projectId, scheduleType, pageSetId, limitReached, mode, startDate]);
 
-  if (!open) return null;
-
   return (
-    <Popup title={mode === "edit" ? "Edit Scheduled Scan" : "Create Scheduled Scan"} onClose={onClose}>
-      {error && (
-        <div className="as-p2-text text-[var(--color-error)] bg-[var(--color-error)]/10 px-3 py-2 rounded border border-[var(--color-error)]/30">
-          {error}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-small">
-        <label className="as-p2-text primary-text-color">Project</label>
-        <select
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className="input"
-          disabled={mode === "edit" || loadingProjects}
-        >
-          <option value="">Select a project</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name || project.domain}
-            </option>
-          ))}
-        </select>
-        <p className="as-p3-text secondary-text-color">
-          Project is locked after creation.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-small">
-        <label className="as-p2-text primary-text-color">Schedule type</label>
-        <div className="flex gap-small">
-          <button
-            type="button"
-            className={`px-3 py-2 rounded-lg border ${scheduleType === "full_scan" ? "border-indigo-500 text-indigo-700" : "border-slate-200 text-slate-600"}`}
-            onClick={() => setScheduleType("full_scan")}
+    <DSDrawerShell
+      open={open}
+      title={mode === "edit" ? "Edit Scheduled Scan" : "Create Scheduled Scan"}
+      widthClassName="w-[480px]"
+      onClose={onClose}
+      footer={
+        <div className="flex items-center justify-end gap-small">
+          <DSButton variant="outline" onClick={onClose}>Cancel</DSButton>
+          <DSButton
+            disabled={!canSubmit}
+            onClick={() => {
+              if (!selectedProject) return;
+              onSubmit({
+                projectId: selectedProject.id,
+                projectName: selectedProject.name || selectedProject.domain,
+                projectDomain: selectedProject.domain,
+                type: scheduleType,
+                cadence,
+                includePageCollection: scheduleType === "full_scan" ? includePageCollection : false,
+                includeReport,
+                pageSetId: scheduleType === "page_set" ? selectedPageSet?.id ?? null : null,
+                pageSetName: scheduleType === "page_set" ? selectedPageSet?.name ?? null : null,
+                startDate,
+              });
+            }}
           >
-            Full scan
-          </button>
-          <button
-            type="button"
-            className={`px-3 py-2 rounded-lg border ${scheduleType === "page_set" ? "border-indigo-500 text-indigo-700" : "border-slate-200 text-slate-600"}`}
-            onClick={() => setScheduleType("page_set")}
-          >
-            Page set
-          </button>
+            {mode === "edit" ? "Save changes" : "Create schedule"}
+          </DSButton>
         </div>
-      </div>
+      }
+    >
+      <div className="p-6 flex flex-col gap-[var(--spacing-m)] overflow-y-auto h-full">
+        {error && (
+          <div className="as-p2-text text-[var(--color-error)] bg-[var(--color-error)]/10 px-3 py-2 rounded border border-[var(--color-error)]/30">
+            {error}
+          </div>
+        )}
 
-      {scheduleType === "full_scan" && (
-        <label className="flex items-center gap-2 as-p2-text secondary-text-color">
-          <input
-            type="checkbox"
-            checked={includePageCollection}
-            onChange={(e) => setIncludePageCollection(e.target.checked)}
-          />
-          Crawl website first (update pages list)
-        </label>
-      )}
-
-      {scheduleType === "page_set" && (
         <div className="flex flex-col gap-small">
-          <label className="as-p2-text primary-text-color">Page set</label>
+          <label className="as-p2-text primary-text-color">Project</label>
           <select
-            value={pageSetId}
-            onChange={(e) => setPageSetId(e.target.value)}
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
             className="input"
-            disabled={!projectId || loadingPageSets}
+            disabled={mode === "edit" || loadingProjects}
           >
-            <option value="">Select a page set</option>
-            {pageSets.map((set) => (
-              <option key={set.id} value={set.id}>
-                {set.name}
+            <option value="">Select a project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name || project.domain}
               </option>
             ))}
           </select>
-          {projectId && !loadingPageSets && pageSets.length === 0 && (
-            <p className="as-p3-text secondary-text-color">
-              No page sets found for this project.
-            </p>
-          )}
+          <p className="as-p3-text secondary-text-color">
+            Project is locked after creation.
+          </p>
         </div>
-      )}
 
-      <label className="flex items-center gap-2 as-p2-text secondary-text-color">
-        <input
-          type="checkbox"
-          checked={includeReport}
-          onChange={(e) => setIncludeReport(e.target.checked)}
-        />
-        Generate report after scan
-      </label>
-
-      <div className="flex flex-col gap-small">
-        <label className="as-p2-text primary-text-color">Start date</label>
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="input"
-        />
-      </div>
-
-      <div className="flex flex-col gap-small">
-        <label className="as-p2-text primary-text-color">Cadence</label>
-        <select
-          value={cadence}
-          onChange={(e) => setCadence(e.target.value as ScheduleCadence)}
-          className="input"
-        >
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
-      </div>
-
-      {mode === "create" && limitReached && (
-        <div className="as-p2-text text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          You have reached your scheduled scan limit for this billing period.
+        <div className="flex flex-col gap-small">
+          <label className="as-p2-text primary-text-color">Schedule type</label>
+          <div className="flex gap-small">
+            <button
+              type="button"
+              className={`px-3 py-2 rounded-lg border ${scheduleType === "full_scan" ? "border-indigo-500 text-indigo-700" : "border-slate-200 text-slate-600"}`}
+              onClick={() => setScheduleType("full_scan")}
+            >
+              Full scan
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-2 rounded-lg border ${scheduleType === "page_set" ? "border-indigo-500 text-indigo-700" : "border-slate-200 text-slate-600"}`}
+              onClick={() => setScheduleType("page_set")}
+            >
+              Page set
+            </button>
+          </div>
         </div>
-      )}
 
-      <div className="flex items-center justify-end gap-small pt-[var(--spacing-m)]">
-        <DSButton variant="outline" onClick={onClose}>Cancel</DSButton>
-        <DSButton
-          disabled={!canSubmit}
-          onClick={() => {
-            if (!selectedProject) return;
-            onSubmit({
-              projectId: selectedProject.id,
-              projectName: selectedProject.name || selectedProject.domain,
-              projectDomain: selectedProject.domain,
-              type: scheduleType,
-              cadence,
-              includePageCollection: scheduleType === "full_scan" ? includePageCollection : false,
-              includeReport,
-              pageSetId: scheduleType === "page_set" ? selectedPageSet?.id ?? null : null,
-              pageSetName: scheduleType === "page_set" ? selectedPageSet?.name ?? null : null,
-              startDate,
-            });
-          }}
-        >
-          {mode === "edit" ? "Save changes" : "Create schedule"}
-        </DSButton>
+        {scheduleType === "full_scan" && (
+          <label className="flex items-center gap-2 as-p2-text secondary-text-color">
+            <input
+              type="checkbox"
+              checked={includePageCollection}
+              onChange={(e) => setIncludePageCollection(e.target.checked)}
+            />
+            Crawl website first (update pages list)
+          </label>
+        )}
+
+        {scheduleType === "page_set" && (
+          <div className="flex flex-col gap-small">
+            <label className="as-p2-text primary-text-color">Page set</label>
+            <select
+              value={pageSetId}
+              onChange={(e) => setPageSetId(e.target.value)}
+              className="input"
+              disabled={!projectId || loadingPageSets}
+            >
+              <option value="">Select a page set</option>
+              {pageSets.map((set) => (
+                <option key={set.id} value={set.id}>
+                  {set.name}
+                </option>
+              ))}
+            </select>
+            {projectId && !loadingPageSets && pageSets.length === 0 && (
+              <p className="as-p3-text secondary-text-color">
+                No page sets found for this project.
+              </p>
+            )}
+          </div>
+        )}
+
+        <label className="flex items-center gap-2 as-p2-text secondary-text-color">
+          <input
+            type="checkbox"
+            checked={includeReport}
+            onChange={(e) => setIncludeReport(e.target.checked)}
+          />
+          Generate report after scan
+        </label>
+
+        <div className="flex flex-col gap-small">
+          <label className="as-p2-text primary-text-color">Start date</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="input"
+          />
+        </div>
+
+        <div className="flex flex-col gap-small">
+          <label className="as-p2-text primary-text-color">Cadence</label>
+          <select
+            value={cadence}
+            onChange={(e) => setCadence(e.target.value as ScheduleCadence)}
+            className="input"
+          >
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+
+        {mode === "create" && limitReached && (
+          <div className="as-p2-text text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            You have reached your scheduled scan limit for this billing period.
+          </div>
+        )}
       </div>
-    </Popup>
+    </DSDrawerShell>
   );
 }

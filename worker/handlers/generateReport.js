@@ -363,9 +363,52 @@ function groupViolations(allScans, inScopeScIds) {
 }
 
 /**
+ * Fetch org branding from Firestore and return { primaryColor, secondaryColor, logoBase64 }.
+ * Falls back to defaults if the org doc is missing or branding fields are unset.
+ */
+async function loadOrgBranding(db, organisationId) {
+    const defaults = { primaryColor: null, secondaryColor: null, logoBase64: null };
+    if (!organisationId) return defaults;
+
+    try {
+        const orgSnap = await db.collection('organisations').doc(organisationId).get();
+        if (!orgSnap.exists) return defaults;
+        const data = orgSnap.data() || {};
+
+        let logoBase64 = null;
+        const logoUrl = data.customLogo && typeof data.customLogo === 'string' ? data.customLogo.trim() : null;
+        if (logoUrl && logoUrl.startsWith('https://')) {
+            try {
+                const https = require('https');
+                logoBase64 = await new Promise((res, rej) => {
+                    https.get(logoUrl, (response) => {
+                        if (response.statusCode !== 200) { res(null); return; }
+                        const chunks = [];
+                        response.on('data', c => chunks.push(c));
+                        response.on('end', () => res(Buffer.concat(chunks).toString('base64')));
+                        response.on('error', () => res(null));
+                    }).on('error', () => res(null));
+                });
+            } catch {
+                logoBase64 = null;
+            }
+        }
+
+        return {
+            primaryColor: data.primaryColor || null,
+            secondaryColor: data.secondaryColor || null,
+            logoBase64,
+        };
+    } catch (err) {
+        console.warn('Failed to load org branding:', err && err.message ? err.message : err);
+        return defaults;
+    }
+}
+
+/**
  * Generate PDF report
  */
-async function generatePDF(projectData, runData, groupedViolations, reportTitle, complianceProfiles, standardsMatrix, scIssueIndex, inScopeScIds, ruleDataById) {
+async function generatePDF(projectData, runData, groupedViolations, reportTitle, complianceProfiles, standardsMatrix, scIssueIndex, inScopeScIds, ruleDataById, orgBranding) {
     return new Promise((resolve, reject) => {
         try {
             const fonts = {
@@ -723,14 +766,21 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                 });
             });
 
+            const headerBgColor = (orgBranding && orgBranding.primaryColor) || '#F8FAFC';
+            const headerTextColor = (orgBranding && orgBranding.secondaryColor) || '#64748B';
+
             const header = (currentPage, pageCount, pageSize) => {
                 const headerProject = projectData?.name || '';
                 const domainProject = projectData?.domain || '';
-                const logoNode = LOGO_PNG_BASE64
-                    ? { image: `data:image/png;base64,${LOGO_PNG_BASE64}`, width: 90 }
-                    : (LOGO_SVG_SIMPLE || LOGO_SVG)
-                        ? { svg: LOGO_SVG_SIMPLE || LOGO_SVG, width: 90 }
-                        : { text: 'Ablelytics', style: 'brand' };
+                // Prefer: org custom logo → built-in logo
+                const orgLogo = orgBranding && orgBranding.logoBase64;
+                const logoNode = orgLogo
+                    ? { image: `data:image/png;base64,${orgLogo}`, width: 90, maxHeight: 30 }
+                    : LOGO_PNG_BASE64
+                        ? { image: `data:image/png;base64,${LOGO_PNG_BASE64}`, width: 90 }
+                        : (LOGO_SVG_SIMPLE || LOGO_SVG)
+                            ? { svg: LOGO_SVG_SIMPLE || LOGO_SVG, width: 90 }
+                            : { text: 'Ablelytics', style: 'brand' };
                 return {
                     margin: [0, 0, 0, 0],
                     stack: [
@@ -742,7 +792,7 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                                     y: 0,
                                     w: pageSize.width,
                                     h: 44,
-                                    color: '#F8FAFC'
+                                    color: headerBgColor
                                 }
                             ],
                             absolutePosition: { x: 0, y: 0 }
@@ -751,8 +801,8 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                             columns: [
                                 { stack: [logoNode], width: 'auto' },
                                 { stack: [
-                                    { text: headerProject, alignment: 'right', style: 'headerProject' },
-                                    { text: domainProject, alignment: 'right', style: 'headerProject' }
+                                    { text: headerProject, alignment: 'right', style: 'headerProject', color: headerTextColor },
+                                    { text: domainProject, alignment: 'right', style: 'headerProject', color: headerTextColor }
                                 ] }
                             ],
                             margin: [50, 10, 50, 0],
@@ -933,7 +983,10 @@ async function handleGenerateReport(db, projectId, runId) {
             if (issue.ruleId) ruleIds.push(issue.ruleId);
         });
     });
-    const ruleDataById = await loadRuleDescriptions(ruleIds);
+    const [ruleDataById, orgBranding] = await Promise.all([
+        loadRuleDescriptions(ruleIds),
+        loadOrgBranding(db, projectData?.organisationId),
+    ]);
 
     // Group violations by type and code
     const groupedViolations = groupViolations(allScans, inScopeScIds);
@@ -957,7 +1010,8 @@ async function handleGenerateReport(db, projectId, runId) {
         standardsMatrix,
         scIssueIndex,
         inScopeScIds,
-        ruleDataById
+        ruleDataById,
+        orgBranding
     );
 
     // Upload PDF to storage
