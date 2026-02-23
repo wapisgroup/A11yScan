@@ -795,15 +795,11 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
             const header = (currentPage, pageCount, pageSize) => {
                 const headerProject = projectData?.name || '';
                 const domainProject = projectData?.domain || '';
-                // Prefer: org custom logo → built-in logo
+                // Prefer org custom logo; fall back to text (SVG fallback removed — causes pdfmake errors with complex SVGs)
                 const orgLogo = orgBranding && orgBranding.logoDataUrl;
                 const logoNode = orgLogo
                     ? { image: orgLogo, fit: [120, 28] }
-                    : LOGO_PNG_BASE64
-                        ? { image: `data:image/png;base64,${LOGO_PNG_BASE64}`, width: 90 }
-                        : (LOGO_SVG_SIMPLE || LOGO_SVG)
-                            ? { svg: LOGO_SVG_SIMPLE || LOGO_SVG, width: 90 }
-                            : { text: 'Ablelytics', style: 'brand' };
+                    : { text: 'Ablelytics', style: 'brand' };
                 return {
                     margin: [0, 0, 0, 0],
                     stack: [
