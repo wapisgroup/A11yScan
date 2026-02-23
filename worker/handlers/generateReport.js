@@ -38,12 +38,22 @@ const rulesDirectory = path.join(
 const rulesService = new AccessibilityRulesService(rulesDirectory);
 
 const LOGO_PNG_PATH = path.join(__dirname, '../assets/logo.png');
+const LOGO_SVG_PATH = path.join(__dirname, '../assets/logo.svg');
 let LOGO_PNG_DATA_URL = null;
+let LOGO_SVG_NORMALIZED = null;
 try {
     const pngBuf = fs.readFileSync(LOGO_PNG_PATH);
     LOGO_PNG_DATA_URL = `data:image/png;base64,${pngBuf.toString('base64')}`;
-} catch (err) {
-    console.warn('Failed to load built-in logo PNG:', err && err.message ? err.message : err);
+} catch {
+    // no PNG — try SVG below
+}
+if (!LOGO_PNG_DATA_URL) {
+    try {
+        const svgStr = fs.readFileSync(LOGO_SVG_PATH, 'utf8');
+        LOGO_SVG_NORMALIZED = normalizeSvgForPdfmake(svgStr);
+    } catch (err) {
+        console.warn('Failed to load built-in logo:', err && err.message ? err.message : err);
+    }
 }
 
 
@@ -420,7 +430,11 @@ async function loadOrgBranding(db, organisationId) {
                 const result = await fetchUrl(logoUrl);
                 if (result) {
                     const mime = result.contentType.split(';')[0].trim().toLowerCase();
-                    if (mime === 'image/svg+xml' || mime === 'image/svg') {
+                    // Detect SVG by MIME type OR by content (some servers serve SVGs as text/plain etc.)
+                    const isSvgMime = mime === 'image/svg+xml' || mime === 'image/svg';
+                    const contentStart = result.buffer.slice(0, 100).toString('utf8').trimStart();
+                    const isSvgContent = contentStart.startsWith('<svg') || contentStart.startsWith('<?xml');
+                    if (isSvgMime || isSvgContent) {
                         // pdfmake renders SVGs via the `svg` property, not `image`
                         // Normalise defs ordering so forward references resolve correctly
                         logoSvg = normalizeSvgForPdfmake(result.buffer.toString('utf8'));
@@ -815,14 +829,16 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
             const header = (currentPage, pageCount, pageSize) => {
                 const headerProject = projectData?.name || '';
                 const domainProject = projectData?.domain || '';
-                // Prefer org custom logo (SVG or raster), then built-in PNG, then text
+                // Prefer org custom logo (SVG or raster), then built-in logo, then text
                 const logoNode = (orgBranding && orgBranding.logoSvg)
                     ? { svg: orgBranding.logoSvg, width: 120 }
                     : (orgBranding && orgBranding.logoDataUrl)
                         ? { image: orgBranding.logoDataUrl, fit: [120, 28] }
                         : LOGO_PNG_DATA_URL
                             ? { image: LOGO_PNG_DATA_URL, fit: [120, 28] }
-                            : { text: 'Ablelytics', style: 'brand' };
+                            : LOGO_SVG_NORMALIZED
+                                ? { svg: LOGO_SVG_NORMALIZED, width: 120 }
+                                : { text: 'Ablelytics', style: 'brand' };
                 return {
                     margin: [0, 0, 0, 0],
                     stack: [
