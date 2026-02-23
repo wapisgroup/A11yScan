@@ -363,6 +363,24 @@ function groupViolations(allScans, inScopeScIds) {
 }
 
 /**
+ * Normalise an SVG string for pdfmake's renderer.
+ * pdfmake processes SVG linearly, so <defs> must appear before any element
+ * that references them. Some tools (Figma exports, CMS-generated SVGs) emit
+ * <defs> at the end of the file, which causes clip-path / gradient forward
+ * references to silently fail and the whole group to render empty.
+ */
+function normalizeSvgForPdfmake(svgString) {
+    const defs = [];
+    const withoutDefs = svgString.replace(/<defs[\s\S]*?<\/defs>/gi, (match) => {
+        defs.push(match);
+        return '';
+    });
+    if (!defs.length) return svgString;
+    // Re-insert all defs immediately after the opening <svg ...> tag
+    return withoutDefs.replace(/(<svg[^>]*>)/, `$1${defs.join('')}`);
+}
+
+/**
  * Fetch a URL following up to `maxRedirects` redirects.
  * Returns { buffer, contentType } or null on failure.
  */
@@ -411,7 +429,8 @@ async function loadOrgBranding(db, organisationId) {
                     const mime = result.contentType.split(';')[0].trim().toLowerCase();
                     if (mime === 'image/svg+xml' || mime === 'image/svg') {
                         // pdfmake renders SVGs via the `svg` property, not `image`
-                        logoSvg = result.buffer.toString('utf8');
+                        // Normalise defs ordering so forward references resolve correctly
+                        logoSvg = normalizeSvgForPdfmake(result.buffer.toString('utf8'));
                     } else {
                         // Normalise MIME to one pdfmake supports (png or jpeg)
                         const pdfMime = mime === 'image/jpeg' || mime === 'image/jpg' ? 'image/jpeg' : 'image/png';
