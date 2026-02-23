@@ -61,10 +61,7 @@ export default function SolutionsPage() {
           {/* 3 solution cards */}
           <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
             <Link href={URL_FRONTEND_SOLUTIONS_COMPLIANCE}
-              className="group bg-white border-2 border-slate-200 rounded-2xl p-8 hover:shadow-xl transition-all hover:-translate-y-1"
-              style={{ '--hover-border': '#5f3b8f' } as React.CSSProperties}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = '#5f3b8f')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = '')}>
+              className="group bg-white border-2 border-slate-200 hover:border-[#5f3b8f] rounded-2xl p-8 hover:shadow-xl transition-all hover:-translate-y-1">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
                 style={{ background: 'rgba(95,59,143,0.1)' }}>
                 <HiShieldCheck className="w-6 h-6" style={{ color: '#5f3b8f' }} />
@@ -77,9 +74,7 @@ export default function SolutionsPage() {
             </Link>
 
             <Link href={URL_FRONTEND_SOLUTIONS_AGENCIES}
-              className="group bg-white border-2 border-slate-200 rounded-2xl p-8 hover:shadow-xl transition-all hover:-translate-y-1"
-              onMouseEnter={e => (e.currentTarget.style.borderColor = '#3861ab')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = '')}>
+              className="group bg-white border-2 border-slate-200 hover:border-[#3861ab] rounded-2xl p-8 hover:shadow-xl transition-all hover:-translate-y-1">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
                 style={{ background: 'rgba(56,97,171,0.1)' }}>
                 <HiBriefcase className="w-6 h-6" style={{ color: '#3861ab' }} />
@@ -92,9 +87,7 @@ export default function SolutionsPage() {
             </Link>
 
             <Link href={URL_FRONTEND_SOLUTIONS_DEVELOPERS}
-              className="group bg-white border-2 border-slate-200 rounded-2xl p-8 hover:shadow-xl transition-all hover:-translate-y-1"
-              onMouseEnter={e => (e.currentTarget.style.borderColor = '#39b0ce')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = '')}>
+              className="group bg-white border-2 border-slate-200 hover:border-[#39b0ce] rounded-2xl p-8 hover:shadow-xl transition-all hover:-translate-y-1">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
                 style={{ background: 'rgba(57,176,206,0.1)' }}>
                 <HiCodeBracket className="w-6 h-6" style={{ color: '#39b0ce' }} />
