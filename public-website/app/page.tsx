@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { buildPageMetadata } from "./libs/metadata";
 import HomeClient from "./home-client";
+import { client } from "@/lib/sanity";
+import { BlogPost } from "@/lib/types";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Website Accessibility Built for Scale",
@@ -8,6 +10,29 @@ export const metadata: Metadata = buildPageMetadata({
   path: "/",
 });
 
-export default function Home() {
-  return <HomeClient />;
+export const revalidate = 60;
+
+async function getLatestBlogPosts(): Promise<BlogPost[]> {
+  try {
+    return await client.fetch(`
+      *[_type == "post" && !(_id in path("drafts.**"))] | order(publishedAt desc) [0...3] {
+        _id,
+        title,
+        slug,
+        excerpt,
+        publishedAt,
+        readTime,
+        "author": author->{ name, slug, image },
+        mainImage,
+        categories
+      }
+    `);
+  } catch {
+    return [];
+  }
+}
+
+export default async function Home() {
+  const blogPosts = await getLatestBlogPosts();
+  return <HomeClient blogPosts={blogPosts} />;
 }
