@@ -109,12 +109,20 @@ export default function ProfilePage() {
       setConfirmPassword("");
       setTimeout(() => setPasswordSuccess(""), 4000);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to change password";
-      setPasswordError(
-        msg.includes("wrong-password") || msg.includes("invalid-credential")
-          ? "Current password is incorrect."
-          : msg
-      );
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("auth/wrong-password") ||
+          msg.includes("auth/invalid-credential") ||
+          msg.includes("auth/invalid-login-credentials")) {
+        setPasswordError("Current password is incorrect.");
+      } else if (msg.includes("auth/too-many-requests")) {
+        setPasswordError("Too many attempts. Please wait a moment and try again.");
+      } else if (msg.includes("auth/weak-password")) {
+        setPasswordError("New password is too weak. Please choose a stronger password.");
+      } else if (msg.includes("auth/requires-recent-login")) {
+        setPasswordError("For security, please sign out and sign back in before changing your password.");
+      } else {
+        setPasswordError("Failed to change password. Please try again.");
+      }
     } finally {
       setChangingPassword(false);
     }
