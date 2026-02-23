@@ -183,13 +183,15 @@ async function uploadHtmlToStorage(projectId, runId, pageId, html) {
             return `http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
         }
         
-        // In production, use signed URL valid for 7 days
-        const [url] = await file.getSignedUrl({
-            action: 'read',
-            expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+        // In production, generate a Firebase download URL (non-expiring, CORS-friendly, browser-accessible)
+        // Set a download token in the file metadata so we can construct the Firebase download URL
+        const { randomUUID } = require('crypto');
+        const downloadToken = randomUUID();
+        await file.setMetadata({
+            metadata: { firebaseStorageDownloadTokens: downloadToken }
         });
-        
-        return url;
+        const encodedPath = encodeURIComponent(filePath);
+        return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
     } catch (error) {
         console.error('Failed to upload HTML to storage:', error);
         return null;
@@ -214,11 +216,13 @@ async function uploadBinaryToStorage(projectId, runId, pageId, filename, buffer,
             return `http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
         }
 
-        const [url] = await file.getSignedUrl({
-            action: 'read',
-            expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        const { randomUUID } = require('crypto');
+        const downloadToken = randomUUID();
+        await file.setMetadata({
+            metadata: { firebaseStorageDownloadTokens: downloadToken }
         });
-        return url;
+        const encodedPath = encodeURIComponent(filePath);
+        return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
     } catch (error) {
         console.error('Failed to upload binary to storage:', error);
         return null;

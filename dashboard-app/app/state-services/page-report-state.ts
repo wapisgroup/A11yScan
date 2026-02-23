@@ -81,22 +81,23 @@ export type Project = {
 export type PageReportState = {
   projectId: string;
   pageId: string;
-  
+
   // Data
   project: Project | null;
   page: PageDoc | null;
   scans: ScanDoc[];
   selectedScan: ScanDoc | null;
   downloadUrl: string | null;
-  
+  snapshotHtml: string | null;
+
   // Loading states
   loading: boolean;
   error: string;
-  
+
   // Scan selection
   selectedScanId: string | null;
   setSelectedScanId: (id: string | null) => void;
-  
+
   // Computed values
   summary: Required<ViolationsCount>;
   groupedIssues: Record<string, Issue[]>;
@@ -126,6 +127,7 @@ export const usePageReportState = (
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const [selectedScan, setSelectedScan] = useState<ScanDoc | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [snapshotHtml, setSnapshotHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
@@ -250,6 +252,49 @@ export const usePageReportState = (
     void fetchUrl();
   }, [selectedScan, page]);
 
+  // Load snapshot HTML for the preview tab
+  useEffect(() => {
+    async function loadSnapshot() {
+      setSnapshotHtml(null);
+      if (!selectedScan) return;
+
+      const scan = selectedScan as Record<string, unknown>;
+      const pageInfo = scan.pageInfo as Record<string, unknown> | null | undefined;
+
+      // 1. Inline HTML stored directly in Firestore (no Storage needed)
+      const inlineHtml =
+        (pageInfo?.pageSnapshot as string | null | undefined) ??
+        (scan.pageSnapshot as string | null | undefined) ??
+        null;
+      if (inlineHtml) { setSnapshotHtml(inlineHtml); return; }
+
+      // 2. Stored signed URL (set by the worker — bypasses storage rules, valid 7 days)
+      const storedUrl = (scan.pageSnapshotUrl as string | null | undefined) ?? null;
+      if (storedUrl) {
+        try {
+          const res = await fetch(storedUrl);
+          if (res.ok) { setSnapshotHtml(await res.text()); return; }
+        } catch { /* fall through */ }
+      }
+
+      // 3. Reconstruct storage path and get a fresh Firebase download URL
+      if (!storage) return;
+      const runId = (scan.runId as string | null | undefined) ?? null;
+      const scanPageId = ((scan.pageId as string | null | undefined) ?? pageId) ?? null;
+      if (!runId || !scanPageId || !projectId) return;
+
+      const path = `scans/${projectId}/${runId}/${scanPageId}/snapshot.html`;
+      try {
+        const url = await getDownloadURL(storageRef(storage, path));
+        const res = await fetch(url);
+        if (res.ok) setSnapshotHtml(await res.text());
+      } catch { /* snapshot not available */ }
+    }
+
+    void loadSnapshot();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedScan]);
+
   // Computed: summary
   const summary = useMemo<Required<ViolationsCount>>(() => {
     const base =
@@ -300,6 +345,7 @@ export const usePageReportState = (
     scans,
     selectedScan,
     downloadUrl,
+    snapshotHtml,
     loading,
     error,
     selectedScanId,

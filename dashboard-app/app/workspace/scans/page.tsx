@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { PiFileText, PiGlobe, PiCalendar, PiNotepadLight } from "react-icons/pi";
+import { useSearchParams } from "next/navigation";
+import {
+  PiFileText, PiGlobe, PiCalendar, PiNotepadLight,
+  PiArrowClockwise, PiSpinner
+} from "react-icons/pi";
+import {
+  collection, query, where, orderBy, limit, onSnapshot,
+  type Unsubscribe
+} from "firebase/firestore";
 
 import { PageContainer } from "@/components/molecule/page-container";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
 import { Pagination } from "@/components/molecule/pagination";
 import { useAuth } from "@/utils/firebase";
+import { db } from "@/utils/firebase";
 import { StatPill } from "@/components/atom/stat-pill";
 import { useScansPageState } from "@/state-services/scan-state";
 import { formatTimeAgo } from "@/ui-helpers/default";
@@ -19,6 +27,7 @@ import { TableErrorBadge } from "@/components/atom/table-error-badge";
 import { EmptyState } from "@/components/atom/EmptyState";
 import { DSIconButton } from "@/components/atom/ds-icon-button";
 import PageReportDrawer from "@/components/modals/page-report-drawer";
+import { scanSinglePage } from "@/services/projectDetailService";
 import type { PageReport } from "@/services/scanService";
 
 // Disable static generation for this route (uses useSearchParams)
@@ -27,14 +36,14 @@ export const dynamicParams = true;
 
 export default function Scans() {
   const { user } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const projectIdFilter = searchParams.get('projectId');
 
   const [selectedScan, setSelectedScan] = useState<PageReport | null>(null);
   const [drawerTab, setDrawerTab] = useState<"report" | "preview">("report");
+  const [rescanningIds, setRescanningIds] = useState<Set<string>>(new Set());
+  const rescanWatchersRef = useRef<Map<string, Unsubscribe>>(new Map());
 
-  // Use scans page state hook
   const {
     pagedItems: pagedScans,
     allItems: scans,
@@ -47,14 +56,70 @@ export default function Scans() {
     setSeverityFilter,
     projectFilter,
     setProjectFilter,
+    refresh,
   } = useScansPageState(user?.organisationId, projectIdFilter, 20);
+
+  const clearRescan = useCallback((pageId: string) => {
+    const unsub = rescanWatchersRef.current.get(pageId);
+    unsub?.();
+    rescanWatchersRef.current.delete(pageId);
+    setRescanningIds((prev) => {
+      const next = new Set(prev);
+      next.delete(pageId);
+      return next;
+    });
+  }, []);
+
+  const handleRescan = useCallback(async (scan: PageReport) => {
+    const pageId = scan.id;
+    if (rescanningIds.has(pageId)) return;
+
+    setRescanningIds((prev) => new Set([...prev, pageId]));
+
+    const triggerTime = Date.now();
+    let sawActive = false;
+
+    // Watch the most-recent run for this page; clear when a new run completes
+    const runsQuery = query(
+      collection(db, "projects", scan.projectId, "runs"),
+      where("pagesIds", "array-contains", pageId),
+      orderBy("startedAt", "desc"),
+      limit(1)
+    );
+
+    const unsub = onSnapshot(runsQuery, (snap) => {
+      if (!snap.docs.length) return;
+      const data = snap.docs[0].data() as Record<string, any>;
+      const status = String(data.status ?? "").toLowerCase();
+      const startedMs: number =
+        data.startedAt?.toMillis?.() ??
+        (data.startedAt instanceof Date ? data.startedAt.getTime() : 0);
+
+      const isNew = startedMs === 0 || startedMs >= triggerTime - 10_000;
+      const isActive = ["queued", "running", "pending"].includes(status);
+      const isDone = ["scanned", "completed", "done", "failed"].includes(status);
+
+      if (isNew && isActive) sawActive = true;
+      if ((sawActive || isNew) && isDone) {
+        clearRescan(pageId);
+        void refresh();
+      }
+    });
+
+    rescanWatchersRef.current.set(pageId, unsub);
+
+    try {
+      await scanSinglePage(scan.projectId, { id: pageId, url: scan.url });
+    } catch {
+      clearRescan(pageId);
+    }
+  }, [rescanningIds, clearRescan, refresh]);
 
   if (loading) {
     return (
       <PrivateRoute>
         <WorkspaceLayout>
           <PageWrapper title="Scans">
-
             <PageContainer title="Page Scans">
               <PageDataLoading>Loading scans...</PageDataLoading>
             </PageContainer>
@@ -134,7 +199,6 @@ export default function Scans() {
                   <thead>
                     <tr className="as-p3-text table-heading-text-color border-b border-[var(--color-border-light)] uppercase tracking-wider">
                       <th className="py-3 px-6 min-w-[360px]">Page URL</th>
-                      <th className="py-3 px-6">Project</th>
                       <th className="py-3 px-6 text-center">Errors</th>
                       <th className="py-3 px-6 whitespace-nowrap min-w-[160px]">Last Scanned</th>
                       <th className="py-3 px-6 text-right">&nbsp;</th>
@@ -143,7 +207,7 @@ export default function Scans() {
                   <tbody>
                     {pagedScans.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-12">
+                        <td colSpan={4} className="py-12">
                           <EmptyState
                             icon={<PiNotepadLight />}
                             title={severityFilter !== 'all' ? 'No scans found' : 'No scans yet'}
@@ -152,50 +216,68 @@ export default function Scans() {
                         </td>
                       </tr>
                     ) : (
-                      pagedScans.map((scan) => (
-                        <tr key={scan.id} className="border-t border-[var(--color-border-light)] ">
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-2">
-                              <PiGlobe className="text-[#649DAD] flex-shrink-0" />
-                              <div className="max-w-sm truncate" title={scan.url}>
-                                <span className="as-p2-text secondary-text-color">{scan.url}</span>
+                      pagedScans.map((scan) => {
+                        const isRescanning = rescanningIds.has(scan.id);
+                        return (
+                          <tr key={scan.id} className="border-t border-[var(--color-border-light)]">
+                            <td className="py-4 px-6">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <PiGlobe className="text-[#649DAD] flex-shrink-0" />
+                                  <div className="max-w-sm truncate" title={scan.url}>
+                                    <span className="as-p2-text secondary-text-color">{scan.url}</span>
+                                  </div>
+                                </div>
+                                <div className="as-p3-text secondary-text-color">
+                                  Project:&nbsp; 
+                                  <Link
+                                    href={`/workspace/projects/${scan.projectId}`}
+                                    className="as-p3-text secondary-text-color hover:underline"
+                                  >
+                                    {scan.projectName}
+                                  </Link>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <Link
-                              href={`/workspace/projects/${scan.projectId}`}
-                              className="as-p2-text secondary-text-color hover:underline"
-                            >
-                              {scan.projectName}
-                            </Link>
-                          </td>
-                          <td className="py-4 px-6 text-center">
-
-                            <TableErrorBadge count={scan.criticalIssues} type="critical" rounded="start" tooltip="Critical errors" />
-                            <TableErrorBadge count={scan.seriousIssues} type="serious" tooltip="Serious errors" />
-                            <TableErrorBadge count={scan.moderateIssues} type="moderate" tooltip="Moderate errors" />
-                            <TableErrorBadge count={scan.minorIssues} type="minor" rounded="end" tooltip="Minor errors" />
-
-                          </td>
-                          <td className="py-4 px-6 whitespace-nowrap">
-                            <div className="flex items-center gap-1 text-sm secondary-text-color">
-                              <PiCalendar className="table-heading-text-color" />
-                              {formatTimeAgo(scan.lastScanned)}
-                            </div>
-                          </td>
-                          <td className="py-4 px-6 text-right">
-                            <DSIconButton
-                              icon={<PiFileText size={18} />}
-                              label="View report"
-                              onClick={() => {
-                                setSelectedScan(scan);
-                                setDrawerTab("report");
-                              }}
-                            />
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                            <td className="py-4 px-6 text-center">
+                              <TableErrorBadge count={scan.criticalIssues} type="critical" rounded="start" tooltip="Critical errors" />
+                              <TableErrorBadge count={scan.seriousIssues} type="serious" tooltip="Serious errors" />
+                              <TableErrorBadge count={scan.moderateIssues} type="moderate" tooltip="Moderate errors" />
+                              <TableErrorBadge count={scan.minorIssues} type="minor" rounded="end" tooltip="Minor errors" />
+                            </td>
+                            <td className="py-4 px-6 whitespace-nowrap">
+                              <div className="flex items-center gap-1 text-sm secondary-text-color">
+                                <PiCalendar className="table-heading-text-color" />
+                                {formatTimeAgo(scan.lastScanned)}
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center justify-end gap-2">
+                                {isRescanning ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full as-p3-text bg-brand-light brand-color">
+                                    <PiSpinner size={13} className="animate-spin" />
+                                    Scanning…
+                                  </span>
+                                ) : (
+                                  <DSIconButton
+                                    icon={<PiArrowClockwise size={18} />}
+                                    label="Rescan"
+                                    onClick={() => void handleRescan(scan)}
+                                  />
+                                )}
+                                <DSIconButton
+                                  icon={<PiFileText size={18} />}
+                                  label="View report"
+                                  onClick={() => {
+                                    setSelectedScan(scan);
+                                    setDrawerTab("report");
+                                  }}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -223,7 +305,7 @@ export default function Scans() {
         scanIdFromUrl={null}
         onClose={() => setSelectedScan(null)}
         onTabChange={setDrawerTab}
-        onScanChange={() => {}}
+        onScanChange={() => { }}
       />
     </PrivateRoute>
   );

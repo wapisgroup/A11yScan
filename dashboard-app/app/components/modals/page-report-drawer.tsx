@@ -5,16 +5,18 @@
  * Shared component in modals/page-report-drawer.tsx.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PiCheckCircle } from "react-icons/pi";
+import React, { useMemo, useRef, useState } from "react";
+import { PiCheckCircle, PiCaretRight, PiArrowClockwise } from "react-icons/pi";
 
 import { formatDate } from "@/ui-helpers/default";
 import { usePageReportState } from "@/state-services/page-report-state";
 import IssueDetailModal, { type IssueData } from "@/components/modals/issue-detail-modal";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { DSBadge } from "@/components/atom/ds-badge";
+import { scanSinglePage } from "@/services/projectDetailService";
 
 type DrawerTab = "report" | "preview";
+type SeverityFilter = "all" | "critical" | "serious" | "moderate" | "minor";
 
 type DrawerProps = {
   open: boolean;
@@ -58,10 +60,11 @@ export default function PageReportDrawer({
   const state = usePageReportState(projectId, pageId || undefined);
   const [selectedIssue, setSelectedIssue] = useState<IssueData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
+  const [rescanning, setRescanning] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!open || !state) return;
     if (scanIdFromUrl && scanIdFromUrl !== state.selectedScanId) {
       state.setSelectedScanId(scanIdFromUrl);
@@ -72,27 +75,10 @@ export default function PageReportDrawer({
     }
   }, [open, state, scanIdFromUrl, onScanChange]);
 
-  // Load page snapshot HTML for the preview tab
-  useEffect(() => {
-    if (activeTab !== "preview" || !state?.selectedScan) {
-      setPreviewHtml(null);
-      return;
-    }
-    const scan = state.selectedScan as any;
-    const snapshotUrl = (scan.pageSnapshotUrl ?? null) as string | null;
-    const inlineHtml = (scan.pageInfo?.pageSnapshot ?? scan.pageSnapshot ?? null) as string | null;
-
-    if (snapshotUrl) {
-      fetch(snapshotUrl)
-        .then((r) => r.text())
-        .then((html) => setPreviewHtml(html))
-        .catch(() => { if (inlineHtml) setPreviewHtml(inlineHtml); });
-    } else if (inlineHtml) {
-      setPreviewHtml(inlineHtml);
-    } else {
-      setPreviewHtml(null);
-    }
-  }, [activeTab, state?.selectedScan]);
+  // Reset filter when scan changes
+  React.useEffect(() => {
+    setSeverityFilter("all");
+  }, [state?.selectedScanId]);
 
   const groupedIssues = useMemo(() => {
     if (!state) return [];
@@ -103,6 +89,13 @@ export default function PageReportDrawer({
       allIssues: issues as Issue[]
     }));
   }, [state]);
+
+  const filteredIssues = useMemo(() => {
+    if (severityFilter === "all") return groupedIssues;
+    return groupedIssues.filter(
+      (g) => (g.firstIssue.impact || "").toLowerCase() === severityFilter
+    );
+  }, [groupedIssues, severityFilter]);
 
   const openIssueModal = (issue: Issue, allIssues?: Issue[]) => {
     const occurrences = allIssues && allIssues.length > 1 ? allIssues : [issue];
@@ -143,6 +136,19 @@ export default function PageReportDrawer({
     setIsModalOpen(true);
   };
 
+  const handleRescan = async () => {
+    if (!pageId || rescanning) return;
+    setRescanning(true);
+    try {
+      await scanSinglePage(projectId, {
+        id: pageId,
+        url: state?.page?.url ?? undefined
+      });
+    } finally {
+      setRescanning(false);
+    }
+  };
+
   if (!open || !pageId) return null;
 
   return (
@@ -173,6 +179,16 @@ export default function PageReportDrawer({
                   </option>
                 ))}
               </select>
+
+              <button
+                type="button"
+                disabled={rescanning || state?.loading}
+                onClick={() => void handleRescan()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md as-p3-text border border-[var(--color-border-light)] hover:bg-[var(--color-bg-light)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <PiArrowClockwise size={14} className={rescanning ? "animate-spin" : ""} />
+                {rescanning ? "Rescanning…" : "Rescan"}
+              </button>
             </div>
 
             <div className="inline-flex rounded-lg bg-[var(--color-bg-light)] p-1">
@@ -201,31 +217,71 @@ export default function PageReportDrawer({
                 <div className="as-p2-text text-[var(--color-error)]">{state.error}</div>
               ) : (
                 <div className="space-y-4">
+                  {/* Severity filter cards */}
                   <div className="grid grid-cols-4 gap-3">
-                    <StatCard label="Critical" value={state.summary.critical} tone="critical" />
-                    <StatCard label="Serious" value={state.summary.serious} tone="serious" />
-                    <StatCard label="Moderate" value={state.summary.moderate} tone="moderate" />
-                    <StatCard label="Minor" value={state.summary.minor} tone="minor" />
+                    <FilterCard
+                      label="Critical"
+                      value={state.summary.critical}
+                      tone="critical"
+                      active={severityFilter === "critical"}
+                      onClick={() => setSeverityFilter(severityFilter === "critical" ? "all" : "critical")}
+                    />
+                    <FilterCard
+                      label="Serious"
+                      value={state.summary.serious}
+                      tone="serious"
+                      active={severityFilter === "serious"}
+                      onClick={() => setSeverityFilter(severityFilter === "serious" ? "all" : "serious")}
+                    />
+                    <FilterCard
+                      label="Moderate"
+                      value={state.summary.moderate}
+                      tone="moderate"
+                      active={severityFilter === "moderate"}
+                      onClick={() => setSeverityFilter(severityFilter === "moderate" ? "all" : "moderate")}
+                    />
+                    <FilterCard
+                      label="Minor"
+                      value={state.summary.minor}
+                      tone="minor"
+                      active={severityFilter === "minor"}
+                      onClick={() => setSeverityFilter(severityFilter === "minor" ? "all" : "minor")}
+                    />
                   </div>
 
-                  {groupedIssues.length === 0 ? (
+                  {/* Active filter label */}
+                  {severityFilter !== "all" && (
+                    <div className="flex items-center gap-2 as-p3-text secondary-text-color">
+                      <span>Showing <strong className="primary-text-color">{filteredIssues.length}</strong> of {groupedIssues.length} issues</span>
+                      <button
+                        onClick={() => setSeverityFilter("all")}
+                        className="underline hover:no-underline"
+                      >
+                        Clear filter
+                      </button>
+                    </div>
+                  )}
+
+                  {filteredIssues.length === 0 ? (
                     <div className="p-8 bg-white rounded-xl border border-[var(--color-border-light)] text-center">
                       <PiCheckCircle size={34} className="mx-auto text-[var(--color-success)] mb-2" />
-                      <div className="as-p2-text secondary-text-color">No issues for this scan.</div>
+                      <div className="as-p2-text secondary-text-color">
+                        {groupedIssues.length === 0 ? "No issues for this scan." : "No issues match the selected filter."}
+                      </div>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {groupedIssues.map((group, idx) => {
+                    <div className="space-y-2">
+                      {filteredIssues.map((group, idx) => {
                         const issue = group.firstIssue;
                         return (
                           <button
                             key={`${group.ruleId}-${idx}`}
                             type="button"
                             onClick={() => openIssueModal(issue, group.allIssues)}
-                            className="w-full text-left p-4 bg-white border border-[var(--color-border-light)] rounded-xl hover:border-brand/50"
+                            className="w-full text-left p-4 bg-white border border-[var(--color-border-light)] rounded-xl hover:border-brand/50 hover:shadow-sm group transition-all"
                           >
                             <div className="flex items-center justify-between gap-4">
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="as-p2-text primary-text-color truncate">
                                   {issue.message || issue.description || issue.ruleId || "Issue"}
                                 </div>
@@ -235,6 +291,10 @@ export default function PageReportDrawer({
                                   <span>{group.count} occurrence{group.count === 1 ? "" : "s"}</span>
                                   {issue.ruleId ? <><span>·</span><code>{issue.ruleId}</code></> : null}
                                 </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 as-p3-text secondary-text-color group-hover:brand-color flex-shrink-0 transition-colors">
+                                <span className="hidden group-hover:inline">View details</span>
+                                <PiCaretRight size={16} />
                               </div>
                             </div>
                           </button>
@@ -246,13 +306,13 @@ export default function PageReportDrawer({
               )}
             </div>
           ) : (
-            <div className="flex-1 bg-[var(--color-bg)]">
-              {previewHtml ? (
+            <div className="flex-1 relative bg-[var(--color-bg)]">
+              {state?.snapshotHtml ? (
                 <iframe
                   ref={iframeRef}
                   title="Page preview"
-                  srcDoc={previewHtml}
-                  className="w-full h-full border-0"
+                  srcDoc={state.snapshotHtml}
+                  className="absolute inset-0 w-full h-full border-0"
                   sandbox="allow-scripts allow-forms"
                 />
               ) : state?.selectedScan ? (
@@ -274,27 +334,63 @@ export default function PageReportDrawer({
   );
 }
 
-function StatCard({
+function FilterCard({
   label,
   value,
-  tone
+  tone,
+  active,
+  onClick
 }: {
   label: string;
   value: number;
   tone: "critical" | "serious" | "moderate" | "minor";
+  active: boolean;
+  onClick: () => void;
 }) {
-  const toneClass = {
-    critical: "text-[var(--color-error)] border-[var(--color-error)]/20",
-    serious: "text-[var(--color-warning)] border-[var(--color-warning)]/20",
-    moderate: "text-[var(--color-info)] border-[var(--color-info)]/20",
-    minor: "text-[var(--color-success)] border-[var(--color-success)]/20"
+  const toneConfig = {
+    critical: {
+      border: "border-[var(--color-error)]/30",
+      activeBg: "bg-[var(--color-error)]/8",
+      activeBorder: "border-[var(--color-error)]",
+      text: "text-[var(--color-error)]"
+    },
+    serious: {
+      border: "border-[var(--color-warning)]/30",
+      activeBg: "bg-[var(--color-warning)]/8",
+      activeBorder: "border-[var(--color-warning)]",
+      text: "text-[var(--color-warning)]"
+    },
+    moderate: {
+      border: "border-[var(--color-info)]/30",
+      activeBg: "bg-[var(--color-info)]/8",
+      activeBorder: "border-[var(--color-info)]",
+      text: "text-[var(--color-info)]"
+    },
+    minor: {
+      border: "border-[var(--color-success)]/30",
+      activeBg: "bg-[var(--color-success)]/8",
+      activeBorder: "border-[var(--color-success)]",
+      text: "text-[var(--color-success)]"
+    }
   }[tone];
 
   return (
-    <div className={`p-4 bg-white rounded-xl border ${toneClass}`}>
-      <div className="as-p3-text secondary-text-color">{label}</div>
-      <div className="as-h3-text">{value}</div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "w-full text-left p-4 rounded-xl border-2 transition-all",
+        active
+          ? `${toneConfig.activeBg} ${toneConfig.activeBorder}`
+          : `bg-white ${toneConfig.border}`,
+      ].join(" ")}
+    >
+      <div className={`as-p3-text ${active ? toneConfig.text : "secondary-text-color"}`}>{label}</div>
+      <div className={`as-h3-text ${toneConfig.text}`}>{value}</div>
+      {active && (
+        <div className={`mt-1 as-p3-text ${toneConfig.text} opacity-70`}>Filtering ✕</div>
+      )}
+    </button>
   );
 }
 
