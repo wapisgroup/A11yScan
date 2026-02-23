@@ -11,7 +11,7 @@ export const PricingPageHero = () => {
     return (
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-large items-center">
             <div className="flex flex-col gap-large">
-                <TitleText title={`Simple pricing for teams of every size`}>Scan whole websites, prioritize fixes by impact, and deliver client-ready PDF reports. Pick a plan that suits your workflow — start a free trial, scale as you grow.</TitleText>
+                <TitleText title={`Simple pricing for teams of every size`}>Scan whole websites, prioritize fixes by impact, and deliver client-ready PDF reports. Pick a plan that suits your workflow - start a free trial, scale as you grow.</TitleText>
 
                 <div className="flex flex-wrap gap-small">
                     <Link href={startTrial}>
@@ -37,7 +37,7 @@ export const PricingPageHero = () => {
                 </div>
 
                 <WhiteBox extraClass="gap-medium">
-                    <h4 className="as-h5-text primary-text-color">Example — Royal Mail (summary)</h4>
+                    <h4 className="as-h5-text primary-text-color">Example - Royal Mail (summary)</h4>
                     <div className="as-p3-text secondary-text-color">Tested: https://www.royalmailpensionplan.co.uk · Aug 19, 2025</div>
                     <div className="grid gap-large py-[var(--spacing-m)] ">
                         <ErrorStats type="Critical" number={45} />

@@ -54,7 +54,7 @@ export default function SolutionsPage() {
               </span>
             </h1>
             <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
-              Whether you own compliance, run client audits, or ship code — Ablelytics has a workflow built around your role.
+              Whether you own compliance, run client audits, or ship code - Ablelytics has a workflow built around your role.
             </p>
           </div>
 
@@ -80,7 +80,7 @@ export default function SolutionsPage() {
                 <HiBriefcase className="w-6 h-6" style={{ color: '#3861ab' }} />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#3861ab] transition-colors">Agencies</h3>
-              <p className="text-slate-600 mb-5 text-sm leading-relaxed">Manage multiple client sites, deliver white-label branded PDF reports, and automate recurring monitoring — so you spend time consulting, not testing manually.</p>
+              <p className="text-slate-600 mb-5 text-sm leading-relaxed">Manage multiple client sites, deliver white-label branded PDF reports, and automate recurring monitoring - so you spend time consulting, not testing manually.</p>
               <span className="text-sm font-semibold flex items-center gap-1" style={{ color: '#3861ab' }}>
                 Explore agencies <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
               </span>
@@ -102,7 +102,7 @@ export default function SolutionsPage() {
         </div>
       </section>
 
-      {/* The stakes — why it matters */}
+      {/* The stakes - why it matters */}
       <section className="py-16 md:py-20 bg-slate-50">
         <div className="container mx-auto px-4 md:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto">
@@ -111,7 +111,7 @@ export default function SolutionsPage() {
                 Accessibility is no longer optional
               </h2>
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                Legal exposure, user exclusion, and regulatory deadlines are converging. The question is when you address it — not whether.
+                Legal exposure, user exclusion, and regulatory deadlines are converging. The question is when you address it - not whether.
               </p>
             </div>
 
@@ -124,7 +124,7 @@ export default function SolutionsPage() {
                 <div className="text-3xl font-black mb-1" style={{ color: '#5f3b8f' }}>4,600+</div>
                 <div className="text-sm font-semibold text-slate-500 mb-3">Lawsuits filed per year</div>
                 <p className="text-slate-600 text-sm leading-relaxed">
-                  ADA Title III web accessibility lawsuits hit record highs. Average settlement and legal costs exceed $75,000 — and rising.
+                  ADA Title III web accessibility lawsuits hit record highs. Average settlement and legal costs exceed $75,000 - and rising.
                 </p>
               </div>
 
@@ -148,7 +148,7 @@ export default function SolutionsPage() {
                 <div className="text-3xl font-black mb-1" style={{ color: '#39b0ce' }}>1 in 4</div>
                 <div className="text-sm font-semibold text-slate-500 mb-3">Adults have a disability</div>
                 <p className="text-slate-600 text-sm leading-relaxed">
-                  That's over 1.3 billion people globally. Inaccessible sites exclude a massive audience — and expose you to risk.
+                  That's over 1.3 billion people globally. Inaccessible sites exclude a massive audience - and expose you to risk.
                 </p>
               </div>
             </div>
@@ -156,7 +156,7 @@ export default function SolutionsPage() {
         </div>
       </section>
 
-      {/* What you get — 3 capability pillars */}
+      {/* What you get - 3 capability pillars */}
       <section className="py-16 md:py-20 bg-white">
         <div className="container mx-auto px-4 md:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto">
@@ -165,7 +165,7 @@ export default function SolutionsPage() {
                 One platform. Every role covered.
               </h2>
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                Shared reporting and evidence — with workflows tuned to how each team actually works.
+                Shared reporting and evidence - with workflows tuned to how each team actually works.
               </p>
             </div>
 
@@ -193,7 +193,7 @@ export default function SolutionsPage() {
                   <HiWrenchScrewdriver className="w-6 h-6" style={{ color: '#3861ab' }} />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-2">Fix faster across teams</h3>
-                <p className="text-slate-600 text-sm leading-relaxed mb-4">CSS selectors, code context, and AI-generated fix suggestions mean developers spend time fixing — not deciphering reports.</p>
+                <p className="text-slate-600 text-sm leading-relaxed mb-4">CSS selectors, code context, and AI-generated fix suggestions mean developers spend time fixing - not deciphering reports.</p>
                 <ul className="space-y-1.5">
                   {["Element selectors and code context", "AI fix suggestions per finding", "Severity-ranked issue lists"].map(t => (
                     <li key={t} className="flex items-center gap-2 text-xs text-slate-600">
@@ -210,7 +210,7 @@ export default function SolutionsPage() {
                   <HiArrowTrendingUp className="w-6 h-6" style={{ color: '#39b0ce' }} />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-2">Track progress over time</h3>
-                <p className="text-slate-600 text-sm leading-relaxed mb-4">Score trends across every scan show whether you're improving or regressing — useful for internal reporting and stakeholder buy-in.</p>
+                <p className="text-slate-600 text-sm leading-relaxed mb-4">Score trends across every scan show whether you're improving or regressing - useful for internal reporting and stakeholder buy-in.</p>
                 <ul className="space-y-1.5">
                   {["Scan score trend charts", "Regression alerts on new violations", "Portfolio view across projects"].map(t => (
                     <li key={t} className="flex items-center gap-2 text-xs text-slate-600">
@@ -225,7 +225,7 @@ export default function SolutionsPage() {
         </div>
       </section>
 
-      {/* Workflow section — brand gradient */}
+      {/* Workflow section - brand gradient */}
       <section className="py-16 md:py-20 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #2d2d6e 0%, #5f3b8f 55%, #3861ab 100%)' }}>
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -277,7 +277,7 @@ export default function SolutionsPage() {
               Pick the solution that matches your team
             </h2>
             <p className="text-lg text-slate-600">
-              All solutions share the same scan engines and evidence — just different workflows.
+              All solutions share the same scan engines and evidence - just different workflows.
             </p>
           </div>
           <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto mb-10">

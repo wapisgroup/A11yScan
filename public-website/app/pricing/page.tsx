@@ -81,7 +81,7 @@ export default function PricingPage() {
                             </Link>
                         </div>
 
-                        {/* Starter — featured */}
+                        {/* Starter - featured */}
                         <div className="bg-white rounded-2xl p-8 flex flex-col relative shadow-2xl"
                             style={{ outline: '2px solid #5f3b8f', outlineOffset: '0px' }}>
                             <div className="absolute -top-4 left-1/2 -translate-x-1/2">
@@ -173,7 +173,7 @@ export default function PricingPage() {
 
                     {/* Annual discount note */}
                     <p className="text-center text-slate-500 text-sm mt-8">
-                        Annual billing available — save 20% on any plan. <Link href={URL_FRONTEND_CONTACT} className="font-semibold underline" style={{ color: '#5f3b8f' }}>Contact us</Link> for a quote.
+                        Annual billing available - save 20% on any plan. <Link href={URL_FRONTEND_CONTACT} className="font-semibold underline" style={{ color: '#5f3b8f' }}>Contact us</Link> for a quote.
                     </p>
                 </div>
             </section>
@@ -188,7 +188,7 @@ export default function PricingPage() {
                         {[
                             {
                                 q: 'What counts as a "page" in my scan limit?',
-                                a: "Each unique URL tested counts as one page. If you scan the same page multiple times across different runs, it counts once per scan — not cumulatively."
+                                a: "Each unique URL tested counts as one page. If you scan the same page multiple times across different runs, it counts once per scan - not cumulatively."
                             },
                             {
                                 q: "Can I upgrade or downgrade my plan at any time?",
@@ -196,7 +196,7 @@ export default function PricingPage() {
                             },
                             {
                                 q: "Do you offer annual billing?",
-                                a: "Yes — annual plans get a 20% discount. Contact sales for annual Enterprise pricing."
+                                a: "Yes - annual plans get a 20% discount. Contact sales for annual Enterprise pricing."
                             },
                             {
                                 q: "Are AI testing requests limited?",

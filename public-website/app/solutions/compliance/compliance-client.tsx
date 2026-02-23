@@ -81,7 +81,7 @@ export default function ComplianceClient() {
                 <HiExclamationTriangle className="w-12 h-12 mb-6" style={{ color: '#5f3b8f' }} />
                 <h3 className="text-2xl font-bold text-slate-900 mb-4">Rising Legal Risks</h3>
                 <p className="text-slate-700 leading-relaxed mb-4">
-                  Over 4,600 digital accessibility lawsuits were filed in 2023 alone. Average settlement and legal costs reach <strong>$75,000–$150,000</strong> per case — before remediation.
+                  Over 4,600 digital accessibility lawsuits were filed in 2023 alone. Average settlement and legal costs reach <strong>$75,000–$150,000</strong> per case - before remediation.
                 </p>
                 <p className="text-sm text-slate-500">
                   Plus reputational damage and mandatory remediation timelines
@@ -105,7 +105,7 @@ export default function ComplianceClient() {
                 <HiClock className="w-12 h-12 mb-6" style={{ color: '#39b0ce' }} />
                 <h3 className="text-2xl font-bold text-slate-900 mb-4">Manual Testing Burden</h3>
                 <p className="text-slate-700 leading-relaxed mb-4">
-                  Traditional audits are slow, expensive, and only provide point-in-time snapshots. Sites change constantly — compliance doesn't stay static.
+                  Traditional audits are slow, expensive, and only provide point-in-time snapshots. Sites change constantly - compliance doesn't stay static.
                 </p>
                 <p className="text-sm text-slate-500">
                   Manual audits can't scale with your release cadence
@@ -125,7 +125,7 @@ export default function ComplianceClient() {
                 Automated Compliance at Scale
               </h2>
               <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-                Stop scrambling during audits — maintain continuous compliance with automated scanning
+                Stop scrambling during audits - maintain continuous compliance with automated scanning
               </p>
             </div>
 
@@ -139,7 +139,7 @@ export default function ComplianceClient() {
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold text-slate-900 mb-4">Audit-Ready Reports</h3>
                     <p className="text-lg text-slate-700 mb-6 leading-relaxed">
-                      Generate comprehensive PDF reports that meet legal and regulatory standards. Each report includes executive summaries, detailed findings, WCAG success criteria mapping, and remediation timelines — everything you need to demonstrate due diligence.
+                      Generate comprehensive PDF reports that meet legal and regulatory standards. Each report includes executive summaries, detailed findings, WCAG success criteria mapping, and remediation timelines - everything you need to demonstrate due diligence.
                     </p>
                     <ul className="grid md:grid-cols-2 gap-3">
                       {[

@@ -17,7 +17,7 @@ export function HomePageHeroSection() {
                     Website Accessibility Testing Built for Scale
                 </h1>
                 <p className="text-xl text-slate-600 leading-relaxed">
-                    Automatically scan entire websites for WCAG compliance issues. Get detailed reports, track progress over time, and deliver client-ready documentation — all in one platform.
+                    Automatically scan entire websites for WCAG compliance issues. Get detailed reports, track progress over time, and deliver client-ready documentation - all in one platform.
                 </p>
                 <div className="flex flex-wrap gap-medium mt-4">
                     <Link href={startTrial}>

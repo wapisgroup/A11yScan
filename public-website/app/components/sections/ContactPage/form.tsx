@@ -93,14 +93,14 @@ export function ContactPageForm() {
                 const txt = await res.text().catch(() => null);
                 setErrorMessage(
                     txt ||
-                        "Server rejected the request — opening email client as fallback."
+                        "Server rejected the request - opening email client as fallback."
                 );
                 openMailTo(payload);
                 setSuccess(false);
             }
         } catch {
             setErrorMessage(
-                "Unable to reach the server — opening your email client as fallback."
+                "Unable to reach the server - opening your email client as fallback."
             );
             openMailTo(payload);
             setSuccess(false);
@@ -246,7 +246,7 @@ export function ContactPageForm() {
 
             {success === true ? (
                 <div className="text-green-300 as-p2-text" role="status">
-                    Thanks — your message was sent. We'll be in touch shortly.
+                    Thanks - your message was sent. We'll be in touch shortly.
                 </div>
             ) : null}
 

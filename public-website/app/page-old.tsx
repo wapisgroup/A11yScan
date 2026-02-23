@@ -22,7 +22,7 @@ export default function Home() {
               Website Accessibility Testing Built for Scale
             </h1>
             <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
-              Automatically scan entire websites for WCAG compliance. Deliver professional reports, track progress over time, and ensure digital accessibility — all in one powerful platform.
+              Automatically scan entire websites for WCAG compliance. Deliver professional reports, track progress over time, and ensure digital accessibility - all in one powerful platform.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 

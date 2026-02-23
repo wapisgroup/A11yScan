@@ -36,7 +36,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`How accurate is automated testing compared to manual audits?`}
                 >
-                    Ablelytics reliably detects 60-70% of accessibility issues automatically — things like missing alt text, color contrast failures, improper ARIA usage, keyboard navigation problems, and form labeling issues. This eliminates hundreds of hours of manual testing. However, 30-40% of WCAG criteria require human judgment (like meaningful alt text quality or proper heading hierarchy). We recommend using Ablelytics for initial discovery and ongoing monitoring, then manual audits for final certification.
+                    Ablelytics reliably detects 60-70% of accessibility issues automatically - things like missing alt text, color contrast failures, improper ARIA usage, keyboard navigation problems, and form labeling issues. This eliminates hundreds of hours of manual testing. However, 30-40% of WCAG criteria require human judgment (like meaningful alt text quality or proper heading hierarchy). We recommend using Ablelytics for initial discovery and ongoing monitoring, then manual audits for final certification.
                 </FAQItem>
 
                 <FAQItem
@@ -81,7 +81,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`Do you offer an API for CI/CD integration?`}
                 >
-                    Yes! Our REST API allows you to trigger scans, check job status, and retrieve results programmatically. This enables you to integrate accessibility testing into your continuous integration pipeline — fail builds when critical issues are detected, or send notifications to Slack when new issues appear. API documentation is available in your dashboard.
+                    Yes! Our REST API allows you to trigger scans, check job status, and retrieve results programmatically. This enables you to integrate accessibility testing into your continuous integration pipeline - fail builds when critical issues are detected, or send notifications to Slack when new issues appear. API documentation is available in your dashboard.
                 </FAQItem>
 
                 <FAQItem
@@ -99,7 +99,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`How do you handle single-page applications (SPAs)?`}
                 >
-                    Ablelytics uses a real Chrome browser (Puppeteer) to render pages, so JavaScript-heavy SPAs built with React, Vue, Angular, etc. work perfectly. We wait for the page to fully load, execute all JavaScript, and then run accessibility tests on the final rendered DOM — just like a real user would experience it.
+                    Ablelytics uses a real Chrome browser (Puppeteer) to render pages, so JavaScript-heavy SPAs built with React, Vue, Angular, etc. work perfectly. We wait for the page to fully load, execute all JavaScript, and then run accessibility tests on the final rendered DOM - just like a real user would experience it.
                 </FAQItem>
 
                 <FAQItem
@@ -126,7 +126,7 @@ export function HomePageFAQsSection() {
                     openFaq={openFaq}
                     title={`Can I try Ablelytics before committing to a paid plan?`}
                 >
-                    Yes! We offer a 14-day free trial with access to Starter features — no credit card required. If you need higher limits or Enterprise features, contact us for an extended trial.
+                    Yes! We offer a 14-day free trial with access to Starter features - no credit card required. If you need higher limits or Enterprise features, contact us for an extended trial.
                 </FAQItem>
             </div>
 

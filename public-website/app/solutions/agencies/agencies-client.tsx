@@ -37,7 +37,7 @@ export default function AgenciesClient() {
               For Agencies &amp; Consultants
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-              Deliver Professional Audits to Clients — Faster
+              Deliver Professional Audits to Clients - Faster
             </h1>
             <p className="text-xl md:text-2xl text-blue-100 leading-relaxed mb-10">
               White-label reports, bulk scanning, and automated monitoring that scale with your agency
@@ -98,7 +98,7 @@ export default function AgenciesClient() {
                 <HiSparkles className="w-12 h-12 mb-6" style={{ color: '#5f3b8f' }} />
                 <h3 className="text-2xl font-bold text-slate-900 mb-4">Look Professional</h3>
                 <p className="text-slate-700 leading-relaxed">
-                  Deliver branded PDF reports with your logo and custom styling. Remove all Ablelytics branding — every deliverable looks like it came from your team.
+                  Deliver branded PDF reports with your logo and custom styling. Remove all Ablelytics branding - every deliverable looks like it came from your team.
                 </p>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function AgenciesClient() {
               Ready to Scale Your Agency?
             </h2>
             <p className="text-xl md:text-2xl mb-10 opacity-90">
-              Deliver professional accessibility audits faster — and turn them into recurring monitoring revenue.
+              Deliver professional accessibility audits faster - and turn them into recurring monitoring revenue.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link

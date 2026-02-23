@@ -147,7 +147,7 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                   Three Engines. One Clear Report.
                 </h2>
                 <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-                  Each layer catches what the others miss — giving you the deepest, most accurate accessibility analysis available.
+                  Each layer catches what the others miss - giving you the deepest, most accurate accessibility analysis available.
                 </p>
               </div>
 
@@ -222,7 +222,7 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
           <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
             <div className="max-w-6xl mx-auto">
               <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
-                {/* Left — text */}
+                {/* Left - text */}
                 <div>
                   <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#5f3b8f]/10 border border-[#5f3b8f]/20 text-[#5f3b8f] text-sm font-medium mb-6">
                     <HiSparkles className="w-4 h-4" /> AI-Assisted Analysis
@@ -231,12 +231,12 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                     AI That Finds What Other Tools Miss
                   </h2>
                   <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                    Ablelytics goes beyond rule-based checks. Our AI engine analyzes page context, understands semantic structure, and surfaces issues that automated scanners simply can't detect — then tells you exactly how to fix them.
+                    Ablelytics goes beyond rule-based checks. Our AI engine analyzes page context, understands semantic structure, and surfaces issues that automated scanners simply can't detect - then tells you exactly how to fix them.
                   </p>
                   <ul className="space-y-4 mb-10">
                     {[
                       { icon: HiChartBar, title: "Confidence scoring", desc: "Every AI finding comes with a confidence level so your team can prioritise." },
-                      { icon: HiLightBulb, title: "Contextual fix suggestions", desc: "Not just 'what's broken' — specific, actionable code-level guidance." },
+                      { icon: HiLightBulb, title: "Contextual fix suggestions", desc: "Not just 'what's broken' - specific, actionable code-level guidance." },
                       { icon: HiMagnifyingGlass, title: "50+ checks beyond automated rules", desc: "Covers partial and manual-only WCAG criteria that no rule engine can automate." },
                     ].map((item, i) => (
                       <li key={i} className="flex gap-4">
@@ -258,7 +258,7 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                   </Link>
                 </div>
 
-                {/* Right — scan pipeline visual */}
+                {/* Right - scan pipeline visual */}
                 <div className="bg-slate-900 rounded-2xl p-8 border border-slate-700">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-6">How Ablelytics scans your site</p>
                   <div className="space-y-3">
@@ -299,7 +299,7 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                 Built for Every Team
               </h2>
               <p className="text-xl text-slate-600 mb-16 text-center max-w-3xl mx-auto">
-                Whether you're in compliance, development, or management — Ablelytics adapts to your workflow
+                Whether you're in compliance, development, or management - Ablelytics adapts to your workflow
               </p>
               <div className="grid md:grid-cols-3 gap-8">
                 <div className="group bg-gradient-to-br from-[#39b0ce]/10 to-[#3861ab]/10 border-2 border-[#39b0ce]/30 rounded-2xl p-8 hover:shadow-xl transition-all hover:-translate-y-1">
@@ -433,7 +433,7 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
           </div>
         </section>
 
-        {/* ── Blog — last 3 posts ───────────────────────────────────── */}
+        {/* ── Blog - last 3 posts ───────────────────────────────────── */}
         {blogPosts.length > 0 && (
           <section className="bg-slate-50 py-20 md:py-28">
             <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">

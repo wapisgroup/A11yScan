@@ -56,7 +56,7 @@ export const LoggedOutFooter = () => {
                         </div>
 
                         <p className="max-w-sm text-sm leading-relaxed mb-6">
-                            Automated accessibility scanning that helps you meet WCAG and legal compliance — fast.
+                            Automated accessibility scanning that helps you meet WCAG and legal compliance - fast.
                         </p>
 
                         <div className="space-y-3">

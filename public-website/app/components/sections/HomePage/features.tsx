@@ -25,7 +25,7 @@ export function HomePageFeaturesSection() {
                 />
                 <FeatureBox 
                     title={`🎯 Real Browser Testing`} 
-                    text={`Test with actual Chrome browser engine using Axe-core plus Ablelytics-core. Get accurate results that match what users experience — not theoretical static analysis.`}
+                    text={`Test with actual Chrome browser engine using Axe-core plus Ablelytics-core. Get accurate results that match what users experience - not theoretical static analysis.`}
                 />
                 <FeatureBox 
                     title={`📊 Professional Reports`} 
