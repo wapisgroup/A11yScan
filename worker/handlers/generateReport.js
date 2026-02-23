@@ -363,11 +363,37 @@ function groupViolations(allScans, inScopeScIds) {
 }
 
 /**
- * Fetch org branding from Firestore and return { primaryColor, secondaryColor, logoBase64 }.
- * Falls back to defaults if the org doc is missing or branding fields are unset.
+ * Fetch a URL following up to `maxRedirects` redirects.
+ * Returns { buffer, contentType } or null on failure.
+ */
+function fetchUrl(url, maxRedirects = 5) {
+    return new Promise((resolve) => {
+        const attempt = (currentUrl, remaining) => {
+            const lib = currentUrl.startsWith('https') ? require('https') : require('http');
+            lib.get(currentUrl, (res) => {
+                if ((res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) && res.headers.location && remaining > 0) {
+                    res.resume();
+                    attempt(res.headers.location, remaining - 1);
+                    return;
+                }
+                if (res.statusCode !== 200) { res.resume(); resolve(null); return; }
+                const contentType = res.headers['content-type'] || 'image/png';
+                const chunks = [];
+                res.on('data', c => chunks.push(c));
+                res.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType }));
+                res.on('error', () => resolve(null));
+            }).on('error', () => resolve(null));
+        };
+        attempt(url, maxRedirects);
+    });
+}
+
+/**
+ * Fetch org branding from Firestore.
+ * Returns { primaryColor, secondaryColor, logoDataUrl } or defaults on failure.
  */
 async function loadOrgBranding(db, organisationId) {
-    const defaults = { primaryColor: null, secondaryColor: null, logoBase64: null };
+    const defaults = { primaryColor: null, secondaryColor: null, logoDataUrl: null };
     if (!organisationId) return defaults;
 
     try {
@@ -375,29 +401,26 @@ async function loadOrgBranding(db, organisationId) {
         if (!orgSnap.exists) return defaults;
         const data = orgSnap.data() || {};
 
-        let logoBase64 = null;
+        let logoDataUrl = null;
         const logoUrl = data.customLogo && typeof data.customLogo === 'string' ? data.customLogo.trim() : null;
-        if (logoUrl && logoUrl.startsWith('https://')) {
+        if (logoUrl && (logoUrl.startsWith('https://') || logoUrl.startsWith('http://'))) {
             try {
-                const https = require('https');
-                logoBase64 = await new Promise((res, rej) => {
-                    https.get(logoUrl, (response) => {
-                        if (response.statusCode !== 200) { res(null); return; }
-                        const chunks = [];
-                        response.on('data', c => chunks.push(c));
-                        response.on('end', () => res(Buffer.concat(chunks).toString('base64')));
-                        response.on('error', () => res(null));
-                    }).on('error', () => res(null));
-                });
+                const result = await fetchUrl(logoUrl);
+                if (result) {
+                    // Normalise MIME type to one pdfmake supports (png or jpeg)
+                    const mime = result.contentType.split(';')[0].trim().toLowerCase();
+                    const pdfMime = mime === 'image/jpeg' || mime === 'image/jpg' ? 'image/jpeg' : 'image/png';
+                    logoDataUrl = `data:${pdfMime};base64,${result.buffer.toString('base64')}`;
+                }
             } catch {
-                logoBase64 = null;
+                logoDataUrl = null;
             }
         }
 
         return {
             primaryColor: data.primaryColor || null,
             secondaryColor: data.secondaryColor || null,
-            logoBase64,
+            logoDataUrl,
         };
     } catch (err) {
         console.warn('Failed to load org branding:', err && err.message ? err.message : err);
@@ -773,9 +796,9 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                 const headerProject = projectData?.name || '';
                 const domainProject = projectData?.domain || '';
                 // Prefer: org custom logo → built-in logo
-                const orgLogo = orgBranding && orgBranding.logoBase64;
+                const orgLogo = orgBranding && orgBranding.logoDataUrl;
                 const logoNode = orgLogo
-                    ? { image: `data:image/png;base64,${orgLogo}`, width: 90, maxHeight: 30 }
+                    ? { image: orgLogo, fit: [120, 28] }
                     : LOGO_PNG_BASE64
                         ? { image: `data:image/png;base64,${LOGO_PNG_BASE64}`, width: 90 }
                         : (LOGO_SVG_SIMPLE || LOGO_SVG)
@@ -983,10 +1006,25 @@ async function handleGenerateReport(db, projectId, runId) {
             if (issue.ruleId) ruleIds.push(issue.ruleId);
         });
     });
+    // Resolve organisationId: prefer project field, fall back to creator's user doc
+    let organisationId = projectData?.organisationId || null;
+    if (!organisationId && creatorId && creatorId !== 'system') {
+        try {
+            const userSnap = await db.collection('users').doc(creatorId).get();
+            if (userSnap.exists) organisationId = userSnap.data().organisationId || null;
+        } catch { /* ignore */ }
+    }
+
     const [ruleDataById, orgBranding] = await Promise.all([
         loadRuleDescriptions(ruleIds),
-        loadOrgBranding(db, projectData?.organisationId),
+        loadOrgBranding(db, organisationId),
     ]);
+    console.log('[generateReport] orgBranding loaded:', {
+        organisationId,
+        primaryColor: orgBranding.primaryColor,
+        secondaryColor: orgBranding.secondaryColor,
+        hasLogo: !!orgBranding.logoDataUrl,
+    });
 
     // Group violations by type and code
     const groupedViolations = groupViolations(allScans, inScopeScIds);
