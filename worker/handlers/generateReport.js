@@ -37,20 +37,13 @@ const rulesDirectory = path.join(
 // Create instance with explicit path to avoid Next.js __dirname transformation
 const rulesService = new AccessibilityRulesService(rulesDirectory);
 
-const LOGO_SVG_PATH = path.join(__dirname, '../assets/logo.svg');
 const LOGO_PNG_PATH = path.join(__dirname, '../assets/logo.png');
-let LOGO_SVG = null;
-let LOGO_SVG_SIMPLE = null;
-let LOGO_PNG_BASE64 = null;
+let LOGO_PNG_DATA_URL = null;
 try {
-    LOGO_SVG = fs.readFileSync(LOGO_SVG_PATH, 'utf8');
-    LOGO_SVG_SIMPLE = LOGO_SVG;
-        // .replace(/<defs>[\s\S]*?<\/defs>/g, '')
-        // .replace(/\sclass="[^"]*"/g, '')
-        // .replace(/fill="url\([^"]+\)"/g, 'fill="#5f3b8f"');
+    const pngBuf = fs.readFileSync(LOGO_PNG_PATH);
+    LOGO_PNG_DATA_URL = `data:image/png;base64,${pngBuf.toString('base64')}`;
 } catch (err) {
-    console.warn('Failed to load logo SVG:', err && err.message ? err.message : err);
-    LOGO_SVG = null;
+    console.warn('Failed to load built-in logo PNG:', err && err.message ? err.message : err);
 }
 
 
@@ -822,12 +815,14 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
             const header = (currentPage, pageCount, pageSize) => {
                 const headerProject = projectData?.name || '';
                 const domainProject = projectData?.domain || '';
-                // Prefer org custom logo (SVG or raster); fall back to text
+                // Prefer org custom logo (SVG or raster), then built-in PNG, then text
                 const logoNode = (orgBranding && orgBranding.logoSvg)
                     ? { svg: orgBranding.logoSvg, width: 120 }
                     : (orgBranding && orgBranding.logoDataUrl)
                         ? { image: orgBranding.logoDataUrl, fit: [120, 28] }
-                        : { text: 'Ablelytics', style: 'brand' };
+                        : LOGO_PNG_DATA_URL
+                            ? { image: LOGO_PNG_DATA_URL, fit: [120, 28] }
+                            : { text: 'Ablelytics', style: 'brand' };
                 return {
                     margin: [0, 0, 0, 0],
                     stack: [
