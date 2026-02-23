@@ -5,7 +5,7 @@
  * Shared component in modals/page-report-drawer.tsx.
  */
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { PiCheckCircle, PiCaretRight, PiArrowClockwise } from "react-icons/pi";
 
 import { formatDate } from "@/ui-helpers/default";
@@ -79,6 +79,44 @@ export default function PageReportDrawer({
   React.useEffect(() => {
     setSeverityFilter("all");
   }, [state?.selectedScanId]);
+
+  // Inject a postMessage listener into the snapshot so we can highlight elements
+  const snapshotWithScript = useMemo(() => {
+    const html = state?.snapshotHtml;
+    if (!html) return null;
+    const script = `<script>
+(function(){
+  var _hl = [];
+  window.addEventListener('message', function(e) {
+    _hl.forEach(function(el){ el.style.outline=''; el.style.outlineOffset=''; el.style.backgroundColor=''; });
+    _hl = [];
+    if (!e.data || e.data.type !== 'a11y-highlight') return;
+    var sel = e.data.selector;
+    if (!sel) return;
+    try {
+      var els = document.querySelectorAll(sel);
+      els.forEach(function(el){
+        el.style.outline = '3px solid #f43f5e';
+        el.style.outlineOffset = '2px';
+        el.style.backgroundColor = 'rgba(244,63,94,0.08)';
+        _hl.push(el);
+      });
+      if (_hl.length) _hl[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch(err){}
+  });
+})();
+<\/script>`;
+    return html.includes('</body>')
+      ? html.replace('</body>', script + '</body>')
+      : html + script;
+  }, [state?.snapshotHtml]);
+
+  const handleIssueHover = useCallback((selector: string | null | undefined) => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'a11y-highlight', selector: selector || null },
+      '*'
+    );
+  }, []);
 
   const groupedIssues = useMemo(() => {
     if (!state) return [];
@@ -306,20 +344,62 @@ export default function PageReportDrawer({
               )}
             </div>
           ) : (
-            <div className="flex-1 relative bg-[var(--color-bg)]">
-              {state?.snapshotHtml ? (
-                <iframe
-                  ref={iframeRef}
-                  title="Page preview"
-                  srcDoc={state.snapshotHtml}
-                  className="absolute inset-0 w-full h-full border-0"
-                  sandbox="allow-scripts allow-forms"
-                />
-              ) : state?.selectedScan ? (
-                <div className="p-6 as-p2-text secondary-text-color">No snapshot available for this scan.</div>
-              ) : (
-                <div className="p-6 as-p2-text secondary-text-color">No scan selected for preview.</div>
-              )}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Issues panel */}
+              <div className="w-[300px] flex-shrink-0 overflow-y-auto border-r border-[var(--color-border-light)] bg-[var(--color-bg-light)]">
+                {!state || state.loading ? (
+                  <div className="p-4 as-p3-text secondary-text-color">Loading...</div>
+                ) : filteredIssues.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <PiCheckCircle size={28} className="mx-auto text-[var(--color-success)] mb-2" />
+                    <div className="as-p3-text secondary-text-color">No issues found.</div>
+                  </div>
+                ) : (
+                  <div className="p-2 space-y-1">
+                    {filteredIssues.map((group, idx) => {
+                      const issue = group.firstIssue;
+                      const selector = issue.selector ?? (Array.isArray(issue.target) ? issue.target[0] : issue.target) ?? null;
+                      return (
+                        <button
+                          key={`${group.ruleId}-${idx}`}
+                          type="button"
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-white hover:shadow-sm transition-all group border border-transparent hover:border-[var(--color-border-light)]"
+                          onMouseEnter={() => handleIssueHover(selector as string | null)}
+                          onMouseLeave={() => handleIssueHover(null)}
+                          onClick={() => openIssueModal(issue, group.allIssues)}
+                        >
+                          <div className="as-p3-text primary-text-color truncate leading-snug">
+                            {issue.message || issue.description || issue.ruleId || "Issue"}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-1.5">
+                            {severityBadge(issue.impact)}
+                            {group.count > 1 && (
+                              <span className="as-p3-text secondary-text-color">×{group.count}</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Preview iframe */}
+              <div className="flex-1 relative bg-[var(--color-bg)]">
+                {snapshotWithScript ? (
+                  <iframe
+                    ref={iframeRef}
+                    title="Page preview"
+                    srcDoc={snapshotWithScript}
+                    className="absolute inset-0 w-full h-full border-0"
+                    sandbox="allow-scripts allow-forms"
+                  />
+                ) : state?.selectedScan ? (
+                  <div className="p-6 as-p2-text secondary-text-color">No snapshot available for this scan.</div>
+                ) : (
+                  <div className="p-6 as-p2-text secondary-text-color">No scan selected for preview.</div>
+                )}
+              </div>
             </div>
           )}
         </div>

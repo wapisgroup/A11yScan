@@ -216,9 +216,14 @@ async function handlePageCollectionJob(db, projectId, runId) {
                 sitemapGraphUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(jsonPath)}?alt=media`;
                 console.log('[Storage] Using emulator URLs:', { sitemapUrl, sitemapGraphUrl });
             } else {
-                // Production: use signed URLs
-                [sitemapUrl] = await bucket.file(xmlPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 }); // 7 days
-                [sitemapGraphUrl] = await bucket.file(jsonPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 });
+                // Production: use Firebase download tokens (non-expiring, browser-accessible, CORS-friendly)
+                const { randomUUID } = require('crypto');
+                const xmlToken = randomUUID();
+                const jsonToken = randomUUID();
+                await bucket.file(xmlPath).setMetadata({ metadata: { firebaseStorageDownloadTokens: xmlToken } });
+                await bucket.file(jsonPath).setMetadata({ metadata: { firebaseStorageDownloadTokens: jsonToken } });
+                sitemapUrl = `https://firebasestorage.googleapis.com/v0/b/${defaultBucketName}/o/${encodeURIComponent(xmlPath)}?alt=media&token=${xmlToken}`;
+                sitemapGraphUrl = `https://firebasestorage.googleapis.com/v0/b/${defaultBucketName}/o/${encodeURIComponent(jsonPath)}?alt=media&token=${jsonToken}`;
             }
 
             // Store urls on project

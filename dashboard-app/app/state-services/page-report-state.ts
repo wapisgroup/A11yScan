@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 
-import { db, storage } from "@/utils/firebase";
+import { db, auth, storage } from "@/utils/firebase";
 import type { TimestampLike } from "@/types/default";
 
 type ViolationsCount = {
@@ -261,32 +261,26 @@ export const usePageReportState = (
       const scan = selectedScan as Record<string, unknown>;
       const pageInfo = scan.pageInfo as Record<string, unknown> | null | undefined;
 
-      // 1. Inline HTML stored directly in Firestore (no Storage needed)
+      // 1. Inline HTML stored directly in Firestore (no Storage fetch needed)
       const inlineHtml =
         (pageInfo?.pageSnapshot as string | null | undefined) ??
         (scan.pageSnapshot as string | null | undefined) ??
         null;
       if (inlineHtml) { setSnapshotHtml(inlineHtml); return; }
 
-      // 2. Stored signed URL (set by the worker — bypasses storage rules, valid 7 days)
-      const storedUrl = (scan.pageSnapshotUrl as string | null | undefined) ?? null;
-      if (storedUrl) {
-        try {
-          const res = await fetch(storedUrl);
-          if (res.ok) { setSnapshotHtml(await res.text()); return; }
-        } catch { /* fall through */ }
-      }
-
-      // 3. Reconstruct storage path and get a fresh Firebase download URL
-      if (!storage) return;
+      // 2. Fetch via server-side proxy route to avoid CORS issues with Firebase Storage
       const runId = (scan.runId as string | null | undefined) ?? null;
       const scanPageId = ((scan.pageId as string | null | undefined) ?? pageId) ?? null;
+      const storedUrl = (scan.pageSnapshotUrl as string | null | undefined) ?? null;
       if (!runId || !scanPageId || !projectId) return;
 
-      const path = `scans/${projectId}/${runId}/${scanPageId}/snapshot.html`;
       try {
-        const url = await getDownloadURL(storageRef(storage, path));
-        const res = await fetch(url);
+        const token = await auth.currentUser?.getIdToken();
+        const urlParam = storedUrl ? `&url=${encodeURIComponent(storedUrl)}` : '';
+        const res = await fetch(
+          `/api/projects/${projectId}/snapshot?runId=${runId}&pageId=${scanPageId}${urlParam}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
         if (res.ok) setSnapshotHtml(await res.text());
       } catch { /* snapshot not available */ }
     }

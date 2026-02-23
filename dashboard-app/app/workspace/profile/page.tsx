@@ -35,7 +35,7 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
   const [tokenCopied, setTokenCopied] = useState(false);
   const [generatingToken, setGeneratingToken] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'API'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'API'>('profile');
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -135,6 +135,17 @@ export default function ProfilePage() {
               >
                 Profile
               </button>
+              {isEmailPasswordUser && (
+                <button
+                  onClick={() => setActiveTab('security')}
+                  className={`${activeTab === 'security'
+                    ? 'border-purple-600 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                >
+                  Security
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('API')}
                 className={`${activeTab === 'API'
@@ -264,8 +275,10 @@ export default function ProfilePage() {
             </div>
           </PageContainer>
 
-          {/* Password Change — only for email/password accounts */}
-          {isEmailPasswordUser && (
+          </>
+          )}
+
+          {activeTab === 'security' && (
           <PageContainer title="Change Password" description="Update your account password. You'll need to enter your current password to confirm.">
             <div className="w-full max-w-4xl py-6">
               {passwordError && (
@@ -331,8 +344,6 @@ export default function ProfilePage() {
               </form>
             </div>
           </PageContainer>
-          )}
-          </>
           )}
 
           {activeTab === 'API' && (

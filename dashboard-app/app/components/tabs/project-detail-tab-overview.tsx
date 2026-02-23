@@ -6,9 +6,10 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { subscribeProjectRuns } from "@/services/projectRunsService";
 import { PiPlay, PiGlobe, PiTreeStructure, PiDownloadSimple, PiArrowRight } from "react-icons/pi";
+import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
+import { SitemapTree, type SitemapNode } from "@/components/organism/sitemap-tree";
 
 import {
   startFullScan,
@@ -45,6 +46,9 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
   const projectId = project?.id;
   const alert = useAlert();
   const [latestRuns, setLatestRuns] = useState<Run[]>([]);
+  const [sitemapDrawerOpen, setSitemapDrawerOpen] = useState(false);
+  const [sitemapTree, setSitemapTree] = useState<SitemapNode | null>(null);
+  const [sitemapLoading, setSitemapLoading] = useState(false);
 
   // Subscribe to runs for real-time updates
   useEffect(() => {
@@ -95,9 +99,45 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
     }
   }, [projectId, alert]);
 
+  const handleViewSitemapDrawer = useCallback(async () => {
+    setSitemapDrawerOpen(true);
+    if (!projectId) return;
+    setSitemapLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/projects/${projectId}/sitemap-tree`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSitemapTree(data);
+      }
+    } catch {
+      // leave tree null — drawer shows "not available" message
+    } finally {
+      setSitemapLoading(false);
+    }
+  }, [projectId]);
+
   if (!projectId) return <div>Loading</div>;
 
   return (
+    <>
+    <DSDrawerShell
+      open={sitemapDrawerOpen}
+      onClose={() => setSitemapDrawerOpen(false)}
+      title="Sitemap Diagram"
+    >
+      <div className="p-4">
+        {sitemapLoading ? (
+          <div className="text-slate-500 text-sm">Loading sitemap...</div>
+        ) : sitemapTree ? (
+          <SitemapTree tree={sitemapTree} />
+        ) : (
+          <div className="text-slate-500 text-sm">No sitemap available for this project. Generate a sitemap first.</div>
+        )}
+      </div>
+    </DSDrawerShell>
     <div className="flex flex-col gap-6">
       {/* Quick Actions Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -173,9 +213,10 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
                     <PiArrowRight size={18} className="text-slate-400 group-hover:text-slate-600" />
                   </button>
                   
-                  <Link 
-                    href={`/workspace/sitemap/${projectId}`}
-                    className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors group"
+                  <button
+                    type="button"
+                    onClick={() => void handleViewSitemapDrawer()}
+                    className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors group w-full text-left"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-white rounded border border-slate-200">
@@ -187,7 +228,7 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
                       </div>
                     </div>
                     <PiArrowRight size={18} className="text-slate-400 group-hover:text-slate-600" />
-                  </Link>
+                  </button>
                 </div>
 
                 <DSButton onClick={handleStartSitemap} variant="outline">
@@ -279,5 +320,6 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
         </PageContainer>
       </div>
     </div>
+    </>
   );
 }

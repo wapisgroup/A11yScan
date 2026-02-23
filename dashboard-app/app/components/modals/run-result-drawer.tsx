@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { collection, doc, getDocs } from "firebase/firestore";
-import { db } from "@/utils/firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { db, auth } from "@/utils/firebase";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { SitemapTree, type SitemapNode } from "@/components/organism/sitemap-tree";
 import { TableErrorBadge } from "@/components/atom/table-error-badge";
 import { RunDoc, runTypesList } from "@/types/run";
-import { loadProject } from "@/services/projectDetailService";
 import { PiGlobe } from "react-icons/pi";
 
 type PageSummary = {
@@ -52,21 +51,25 @@ export function RunResultDrawer({
 
     if (isPageCollection) {
       setLoading(true);
-      loadProject(projectId)
-        .then(async (project) => {
-          if (!project.sitemapTreeUrl) {
+      (async () => {
+        try {
+          const token = await auth.currentUser?.getIdToken();
+          const res = await fetch(`/api/projects/${projectId}/sitemap-tree`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (res.status === 404) {
             setError("No sitemap available yet for this project.");
             return;
           }
-          const res = await fetch(project.sitemapTreeUrl);
-          if (!res.ok) throw new Error(`Failed to fetch sitemap: ${res.statusText}`);
+          if (!res.ok) throw new Error(`Failed to fetch sitemap (${res.status})`);
           const data = await res.json() as SitemapNode;
           setSitemapTree(data);
-        })
-        .catch((err) => {
+        } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to load sitemap");
-        })
-        .finally(() => setLoading(false));
+        } finally {
+          setLoading(false);
+        }
+      })();
       return;
     }
 
