@@ -393,7 +393,7 @@ function fetchUrl(url, maxRedirects = 5) {
  * Returns { primaryColor, secondaryColor, logoDataUrl } or defaults on failure.
  */
 async function loadOrgBranding(db, organisationId) {
-    const defaults = { primaryColor: null, secondaryColor: null, logoDataUrl: null };
+    const defaults = { primaryColor: null, secondaryColor: null, logoDataUrl: null, logoSvg: null };
     if (!organisationId) return defaults;
 
     try {
@@ -402,18 +402,25 @@ async function loadOrgBranding(db, organisationId) {
         const data = orgSnap.data() || {};
 
         let logoDataUrl = null;
+        let logoSvg = null;
         const logoUrl = data.customLogo && typeof data.customLogo === 'string' ? data.customLogo.trim() : null;
         if (logoUrl && (logoUrl.startsWith('https://') || logoUrl.startsWith('http://'))) {
             try {
                 const result = await fetchUrl(logoUrl);
                 if (result) {
-                    // Normalise MIME type to one pdfmake supports (png or jpeg)
                     const mime = result.contentType.split(';')[0].trim().toLowerCase();
-                    const pdfMime = mime === 'image/jpeg' || mime === 'image/jpg' ? 'image/jpeg' : 'image/png';
-                    logoDataUrl = `data:${pdfMime};base64,${result.buffer.toString('base64')}`;
+                    if (mime === 'image/svg+xml' || mime === 'image/svg') {
+                        // pdfmake renders SVGs via the `svg` property, not `image`
+                        logoSvg = result.buffer.toString('utf8');
+                    } else {
+                        // Normalise MIME to one pdfmake supports (png or jpeg)
+                        const pdfMime = mime === 'image/jpeg' || mime === 'image/jpg' ? 'image/jpeg' : 'image/png';
+                        logoDataUrl = `data:${pdfMime};base64,${result.buffer.toString('base64')}`;
+                    }
                 }
             } catch {
                 logoDataUrl = null;
+                logoSvg = null;
             }
         }
 
@@ -421,6 +428,7 @@ async function loadOrgBranding(db, organisationId) {
             primaryColor: data.primaryColor || null,
             secondaryColor: data.secondaryColor || null,
             logoDataUrl,
+            logoSvg,
         };
     } catch (err) {
         console.warn('Failed to load org branding:', err && err.message ? err.message : err);
@@ -795,11 +803,12 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
             const header = (currentPage, pageCount, pageSize) => {
                 const headerProject = projectData?.name || '';
                 const domainProject = projectData?.domain || '';
-                // Prefer org custom logo; fall back to text (SVG fallback removed — causes pdfmake errors with complex SVGs)
-                const orgLogo = orgBranding && orgBranding.logoDataUrl;
-                const logoNode = orgLogo
-                    ? { image: orgLogo, fit: [120, 28] }
-                    : { text: 'Ablelytics', style: 'brand' };
+                // Prefer org custom logo (SVG or raster); fall back to text
+                const logoNode = (orgBranding && orgBranding.logoSvg)
+                    ? { svg: orgBranding.logoSvg, width: 120 }
+                    : (orgBranding && orgBranding.logoDataUrl)
+                        ? { image: orgBranding.logoDataUrl, fit: [120, 28] }
+                        : { text: 'Ablelytics', style: 'brand' };
                 return {
                     margin: [0, 0, 0, 0],
                     stack: [
