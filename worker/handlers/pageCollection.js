@@ -107,7 +107,8 @@ async function handlePageCollectionJob(db, projectId, runId) {
     await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
     // BFS crawl
-    const visited = new Set();
+    const visited = new Set(); // tracks discovered URLs to avoid re-queuing
+    let fetchedCount = 0;      // tracks pages actually fetched and written to Firestore
     const queue = [];
     const nodes = []; // for graph
     const edges = [];
@@ -126,62 +127,67 @@ async function handlePageCollectionJob(db, projectId, runId) {
     // concurrency limit
     const limit = pLimit(5);
 
-    while (queue.length > 0 && visited.size < maxPages) {
-        const chunk = []
-        // build small batch
-        while (queue.length > 0 && chunk.length < 10 && visited.size + chunk.length < maxPages) {
+    while (queue.length > 0 && fetchedCount < maxPages) {
+        const chunk = [];
+        // build small batch — limit to remaining page budget
+        while (queue.length > 0 && chunk.length < 10 && fetchedCount + chunk.length < maxPages) {
             chunk.push(queue.shift());
         }
 
-        // fetch all in parallel with concurrency
+        // fetch all in parallel with concurrency; isolate errors per-page
         await Promise.all(chunk.map(u => limit(async () => {
-            await new Promise(r => setTimeout(r, crawlDelayMs)); // polite delay (project config)
-            const pageData = await fetchHtml(u);
-            if (!pageData) return;
+            try {
+                await new Promise(r => setTimeout(r, crawlDelayMs)); // polite delay (project config)
+                const pageData = await fetchHtml(u);
+                if (!pageData) return;
 
-            const $ = cheerio.load(pageData.text);
-            const title = $('title').first().text().trim() || null;
+                const $ = cheerio.load(pageData.text);
+                const title = $('title').first().text().trim() || null;
 
-            // write page doc — create a deterministic unique id for the URL using SHA256
-            // deterministic ID means the same page URL will always map to the same doc id
-            const urlHash = crypto.createHash('sha256').update(u).digest('hex');
-            const pageId = urlHash; // you can shorten with .slice(0, 20) if you prefer shorter ids
-            const pageRef = projectRef.collection('pages').doc(pageId);
-            await pageRef.set({
-                url: u,
-                title,
-                status: 'discovered',
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                httpStatus: pageData.status
-            }, { merge: true });
+                // write page doc — create a deterministic unique id for the URL using SHA256
+                // deterministic ID means the same page URL will always map to the same doc id
+                const urlHash = crypto.createHash('sha256').update(u).digest('hex');
+                const pageId = urlHash;
+                const pageRef = projectRef.collection('pages').doc(pageId);
+                await pageRef.set({
+                    url: u,
+                    title,
+                    status: 'discovered',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    httpStatus: pageData.status
+                }, { merge: true });
 
-            nodes.push({ id: u, title });
-            // extract links
-            $('a[href]').each((i, el) => {
-                const href = $(el).attr('href');
-                const n = normalizeUrl(u, href);
-                if (!n) return;
-                // same-origin only
-                try {
-                    const uOrigin = new url.URL(domain).origin;
-                    const nOrigin = new url.URL(n).origin;
-                    if (nOrigin !== uOrigin) return;
-                } catch (err) {
-                    return;
-                }
-                edges.push({ source: u, target: n });
+                fetchedCount++;
+                nodes.push({ id: u, title });
 
-                if (!visited.has(n) && visited.size < maxPages && !isDisallowedByRobots(n, disallowedPaths)) {
-                    visited.add(n);
-                    queue.push(n);
-                }
-            });
+                // extract links — no cap on visited; cap is on fetchedCount
+                $('a[href]').each((i, el) => {
+                    const href = $(el).attr('href');
+                    const n = normalizeUrl(u, href);
+                    if (!n) return;
+                    // same-origin only
+                    try {
+                        const uOrigin = new url.URL(domain).origin;
+                        const nOrigin = new url.URL(n).origin;
+                        if (nOrigin !== uOrigin) return;
+                    } catch (err) {
+                        return;
+                    }
+                    edges.push({ source: u, target: n });
 
-            // update run progress minimally
-            await runRef.update({
-                pagesScanned: admin.firestore.FieldValue.increment(1)
-            });
+                    if (!visited.has(n) && !isDisallowedByRobots(n, disallowedPaths)) {
+                        visited.add(n);
+                        queue.push(n);
+                    }
+                });
 
+                // update run progress minimally
+                await runRef.update({
+                    pagesScanned: admin.firestore.FieldValue.increment(1)
+                });
+            } catch (err) {
+                console.warn('[pageCollection] Error processing page', u, err && err.message);
+            }
         })));
     } // end while
 
