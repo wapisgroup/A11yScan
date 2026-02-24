@@ -1042,13 +1042,10 @@ async function handleScanPages(db, projectId, runId) {
                             seenAxeKeys.add(`${issue.ruleId}::${issue.selector || (issue.html ? issue.html.slice(0, 80) : '')}`);
                         }
                     });
-                    // Build a rule-id mapping between ablelytics-core and axe-core rule ids
+                    // Remaining ablelytics-core IDs that still use WCAG format (no matching axe rule file).
+                    // IDs with a matching rule (bypass, tabindex, etc.) are already normalised in shared.js.
                     const coreToAxeRuleMap = {
-                        'wcag-2.4.1': 'bypass',
                         'wcag-2.4.7': 'focus-visible',
-                        'wcag-1.4.2': 'audio-caption',
-                        'wcag-4.1.2': 'aria-required-attr',
-                        'wcag-2.4.3': 'tabindex',
                     };
                     for (let i = issues.length - 1; i >= 0; i--) {
                         const issue = issues[i];
