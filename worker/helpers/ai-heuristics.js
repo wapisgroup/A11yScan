@@ -510,18 +510,75 @@ function extractIssuesFromResponse(response) {
 
 function enrichIssuesWithContext(issues, context) {
   if (!Array.isArray(issues) || !context) return issues || [];
+
   const formInputs = Array.isArray(context.forms)
     ? context.forms.flatMap((form) => Array.isArray(form.inputs) ? form.inputs : [])
     : [];
+  const links = Array.isArray(context.links) ? context.links : [];
+  const headings = Array.isArray(context.headings) ? context.headings : [];
 
   return issues.map((issue) => {
-    if (issue.selector || issue.html) return issue;
+    if (issue.selector && issue.html) return issue;
+
+    const evidenceText = (Array.isArray(issue.evidence) ? issue.evidence : []).join(' ').toLowerCase();
+    const messageText = (issue.message || '').toLowerCase();
+    const combined = `${evidenceText} ${messageText}`;
     const sc = String(issue.sc || '');
-    const isHelpSc = sc.includes('3.3.5');
-    if (isHelpSc && formInputs.length) {
-      const emptySubmit = formInputs.find((input) => {
-        return (input.inputType || '').toLowerCase() === 'submit' && !input.label;
+
+    // Match against links (e.g. abbreviation or link-text issues)
+    if (!issue.html) {
+      const matchedLink = links.find((link) => {
+        const text = (link.text || '').toLowerCase();
+        const href = (link.href || '').toLowerCase();
+        return (text.length > 1 && combined.includes(text)) ||
+               (href.length > 1 && combined.includes(href));
       });
+      if (matchedLink) {
+        return {
+          ...issue,
+          selector: issue.selector || matchedLink.selector || null,
+          html: issue.html || matchedLink.html || null
+        };
+      }
+    }
+
+    // Match against form inputs (e.g. label / placeholder issues)
+    if (!issue.html) {
+      const matchedInput = formInputs.find((input) => {
+        const label = (input.label || '').toLowerCase();
+        const inputHtml = (input.html || '').toLowerCase();
+        return (label.length > 1 && combined.includes(label)) ||
+               (inputHtml.length > 1 && combined.includes(inputHtml.slice(0, 60)));
+      });
+      if (matchedInput) {
+        return {
+          ...issue,
+          selector: issue.selector || matchedInput.selector || null,
+          html: issue.html || matchedInput.html || null
+        };
+      }
+    }
+
+    // Match against headings
+    if (!issue.html) {
+      const matchedHeading = headings.find((heading) => {
+        const text = (heading.text || '').toLowerCase();
+        return text.length > 3 && combined.includes(text);
+      });
+      if (matchedHeading) {
+        return {
+          ...issue,
+          selector: issue.selector || matchedHeading.selector || null,
+          html: issue.html || matchedHeading.html || null
+        };
+      }
+    }
+
+    // SC 3.3.5: help — match unlabelled submit button
+    if (sc.includes('3.3.5') && formInputs.length) {
+      const emptySubmit = formInputs.find((input) =>
+        (input.inputType || '').toLowerCase() === 'submit' && !input.label
+      );
       if (emptySubmit) {
         return {
           ...issue,
@@ -530,6 +587,7 @@ function enrichIssuesWithContext(issues, context) {
         };
       }
     }
+
     return issue;
   });
 }

@@ -48,7 +48,7 @@ async function checkFocusObscuredCombined(page, options) {
       let blockingHtml = null;
       points.forEach(([x, y]) => {
         const topEl = document.elementFromPoint(x, y);
-        if (topEl && topEl !== el && !el.contains(topEl)) {
+        if (topEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
           const blockingStyle = window.getComputedStyle(topEl);
           const isSticky = blockingStyle.position === 'sticky' || blockingStyle.position === 'fixed';
           const isNav = topEl.matches('nav, header, [role="navigation"], [role="banner"]');
