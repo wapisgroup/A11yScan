@@ -120,11 +120,29 @@ class AblelyticsAiHeuristics {
 
       const forms = Array.from(document.querySelectorAll('form')).map((form) => {
         const inputs = Array.from(form.querySelectorAll('input, select, textarea')).map((input) => {
-          const label = input.getAttribute('aria-label') || input.getAttribute('placeholder') || '';
+          // Resolve the accessible label in priority order so the model has accurate context.
+          let label = '';
+          const ariaLabelledBy = input.getAttribute('aria-labelledby');
+          if (ariaLabelledBy) {
+            const ref = document.getElementById(ariaLabelledBy);
+            if (ref) label = (ref.textContent || '').trim();
+          }
+          if (!label) label = input.getAttribute('aria-label') || '';
+          if (!label && input.id) {
+            const associated = document.querySelector(`label[for="${CSS.escape(input.id)}"]`);
+            if (associated) label = (associated.textContent || '').trim();
+          }
+          if (!label) {
+            const wrapping = input.closest('label');
+            if (wrapping) label = (wrapping.textContent || '').trim();
+          }
+          const hasLabel = label.length > 0;
+          if (!label) label = input.getAttribute('placeholder') || '';
           return {
             type: input.tagName.toLowerCase(),
             inputType: input.getAttribute('type') || null,
             label: label.trim().slice(0, 120),
+            hasLabel,
             selector: buildSelector(input) || input.tagName.toLowerCase(),
             html: input.outerHTML ? input.outerHTML.slice(0, 300) : null
           };
