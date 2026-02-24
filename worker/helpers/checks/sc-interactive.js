@@ -270,13 +270,21 @@ async function checkMenuInteractionScenario(page, options) {
       }
       return parts.join(' > ');
     };
-    const nodes = Array.from(document.querySelectorAll('[aria-haspopup="menu"], [aria-controls][aria-expanded], button[aria-expanded], [role="button"][aria-expanded]'));
+    const MENU_CONTROLLED_ROLES = new Set(['menu', 'listbox', 'tree', 'grid', 'treegrid']);
+    const nodes = Array.from(document.querySelectorAll('[aria-haspopup], [aria-controls][aria-expanded], button[aria-expanded], [role="button"][aria-expanded]'));
     const results = [];
     nodes.forEach((el) => {
       if (!isVisible(el)) return;
+      const hasHaspopup = el.hasAttribute('aria-haspopup');
+      const controls = (el.getAttribute('aria-controls') || '').trim() || null;
+      const controlled = controls ? document.getElementById(controls) : null;
+      const controlledRole = controlled ? (controlled.getAttribute('role') || '').toLowerCase() : '';
+      // Only treat as a menu trigger if it explicitly declares a popup or its target has a menu-like role.
+      // This excludes accordion/disclosure buttons whose controlled element is a plain content div.
+      if (!hasHaspopup && !MENU_CONTROLLED_ROLES.has(controlledRole)) return;
       results.push({
         selector: buildSelector(el) || el.tagName.toLowerCase(),
-        controls: (el.getAttribute('aria-controls') || '').trim() || null,
+        controls,
         html: el.outerHTML ? el.outerHTML.slice(0, 300) : null
       });
     });

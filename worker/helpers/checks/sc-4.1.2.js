@@ -1,58 +1,89 @@
 const { buildIssue } = require('./shared');
 
 async function checkAccessibilityTreeNameRoleValue(page, options) {
-  if (!options.includeAccessibilityTreeChecks || !page || !page.accessibility || typeof page.accessibility.snapshot !== 'function') {
-    return [];
-  }
-  let tree;
-  try {
-    tree = await page.accessibility.snapshot({ interestingOnly: false });
-  } catch (err) {
-    return [];
-  }
-  if (!tree) return [];
+  if (!options.includeAccessibilityTreeChecks) return [];
 
-  const issues = [];
-  const queue = [{ node: tree, path: 'root' }];
-  while (queue.length) {
-    const { node, path } = queue.shift();
-    if (!node || typeof node !== 'object') continue;
-    const role = String(node.role || '').toLowerCase();
-    const name = (node.name || '').trim();
+  const findings = await page.evaluate(() => {
+    const buildSelector = (el) => {
+      if (!el || !el.tagName) return null;
+      if (el.id) return `#${CSS.escape(el.id)}`;
+      const parts = [];
+      let node = el;
+      while (node && node.tagName && parts.length < 4) {
+        let part = node.tagName.toLowerCase();
+        if (node.classList && node.classList.length > 0) {
+          const classes = Array.from(node.classList).slice(0, 2).map((c) => CSS.escape(c));
+          if (classes.length) part += `.${classes.join('.')}`;
+        }
+        const parent = node.parentElement;
+        if (parent) {
+          const siblings = Array.from(parent.children).filter((s) => s.tagName === node.tagName);
+          if (siblings.length > 1) part += `:nth-of-type(${siblings.indexOf(node) + 1})`;
+        }
+        parts.unshift(part);
+        node = node.parentElement;
+      }
+      return parts.join(' > ');
+    };
 
-    const roleRequiresName = new Set(['button', 'link', 'tab', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'checkbox', 'radio', 'switch', 'textbox', 'combobox']);
-    if (roleRequiresName.has(role) && !name) {
-      issues.push(buildIssue({
-        impact: 'serious',
-        ruleId: 'wcag-4.1.2',
-        message: `Accessibility tree node with role "${role}" has no accessible name`,
-        description: 'Interactive controls should expose a non-empty accessible name in the accessibility tree.',
-        tags: ['wcag2a', 'wcag412'],
-        confidence: 0.85,
-        needsReview: false,
-        evidence: [`Tree path: ${path}`]
-      }));
-    }
+    const hasAccessibleName = (el) => {
+      if ((el.getAttribute('aria-label') || '').trim()) return true;
+      const labelledBy = el.getAttribute('aria-labelledby');
+      if (labelledBy) {
+        const ref = document.getElementById(labelledBy);
+        if (ref && (ref.textContent || '').trim()) return true;
+      }
+      if (el.id) {
+        const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+        if (label && (label.textContent || '').trim()) return true;
+      }
+      const wrappingLabel = el.closest('label');
+      if (wrappingLabel && (wrappingLabel.textContent || '').trim()) return true;
+      if ((el.getAttribute('title') || '').trim()) return true;
+      if ((el.getAttribute('placeholder') || '').trim()) return true;
+      if ((el.textContent || '').trim()) return true;
+      const img = el.querySelector('img[alt]');
+      if (img && (img.getAttribute('alt') || '').trim()) return true;
+      return false;
+    };
 
-    if (role === 'tab' && node.selected !== undefined && typeof node.selected !== 'boolean') {
-      issues.push(buildIssue({
-        impact: 'moderate',
-        ruleId: 'wcag-4.1.2',
-        message: 'Tab selected state is not exposed consistently in accessibility tree',
-        description: 'Tab widgets should expose valid selected state for assistive technologies.',
-        tags: ['wcag2a', 'wcag412'],
-        confidence: 0.75,
-        needsReview: true,
-        evidence: [`Tree path: ${path}`]
-      }));
-    }
+    const ROLES_REQUIRING_NAME = ['button', 'link', 'tab', 'menuitem', 'menuitemcheckbox',
+      'menuitemradio', 'checkbox', 'radio', 'switch', 'textbox', 'combobox'];
 
-    const children = Array.isArray(node.children) ? node.children : [];
-    children.forEach((child, idx) => {
-      queue.push({ node: child, path: `${path}.${role || 'node'}[${idx}]` });
+    const results = [];
+
+    ROLES_REQUIRING_NAME.forEach((role) => {
+      document.querySelectorAll(`[role="${role}"]`).forEach((el) => {
+        if (hasAccessibleName(el)) return;
+        const missing = [];
+        if (!el.getAttribute('aria-label')) missing.push('aria-label');
+        if (!el.getAttribute('aria-labelledby')) missing.push('aria-labelledby');
+        if (!(el.textContent || '').trim()) missing.push('visible text');
+        results.push({ role, selector: buildSelector(el) || el.tagName.toLowerCase(), html: el.outerHTML.slice(0, 300), missing });
+      });
     });
-  }
-  return issues.slice(0, options.maxIssuesPerRule);
+
+    // Native combobox (<select>) without a label
+    document.querySelectorAll('select').forEach((el) => {
+      if (hasAccessibleName(el)) return;
+      results.push({ role: 'combobox', selector: buildSelector(el) || 'select', html: el.outerHTML.slice(0, 300), missing: ['aria-label', 'aria-labelledby', '<label>'] });
+    });
+
+    return results;
+  });
+
+  return findings.slice(0, options.maxIssuesPerRule).map((item) => buildIssue({
+    impact: 'serious',
+    ruleId: 'wcag-4.1.2',
+    message: `Accessibility tree node with role "${item.role}" has no accessible name`,
+    description: 'Interactive controls must expose a non-empty accessible name so assistive technologies can identify them.',
+    selector: item.selector,
+    html: item.html,
+    tags: ['wcag2a', 'wcag412'],
+    confidence: 0.85,
+    needsReview: false,
+    evidence: item.missing.length ? [`Missing: ${item.missing.join(', ')}`] : []
+  }));
 }
 
 async function checkFrameworkAdapterScenarios(page, options, { frameworks }) {
