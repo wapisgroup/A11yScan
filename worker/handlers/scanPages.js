@@ -933,7 +933,7 @@ async function handleScanPages(db, projectId, runId) {
                     if (String(process.env.ENABLE_AI_HEURISTICS || '').toLowerCase() === '1') {
                         try {
                             const aiTests = new AblelyticsAiHeuristics(pageP);
-                            aiIssues = await aiTests.runAll();
+                            aiIssues = (await aiTests.runAll()).filter((issue) => (issue.confidence ?? 0) >= 0.65);
                             aiIssues.forEach((issue) => {
                                 pushIssue(
                                     issues,
