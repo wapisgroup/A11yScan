@@ -36,10 +36,13 @@ async function checkKeyboardAccessible(page, options) {
     const nodes = Array.from(document.querySelectorAll('*'));
     const results = [];
     nodes.forEach((el) => {
-      // Detect React synthetic events (React attaches to root via __reactProps$)
-      const hasReactHandler = Object.keys(el).some(k => k.startsWith('__reactProps$') || k.startsWith('__reactEvents$'));
-      // Detect Vue event handlers
-      const hasVueHandler = el.__vue__ || el._vnode || Object.keys(el).some(k => k.startsWith('__v'));
+      // Detect React synthetic events — check the props object for an actual click handler,
+      // not just the presence of __reactProps$ which React attaches to all managed elements.
+      const reactPropsKey = Object.keys(el).find(k => k.startsWith('__reactProps$') || k.startsWith('__reactEvents$'));
+      const reactProps = reactPropsKey ? el[reactPropsKey] : null;
+      const hasReactHandler = !!(reactProps && (reactProps.onClick || reactProps.onClickCapture));
+      // Detect Vue event handlers — use specific Vue 3 internal keys to avoid matching unrelated __v* properties.
+      const hasVueHandler = !!(el.__vue_app__ || el.__vue__ || el._vnode || (el.__vueParentComponent && el.__vueParentComponent.props && (el.__vueParentComponent.props.onClick || el.__vueParentComponent.props.onClickCapture)));
       // Detect Angular
       const hasAngularHandler = el.hasAttribute('ng-click') || el.hasAttribute('(click)');
 
