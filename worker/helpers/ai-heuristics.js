@@ -435,11 +435,11 @@ async function callOpenAiModel(context, screenshotDataUrl) {
   const model = process.env.AI_MODEL || 'gpt-4.1-mini';
 
   const systemText = [
-    'You are an accessibility analyst.',
-    'Return only valid JSON with shape: {"issues": [{"sc": "3.1.4", "message": "...", "confidence": 0.7, "evidence": ["..."], "selector": "...", "html": "...", "impact": "moderate", "howToFix": "...", "fixedCode": "..."}] }.',
-    'If the issue is tied to a specific element, include selector and html.',
-    'Use only the SCs from this list:',
-    '1.2.1-1.2.9, 1.3.3, 1.4.7, 1.4.8, 2.4.5, 2.4.8, 3.1.3, 3.1.4, 3.1.5, 3.1.6, 3.2.5, 3.3.4, 3.3.5, 3.3.6, 3.3.7, 3.3.8, 3.3.9.',
+    'You are an accessibility analyst. Be deterministic and conservative — only report issues you are highly certain about (confidence >= 0.75).',
+    'Return only valid JSON with shape: {"issues": [{"sc": "3.1.4", "message": "...", "confidence": 0.8, "evidence": ["..."], "selector": "...", "html": "...", "impact": "moderate", "howToFix": "...", "fixedCode": "..."}] }.',
+    'If the issue is tied to a specific element, include selector and html from the provided context.',
+    'Use only the SCs from this list: 1.2.1-1.2.9, 1.3.3, 1.4.7, 1.4.8, 2.4.5, 2.4.8, 3.1.3, 3.1.4, 3.1.5, 3.1.6, 3.2.5, 3.3.4, 3.3.5, 3.3.6, 3.3.7, 3.3.8, 3.3.9.',
+    'Report each unique issue only once. Do not report variations of the same underlying problem.',
     'If unsure, return an empty issues array.'
   ].join(' ');
 
@@ -467,6 +467,7 @@ async function callOpenAiModel(context, screenshotDataUrl) {
     },
     body: JSON.stringify({
       model,
+      temperature: 0,
       input: [
         { role: 'system', content: [{ type: 'input_text', text: systemText }] },
         { role: 'user', content: userContent }
