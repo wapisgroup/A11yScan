@@ -65,6 +65,7 @@ export const LoggedOutFooter = () => {
                                 <input
                                     type="email"
                                     placeholder="Your email"
+                                    aria-label="Email address for newsletter"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     disabled={loading}
