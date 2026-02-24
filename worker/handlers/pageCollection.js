@@ -175,6 +175,10 @@ async function handlePageCollectionJob(db, projectId, runId) {
                     }
                     edges.push({ source: u, target: n });
 
+                    // Skip non-HTML resources (XML, PDF, images, fonts, etc.)
+                    const NON_HTML_EXT = /\.(xml|pdf|css|js|jpg|jpeg|png|gif|svg|webp|ico|woff2?|ttf|eot|mp4|mp3|zip|gz|json)(\?|#|$)/i;
+                    if (NON_HTML_EXT.test(n)) return;
+
                     if (!visited.has(n) && !isDisallowedByRobots(n, disallowedPaths)) {
                         visited.add(n);
                         queue.push(n);

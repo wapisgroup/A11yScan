@@ -416,6 +416,20 @@ async function handleScanPages(db, projectId, runId) {
             const page = pageSnap.data();
             const pageUrl = page.url;
 
+            // Skip non-HTML resources (XML sitemaps, PDFs, images, fonts, etc.)
+            const NON_HTML_EXT = /\.(xml|pdf|css|js|jpg|jpeg|png|gif|svg|webp|ico|woff2?|ttf|eot|mp4|mp3|zip|gz|json)(\?|#|$)/i;
+            if (NON_HTML_EXT.test(pageUrl)) {
+                console.log(`[scan] Skipping non-HTML resource ${pageUrl}`);
+                try {
+                    await pageRef.update({
+                        status: 'skipped',
+                        activeRunId: null,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                } catch (e) { /* ignore */ }
+                return;
+            }
+
             try {
                 await pageRef.update({
                     status: 'running',
@@ -526,7 +540,21 @@ async function handleScanPages(db, projectId, runId) {
                     const resp = await pageP.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 30000 }).catch(e => null);
 
                     if (resp) httpStatus = resp.status();
-                    
+
+                    // Skip non-2xx pages — don't run accessibility checks on error/redirect pages
+                    if (httpStatus !== null && (httpStatus < 200 || httpStatus >= 300)) {
+                        console.log(`[scan] Skipping non-2xx page ${pageUrl} (HTTP ${httpStatus})`);
+                        try {
+                            await pageRef.update({
+                                httpStatus,
+                                status: 'skipped',
+                                activeRunId: null,
+                                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                            });
+                        } catch (e) { /* ignore */ }
+                        return; // inner finally closes pageP; exits limit callback
+                    }
+
                     // Remove cookie banners if configured
                     if (removeCookieBannersEnabled) {
                         try {
@@ -1066,6 +1094,21 @@ async function handleScanPages(db, projectId, runId) {
                 // fallback static checks using fetchHtml + cheerio
                 const pageData = await fetchHtml(pageUrl);
                 httpStatus = pageData ? pageData.status : null;
+
+                // Skip non-2xx pages in static fallback path as well
+                if (httpStatus !== null && (httpStatus < 200 || httpStatus >= 300)) {
+                    console.log(`[scan] Skipping non-2xx page ${pageUrl} (HTTP ${httpStatus}) [static]`);
+                    try {
+                        await pageRef.update({
+                            httpStatus,
+                            status: 'skipped',
+                            activeRunId: null,
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+                    } catch (e) { /* ignore */ }
+                    return; // exits limit callback
+                }
+
                 if (!pageData || !pageData.text) {
                     pushIssue(issues, 'critical', `Failed to fetch page (status: ${httpStatus})`, null, null, null, null, [], null, null, null, 'ablelytics-core');
                 } else {

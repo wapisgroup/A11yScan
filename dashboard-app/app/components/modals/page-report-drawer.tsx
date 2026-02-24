@@ -6,7 +6,7 @@
  */
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { PiCheckCircle, PiCaretRight, PiArrowClockwise } from "react-icons/pi";
+import { PiCheckCircle, PiCaretRight, PiArrowClockwise, PiArrowLeft, PiArrowRight } from "react-icons/pi";
 
 import { formatDate } from "@/ui-helpers/default";
 import { usePageReportState } from "@/state-services/page-report-state";
@@ -66,6 +66,10 @@ export default function PageReportDrawer({
   const [rescanning, setRescanning] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
+  // Preview tab: inline instance navigation
+  const [expandedGroupKey, setExpandedGroupKey] = useState<string | null>(null);
+  const [expandedOccurrenceIdx, setExpandedOccurrenceIdx] = useState(0);
+
   // Mark report viewed for onboarding step 4
   React.useEffect(() => {
     if (open && pageId) {
@@ -84,10 +88,11 @@ export default function PageReportDrawer({
     }
   }, [open, state, scanIdFromUrl, onScanChange]);
 
-  // Reset filter when scan changes
+  // Reset filter and expanded group when scan or tab changes
   React.useEffect(() => {
     setSeverityFilter("all");
-  }, [state?.selectedScanId]);
+    setExpandedGroupKey(null);
+  }, [state?.selectedScanId, activeTab]);
 
   // Inject a postMessage listener + CSS to disable links into the snapshot
   const snapshotWithScript = useMemo(() => {
@@ -100,18 +105,20 @@ export default function PageReportDrawer({
     _hl.forEach(function(el){ el.style.outline=''; el.style.outlineOffset=''; el.style.backgroundColor=''; });
     _hl = [];
     if (!e.data || e.data.type !== 'a11y-highlight') return;
-    var sel = e.data.selector;
-    if (!sel) return;
-    try {
-      var els = document.querySelectorAll(sel);
-      els.forEach(function(el){
-        el.style.outline = '3px solid #f43f5e';
-        el.style.outlineOffset = '2px';
-        el.style.backgroundColor = 'rgba(244,63,94,0.08)';
-        _hl.push(el);
-      });
-      if (_hl.length) _hl[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } catch(err){}
+    var selectors = Array.isArray(e.data.selectors) ? e.data.selectors : (e.data.selector ? [e.data.selector] : []);
+    selectors.forEach(function(sel) {
+      if (!sel) return;
+      try {
+        var els = document.querySelectorAll(sel);
+        els.forEach(function(el){
+          el.style.outline = '3px solid #f43f5e';
+          el.style.outlineOffset = '2px';
+          el.style.backgroundColor = 'rgba(244,63,94,0.08)';
+          _hl.push(el);
+        });
+      } catch(err){}
+    });
+    if (_hl.length) _hl[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 })();
 <\/script>`;
@@ -120,9 +127,9 @@ export default function PageReportDrawer({
       : html + injection;
   }, [state?.snapshotHtml]);
 
-  const handleIssueHover = useCallback((selector: string | null | undefined) => {
+  const handleIssueHover = useCallback((selectors: string[] | null) => {
     iframeRef.current?.contentWindow?.postMessage(
-      { type: 'a11y-highlight', selector: selector || null },
+      { type: 'a11y-highlight', selectors: selectors || null },
       '*'
     );
   }, []);
@@ -367,26 +374,110 @@ export default function PageReportDrawer({
                   <div className="p-2 space-y-1">
                     {filteredIssues.map((group, idx) => {
                       const issue = group.firstIssue;
-                      const selector = issue.selector ?? (Array.isArray(issue.target) ? issue.target[0] : issue.target) ?? null;
+                      const groupKey = `${group.ruleId}-${idx}`;
+                      const isExpanded = expandedGroupKey === groupKey;
+                      const allSelectors = group.allIssues
+                        .map((i) => i.selector ?? (Array.isArray(i.target) ? i.target[0] : i.target) ?? null)
+                        .filter(Boolean) as string[];
+                      const currentOccIdx = isExpanded ? expandedOccurrenceIdx : 0;
+                      const currentSelector = allSelectors[currentOccIdx] ?? null;
+
                       return (
-                        <button
-                          key={`${group.ruleId}-${idx}`}
-                          type="button"
-                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-white hover:shadow-sm transition-all group border border-transparent hover:border-[var(--color-border-light)]"
-                          onMouseEnter={() => handleIssueHover(selector as string | null)}
-                          onMouseLeave={() => handleIssueHover(null)}
-                          onClick={() => openIssueModal(issue, group.allIssues)}
-                        >
-                          <div className="as-p3-text primary-text-color truncate leading-snug">
-                            {issue.message || issue.description || issue.ruleId || "Issue"}
-                          </div>
-                          <div className="mt-0.5 flex items-center gap-1.5">
-                            {severityBadge(issue.impact)}
-                            {group.count > 1 && (
-                              <span className="as-p3-text secondary-text-color">×{group.count}</span>
-                            )}
-                          </div>
-                        </button>
+                        <div key={groupKey}>
+                          {/* Issue row */}
+                          <button
+                            type="button"
+                            className={`w-full text-left px-3 py-2 rounded-lg transition-all group border ${isExpanded ? "bg-white shadow-sm border-[var(--color-border-light)]" : "border-transparent hover:bg-white hover:shadow-sm hover:border-[var(--color-border-light)]"}`}
+                            onMouseEnter={() => handleIssueHover(!isExpanded && allSelectors.length > 0 ? allSelectors : currentSelector ? [currentSelector] : null)}
+                            onMouseLeave={() => handleIssueHover(null)}
+                            onClick={() => {
+                              if (isExpanded) {
+                                setExpandedGroupKey(null);
+                                handleIssueHover(null);
+                              } else {
+                                setExpandedGroupKey(groupKey);
+                                setExpandedOccurrenceIdx(0);
+                                if (allSelectors[0]) handleIssueHover([allSelectors[0]]);
+                              }
+                            }}
+                          >
+                            <div className="as-p3-text primary-text-color truncate leading-snug">
+                              {issue.message || issue.description || issue.ruleId || "Issue"}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1.5">
+                              {severityBadge(issue.impact)}
+                              {group.count > 1 && (
+                                <span className="as-p3-text secondary-text-color">×{group.count}</span>
+                              )}
+                            </div>
+                          </button>
+
+                          {/* Inline instance navigator — shown when expanded */}
+                          {isExpanded && (
+                            <div className="mx-2 mb-1 px-3 py-2 bg-[var(--color-bg-light)] rounded-lg border border-[var(--color-border-light)]">
+                              {group.count > 1 ? (
+                                <>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="as-p3-text secondary-text-color">
+                                      Instance {currentOccIdx + 1} of {group.count}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        className="p-1 rounded hover:bg-[var(--color-bg)] disabled:opacity-40"
+                                        disabled={currentOccIdx === 0}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const next = currentOccIdx - 1;
+                                          setExpandedOccurrenceIdx(next);
+                                          if (allSelectors[next]) handleIssueHover([allSelectors[next]]);
+                                        }}
+                                        title="Previous instance"
+                                      >
+                                        <PiArrowLeft size={14} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="p-1 rounded hover:bg-[var(--color-bg)] disabled:opacity-40"
+                                        disabled={currentOccIdx === group.count - 1}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const next = currentOccIdx + 1;
+                                          setExpandedOccurrenceIdx(next);
+                                          if (allSelectors[next]) handleIssueHover([allSelectors[next]]);
+                                        }}
+                                        title="Next instance"
+                                      >
+                                        <PiArrowRight size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {currentSelector && (
+                                    <code className="block as-p3-text secondary-text-color font-mono truncate text-[10px]">
+                                      {currentSelector}
+                                    </code>
+                                  )}
+                                </>
+                              ) : (
+                                currentSelector && (
+                                  <code className="block as-p3-text secondary-text-color font-mono truncate text-[10px]">
+                                    {currentSelector}
+                                  </code>
+                                )
+                              )}
+                              <button
+                                type="button"
+                                className="mt-2 as-p3-text text-brand hover:underline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openIssueModal(group.allIssues[currentOccIdx] as Issue, group.allIssues);
+                                }}
+                              >
+                                View details →
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
@@ -450,10 +541,10 @@ function FilterCard({
       text: "text-[var(--color-warning)]"
     },
     moderate: {
-      border: "border-[var(--color-info)]/30",
-      activeBg: "bg-[var(--color-info)]/8",
-      activeBorder: "border-[var(--color-info)]",
-      text: "text-[var(--color-info)]"
+      border: "border-amber-500/30",
+      activeBg: "bg-amber-50",
+      activeBorder: "border-amber-500",
+      text: "text-amber-600"
     },
     minor: {
       border: "border-[var(--color-success)]/30",
@@ -487,7 +578,7 @@ function severityBadge(impact?: string) {
   const v = (impact || "").toLowerCase();
   if (v === "critical") return <DSBadge tone="danger" text="Critical" />;
   if (v === "serious") return <DSBadge tone="warning" text="Serious" />;
-  if (v === "moderate") return <DSBadge tone="info" text="Moderate" />;
+  if (v === "moderate") return <DSBadge tone="moderate" text="Moderate" />;
   if (v === "minor") return <DSBadge tone="success" text="Minor" />;
   return <DSBadge tone="neutral" text="Unknown" />;
 }

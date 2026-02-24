@@ -32,6 +32,7 @@ export function RunsTab({ project }: RunsTabProps) {
   const [viewingRun, setViewingRun] = useState<RunDoc | null>(null);
   const [reportPageId, setReportPageId] = useState<string | null>(null);
   const [reportProjectId, setReportProjectId] = useState<string>("");
+  const [reportActiveTab, setReportActiveTab] = useState<"report" | "preview">("report");
 
   if (!projectId || !state) return <div>Loading</div>;
 
@@ -172,10 +173,10 @@ export function RunsTab({ project }: RunsTabProps) {
         open={reportPageId !== null}
         projectId={reportProjectId}
         pageId={reportPageId}
-        activeTab="report"
+        activeTab={reportActiveTab}
         scanIdFromUrl={null}
-        onClose={() => setReportPageId(null)}
-        onTabChange={() => {}}
+        onClose={() => { setReportPageId(null); setReportActiveTab("report"); }}
+        onTabChange={setReportActiveTab}
         onScanChange={() => {}}
       />
     </div>

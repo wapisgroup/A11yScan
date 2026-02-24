@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
   doc,
@@ -125,6 +125,10 @@ export const usePageReportState = (
   const [page, setPage] = useState<PageDoc | null>(null);
   const [scans, setScans] = useState<ScanDoc[]>([]);
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
+  // Ref keeps the latest selectedScanId readable inside onSnapshot closures
+  // without needing it in the dependency array (which would re-subscribe on every selection).
+  const selectedScanIdRef = useRef<string | null>(null);
+  selectedScanIdRef.current = selectedScanId;
   const [selectedScan, setSelectedScan] = useState<ScanDoc | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [snapshotHtml, setSnapshotHtml] = useState<string | null>(null);
@@ -177,6 +181,12 @@ export const usePageReportState = (
     void loadInitialData();
   }, [projectId, pageId]);
 
+  // Reset scan selection when the page changes
+  useEffect(() => {
+    setSelectedScanId(null);
+    setScans([]);
+  }, [projectId, pageId]);
+
   // Subscribe to scans for this page
   useEffect(() => {
     if (!projectId || !pageId) return;
@@ -193,8 +203,9 @@ export const usePageReportState = (
 
         setScans(list);
 
-        // Default to latest scan if nothing is selected yet
-        if (!selectedScanId && list.length) {
+        // Default to latest scan if nothing is selected yet.
+        // Use ref instead of state to avoid stale closure when pageId changes.
+        if (!selectedScanIdRef.current && list.length) {
           setSelectedScanId(list[0]!.id);
         }
       },

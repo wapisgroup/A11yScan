@@ -699,7 +699,7 @@ function getSeverityBadge(impact?: string) {
       );
     case 'moderate':
       return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--color-info)]/10 text-[var(--color-info)] as-p3-text font-medium">
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-600 as-p3-text font-medium">
           <PiInfo size={14} />
           Moderate
         </span>

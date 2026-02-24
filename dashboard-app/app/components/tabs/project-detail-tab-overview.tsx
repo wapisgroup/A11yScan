@@ -128,7 +128,7 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
       onClose={() => setSitemapDrawerOpen(false)}
       title="Sitemap Diagram"
     >
-      <div className="p-4">
+      <div className="h-full overflow-y-auto p-4">
         {sitemapLoading ? (
           <div className="text-slate-500 text-sm">Loading sitemap...</div>
         ) : sitemapTree ? (

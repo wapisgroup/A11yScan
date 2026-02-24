@@ -166,7 +166,7 @@ export function PagesTab({ project }: PagesTabProps) {
   // until we have a project id and state.
   if (!projectId || !state) return <div>Loading</div>;
 
-  const { pagedItems, allItems, totalCount, setPage, pagination, filterText, setFilterText, selection } = state;
+  const { pagedItems, allItems, totalCount, setPage, pagination, filterText, setFilterText, selection, onlyWithIssues, setOnlyWithIssues } = state;
 
   // Filter to show only non-2xx pages when 404 filter is active
   // Pages with no httpStatus yet (manually added, sitemap upload) are excluded — they are unknown, not errors.
@@ -546,6 +546,17 @@ export function PagesTab({ project }: PagesTabProps) {
               placeholder="Filter pages by url or title"
               className="input w-80"
             />
+
+            {/* Issues-only filter toggle */}
+            <button
+              type="button"
+              onClick={() => setOnlyWithIssues(!onlyWithIssues)}
+              title={onlyWithIssues ? "Show all pages" : "Show only pages with issues"}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg as-p3-text border transition-colors ${onlyWithIssues ? "bg-red-50 border-red-300 text-red-700" : "bg-white border-[var(--color-border-light)] secondary-text-color hover:bg-[var(--color-bg-light)]"}`}
+            >
+              <PiWarning size={16} />
+              With issues
+            </button>
 
             {/* Clear selection — only visible when pages are selected */}
             {selectedCount > 0 && (

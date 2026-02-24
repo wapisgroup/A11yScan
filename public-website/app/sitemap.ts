@@ -1,6 +1,14 @@
 import { MetadataRoute } from 'next'
+import path from 'path'
+import { AccessibilityRulesService } from '@wapisgroup/accessibility-rules'
 import { client } from '@/lib/sanity'
 import { SITE_URL } from './libs/metadata'
+
+const rulesDirectory = path.join(
+  process.cwd(),
+  'node_modules/@wapisgroup/accessibility-rules/rules'
+)
+const rulesService = new AccessibilityRulesService(rulesDirectory)
 
 // Static routes for the website
 const staticRoutes = [
@@ -43,6 +51,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }`
   )
 
+  // Fetch individual accessibility rule pages
+  let rulePages: MetadataRoute.Sitemap = []
+  try {
+    const rules = await rulesService.getAllRules()
+    rulePages = rules.map(rule => ({
+      url: `${SITE_URL}/accessibility-rules/${rule.ruleId}/`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    }))
+  } catch {
+    // If rules can't be loaded, skip — don't break the whole sitemap
+  }
+
   // Map static routes
   const staticPages: MetadataRoute.Sitemap = staticRoutes.map(route => ({
     url: `${SITE_URL}${route}`,
@@ -67,5 +89,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }))
 
-  return [...staticPages, ...guidePages, ...blogPages]
+  return [...staticPages, ...guidePages, ...rulePages, ...blogPages]
 }

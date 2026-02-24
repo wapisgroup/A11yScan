@@ -91,7 +91,8 @@ export const useItemsPageState = <D>(
     pageSize: number = DEFAULT_PAGE_SIZE,
     loadItems: () => Promise<D[]>,
     filterCategoryAllowed: string | null,
-    subscribeItems?: (onNext: (items: D[]) => void, onError: (err: unknown) => void) => Unsubscribe
+    subscribeItems?: (onNext: (items: D[]) => void, onError: (err: unknown) => void) => Unsubscribe,
+    filterFn?: (item: D, text: string) => boolean
 ): DefaultPageState<D> => {
     /** Current page number (1-based). */
     const [page, _setPage] = useState<number>(1);
@@ -135,7 +136,12 @@ export const useItemsPageState = <D>(
                 if (String(v ?? "") !== String(filterCategory)) return false;
             }
 
-            // 2) Optional free-text filtering (JSON-string match)
+            // 2) Custom filter function handles both text and non-text filtering
+            // (e.g. onlyWithIssues flag). Must be called before the !t early-return
+            // so it runs even when filterText is empty.
+            if (filterFn) return filterFn(item, t);
+
+            // Default: skip items when there is no text to match
             if (!t) return true;
 
             try {
@@ -144,7 +150,7 @@ export const useItemsPageState = <D>(
                 return false;
             }
         });
-    }, [items, filterText, filterCategory, filterCategoryAllowed]);
+    }, [items, filterText, filterCategory, filterCategoryAllowed, filterFn]);
 
     /**
      * Derived pagination metadata and paged project slice.

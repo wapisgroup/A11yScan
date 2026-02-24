@@ -56,7 +56,7 @@ export function UIDrawerShell({
           {headerActions ? <div className="mt-4">{headerActions}</div> : null}
         </header>
 
-        <div className="flex-1 overflow-hidden">{children}</div>
+        <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
 
         {footer ? <footer className="px-6 py-4 border-t border-[var(--color-border-light)]">{footer}</footer> : null}
       </section>

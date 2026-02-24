@@ -16,6 +16,8 @@ type SelectedPages = {
 
 export type ProjectDetailPagesTabState = DefaultPageState<PageDoc> & {
   selection: SelectedPages;
+  onlyWithIssues: boolean;
+  setOnlyWithIssues: (v: boolean) => void;
 };
 
 
@@ -33,6 +35,7 @@ export const useProjectPagesPageState = (
   pageSize = 10
 ): ProjectDetailPagesTabState => {
   const [selectedPages, setSelectedPages] = useState<Set<string>>(() => new Set());
+  const [onlyWithIssues, setOnlyWithIssues] = useState(false);
 
   const load = useCallback(() => {
     if (!projectId) return Promise.resolve([]);
@@ -80,7 +83,26 @@ export const useProjectPagesPageState = (
 
   const selectedCount = selectedPages.size;
 
-  const base = useItemsPageState<PageDoc>(pageSize, load, null, subscribe);
+  const pageFilterFn = useCallback((page: PageDoc, text: string) => {
+    if (onlyWithIssues) {
+      // Worker writes stats to lastScan.summary and violationsCount — lastStats is a fallback.
+      // Use the same precedence as project-detail-page-row.tsx to avoid false negatives.
+      const stats = (
+        page.lastStats ??
+        (page.lastScan as any)?.summary ??
+        page.violationsCount ??
+        {}
+      ) as Record<string, unknown>;
+      const total = (Number(stats.critical ?? 0) + Number(stats.serious ?? 0) + Number(stats.moderate ?? 0) + Number(stats.minor ?? 0));
+      if (total === 0) return false;
+    }
+    if (!text) return true;
+    const url = (page.url ?? "").toLowerCase();
+    const title = (page.title ?? "").toLowerCase();
+    return url.includes(text) || title.includes(text);
+  }, [onlyWithIssues]);
+
+  const base = useItemsPageState<PageDoc>(pageSize, load, null, subscribe, pageFilterFn);
 
   return {
     ...base,
@@ -91,5 +113,7 @@ export const useProjectPagesPageState = (
       togglePage,
       toggleAllOnPage,
     },
+    onlyWithIssues,
+    setOnlyWithIssues,
   };
 };
