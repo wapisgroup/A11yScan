@@ -104,6 +104,7 @@ export const LoggedOutHeader = () => {
                     key={item.url}
                     href={item.url}
                     className="main-menu-item"
+                    aria-label={item.ariaLabel}
                     >
                     {item.title}
                     </Link>
@@ -148,6 +149,7 @@ export const LoggedOutHeader = () => {
                                     key={item.url}
                                     href={item.url}
                                     className="main-menu-item-mobile"
+                                    aria-label={item.ariaLabel}
                                     onClick={() => closeMenu()}
                                     >
                                     {item.title}

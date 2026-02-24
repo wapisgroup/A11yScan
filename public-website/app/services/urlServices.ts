@@ -44,7 +44,7 @@ export const main_menu_urls = [
     {url: URL_FRONTEND_FEATURES, title:'Features'},
     {url: URL_FRONTEND_SOLUTIONS, title:'Solutions'},
     {url: URL_FRONTEND_PRICING, title:'Pricing'},
-    {url: URL_FRONTEND_FAQS, title:'FAQs'},
+    {url: URL_FRONTEND_FAQS, title:'FAQs', ariaLabel:'Frequently Asked Questions'},
     {url: URL_FRONTEND_CONTACT, title:'Contact'},
 ];
 

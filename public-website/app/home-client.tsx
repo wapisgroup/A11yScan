@@ -43,7 +43,9 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                 </span>
               </h1>
               <p className="text-xl md:text-2xl text-slate-600 mb-10 leading-relaxed max-w-3xl mx-auto">
-                Automatically scan entire websites for WCAG compliance. Deliver professional reports, track progress, and ensure digital accessibility.
+                Automatically scan entire websites for{' '}
+                <abbr title="Web Content Accessibility Guidelines">WCAG</abbr>{' '}
+                compliance. Deliver professional reports, track progress, and ensure digital accessibility.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                 <Link
@@ -74,7 +76,11 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                     Why Accessibility Matters
                   </h2>
                   <p className="text-lg text-purple-100 mb-8 leading-relaxed">
-                    Digital accessibility isn't optional anymore. Millions of users rely on assistive technologies, and regulations like WCAG, the ADA, and the European Accessibility Act are making accessibility a legal requirement.
+                    Digital accessibility isn&apos;t optional anymore. Millions of users rely on assistive technologies, and regulations like{' '}
+                    <abbr title="Web Content Accessibility Guidelines">WCAG</abbr>,{' '}
+                    the <abbr title="Americans with Disabilities Act">ADA</abbr>, and the{' '}
+                    <abbr title="European Accessibility Act">EAA</abbr>{' '}
+                    are making accessibility a legal requirement.
                   </p>
                   <p className="text-lg text-purple-100 mb-10 leading-relaxed">
                     Inaccessible websites risk lawsuits, lost customers, and reputational damage. Building accessibility in early is always cheaper than retrofitting.
@@ -199,7 +205,7 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                         {engine.badge}
                       </span>
                     </div>
-                    <div className="text-5xl font-black text-slate-700 mb-3 leading-none">{engine.num}</div>
+                    <div className="text-5xl font-black text-slate-500 mb-3 leading-none">{engine.num}</div>
                     <h3 className="text-xl font-bold text-white mb-3">{engine.name}</h3>
                     <p className="text-slate-400 text-sm mb-5 leading-relaxed">{engine.description}</p>
                     <ul className="space-y-2">
@@ -260,7 +266,7 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
 
                 {/* Right - scan pipeline visual */}
                 <div className="bg-slate-900 rounded-2xl p-8 border border-slate-700">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-6">How Ablelytics scans your site</p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-6">How Ablelytics scans your site</p>
                   <div className="space-y-3">
                     {[
                       { icon: HiComputerDesktop, label: "Real Chrome Browser", sub: "JavaScript rendered, dynamic content captured", color: "from-[#3861ab] to-[#39b0ce]" },
@@ -308,7 +314,11 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900 mb-4">Compliance Officers</h3>
                   <p className="text-slate-600 mb-6 leading-relaxed">
-                    Reduce legal exposure with comprehensive WCAG 2.2, ADA, and Section 508 compliance reports that stand up to audits.
+                    Reduce legal exposure with comprehensive{' '}
+                    <abbr title="Web Content Accessibility Guidelines">WCAG</abbr> 2.2,{' '}
+                    <abbr title="Americans with Disabilities Act">ADA</abbr>, and{' '}
+                    <abbr title="Section 508 of the Rehabilitation Act">Section 508</abbr>{' '}
+                    compliance reports that stand up to audits.
                   </p>
                   <Link href={URL_FRONTEND_SOLUTIONS_COMPLIANCE} className="text-[#3861ab] font-semibold hover:text-[#5f3b8f] inline-flex items-center gap-2">
                     Learn more <span aria-hidden="true">→</span>
@@ -417,10 +427,10 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
               </p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 {[
-                  { name: "WCAG 2.2", subtitle: "Level AA/AAA", color: "from-[#39b0ce] to-[#3861ab]" },
-                  { name: "ADA", subtitle: "Compliance", color: "from-[#3861ab] to-[#5f3b8f]" },
-                  { name: "Section 508", subtitle: "Federal Standard", color: "from-[#5f3b8f] to-[#2d2d6e]" },
-                  { name: "EN 301 549", subtitle: "EU Standard", color: "from-[#2d2d6e] to-[#3861ab]" },
+                  { name: <><abbr title="Web Content Accessibility Guidelines">WCAG</abbr>{' '}2.2</>, subtitle: "Level AA/AAA", color: "from-[#39b0ce] to-[#3861ab]" },
+                  { name: <abbr title="Americans with Disabilities Act">ADA</abbr>, subtitle: "Compliance", color: "from-[#3861ab] to-[#5f3b8f]" },
+                  { name: <abbr title="Section 508 of the Rehabilitation Act">Section 508</abbr>, subtitle: "Federal Standard", color: "from-[#5f3b8f] to-[#2d2d6e]" },
+                  { name: <abbr title="European Standard EN 301 549">EN 301 549</abbr>, subtitle: "EU Standard", color: "from-[#2d2d6e] to-[#3861ab]" },
                 ].map((standard, i) => (
                   <div key={i} className={`bg-gradient-to-br ${standard.color} rounded-2xl p-6 text-center text-white shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1`}>
                     <HiShieldCheck className="w-10 h-10 mx-auto mb-3 opacity-90" />
