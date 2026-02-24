@@ -458,6 +458,8 @@ async function callOpenAiModel(context, screenshotDataUrl) {
     'If the issue is tied to a specific element, include selector and html from the provided context.',
     'Use only the SCs from this list: 1.2.1-1.2.9, 1.3.3, 1.4.7, 1.4.8, 2.4.5, 2.4.8, 3.1.3, 3.1.4, 3.1.5, 3.1.6, 3.2.5, 3.3.4, 3.3.5, 3.3.6, 3.3.7, 3.3.8, 3.3.9.',
     'Report each unique issue only once. Do not report variations of the same underlying problem.',
+    'FORM LABELS: The context includes a hasLabel field for each input. An input with hasLabel:true has a programmatically associated label (aria-label, aria-labelledby, or <label>) and must NOT be flagged for missing labels regardless of whether a visible label is present. Only flag label issues when hasLabel:false.',
+    'SC 3.3.5 is about context-sensitive help availability, NOT about missing labels. Do not use 3.3.5 for label issues.',
     'If unsure, return an empty issues array.'
   ].join(' ');
 
