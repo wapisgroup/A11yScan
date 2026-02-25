@@ -74,24 +74,7 @@ export async function POST(request: NextRequest) {
       const limitError = await checkSubscriptionLimit(user.uid, 'activeProjects');
       if (limitError) return limitError;
 
-      // Check URL uniqueness for this user
-      const existingSnap = await adminDB
-        .collection('projects')
-        .where('owner', '==', user.uid)
-        .get();
-
-      const normalizedDomain = domain.toLowerCase().trim();
-      const duplicate = existingSnap.docs.some(
-        (d) => String(d.data().domain ?? '').toLowerCase().trim() === normalizedDomain
-      );
-      if (duplicate) {
-        return NextResponse.json(
-          { error: 'You already have a project with this URL.' },
-          { status: 409 }
-        );
-      }
-
-      // Get organisationId from user doc
+      // Get organisationId from user doc (needed for both uniqueness check and payload)
       let organisationId: string | null = null;
       try {
         const userSnap = await adminDB.collection('users').doc(user.uid).get();
@@ -102,12 +85,30 @@ export async function POST(request: NextRequest) {
         // Non-critical — proceed without organisationId
       }
 
+      // Check URL uniqueness within the same org (or for this user if solo)
+      const existingSnap = await adminDB
+        .collection('projects')
+        .where(organisationId ? 'organisationId' : 'owner', '==', organisationId ?? user.uid)
+        .get();
+
+      const normalizedDomain = domain.toLowerCase().trim();
+      const duplicate = existingSnap.docs.some(
+        (d) => String(d.data().domain ?? '').toLowerCase().trim() === normalizedDomain
+      );
+      if (duplicate) {
+        return NextResponse.json(
+          { error: 'A project with this URL already exists in your organisation.' },
+          { status: 409 }
+        );
+      }
+
       const projectName = name?.trim() || generateNameFromUrl(domain);
 
       const payload: Record<string, unknown> = {
         name: projectName || null,
         domain,
         owner: user.uid,
+        createdBy: user.uid,
         organisationId: organisationId ?? null,
         createdAt: FieldValue.serverTimestamp(),
         ...(config ? { config } : {}),

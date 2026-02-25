@@ -18,6 +18,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -144,12 +145,21 @@ export async function loadProjects(): Promise<Project[]> {
   if (!currentUser) {
     return [];
   }
-  
-  const q = query(
-    collection(db, "projects"),
-    where("owner", "==", currentUser.uid),
-    orderBy("createdAt", "desc")
-  );
+
+  // Prefer querying by organisationId so team members see shared projects.
+  // Fall back to owner when the user is not part of an organisation.
+  let organisationId: string | null = null;
+  try {
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    if (userSnap.exists()) {
+      organisationId = (userSnap.data().organisationId as string | undefined) ?? null;
+    }
+  } catch { /* non-critical — fall back to owner query */ }
+
+  const q = organisationId
+    ? query(collection(db, "projects"), where("organisationId", "==", organisationId), orderBy("createdAt", "desc"))
+    : query(collection(db, "projects"), where("owner", "==", currentUser.uid), orderBy("createdAt", "desc"));
+
   const snap = await getDocs(q);
 
   return snap.docs.map((d) => {
@@ -191,47 +201,52 @@ export function subscribeProjects(
   // Wait for auth to initialize before subscribing
   let unsubscribeSnapshot: Unsubscribe | null = null;
   
-  const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-    // Clean up previous subscription if any
+  const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+    // Clean up any previous snapshot subscription first
     if (unsubscribeSnapshot) {
       unsubscribeSnapshot();
       unsubscribeSnapshot = null;
     }
-    
+
     if (!user) {
-      // Return empty list if not authenticated
       onNext([]);
       return;
     }
-    
-    const q = query(
-      collection(db, "projects"),
-      where("owner", "==", user.uid),
-      orderBy("createdAt", "desc")
-    );
 
-    // Firestore will immediately invoke this listener with the current set of documents,
-    // and then again whenever documents are added/changed/removed.
+    // Prefer querying by organisationId so team members see shared projects.
+    // Fall back to owner when the user is not part of an organisation.
+    let organisationId: string | null = null;
+    try {
+      const userSnap = await getDoc(doc(db, "users", user.uid));
+      if (userSnap.exists()) {
+        organisationId = (userSnap.data().organisationId as string | undefined) ?? null;
+      }
+    } catch { /* non-critical — fall back to owner query */ }
+
+    const q = organisationId
+      ? query(collection(db, "projects"), where("organisationId", "==", organisationId), orderBy("createdAt", "desc"))
+      : query(collection(db, "projects"), where("owner", "==", user.uid), orderBy("createdAt", "desc"));
+
     unsubscribeSnapshot = onSnapshot(
       q,
       (snap: QuerySnapshot<DocumentData>) => {
         const list: Project[] = snap.docs.map((d) => {
-        const data = d.data() as DocumentData;
-        return {
-          id: d.id,
-          name: (data.name ?? null) as string | null,
-          domain: String(data.domain ?? ""),
-          owner: (data.owner ?? null) as string | null,
-          organisationId: (data.organisationId ?? null) as string | null,
-          createdAt: (data.createdAt ?? null) as Timestamp | Date | null,
-          lastScanAt: (data.lastScanAt ?? null) as Timestamp | Date | null,
-        };
-      });
+          const data = d.data() as DocumentData;
+          return {
+            id: d.id,
+            name: (data.name ?? null) as string | null,
+            domain: String(data.domain ?? ""),
+            owner: (data.owner ?? null) as string | null,
+            organisationId: (data.organisationId ?? null) as string | null,
+            createdAt: (data.createdAt ?? null) as Timestamp | Date | null,
+            lastScanAt: (data.lastScanAt ?? null) as Timestamp | Date | null,
+          };
+        });
 
-      onNext(list);
-    },
-    (err) => onError?.(err)
-  );
+        onNext(list);
+      },
+      (err) => onError?.(err)
+    );
   });
   
   // Return cleanup function that unsubscribes from both auth and snapshot listeners
