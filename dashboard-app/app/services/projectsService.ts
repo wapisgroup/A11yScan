@@ -15,11 +15,9 @@
  * - Realtime subscriptions return an `Unsubscribe` function; callers must call it on unmount.
  */
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   orderBy,
   query,
@@ -246,53 +244,52 @@ export function subscribeProjects(
 }
 
 export async function createProject({ name, domain, config }: CreateProjectInput): Promise<Project> {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error("Not authenticated");
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("Not authenticated");
 
-  // Get user's organisationId
-  const userDoc = await getDoc(doc(db, "users", uid));
-  const organisationId = userDoc.exists() ? (userDoc.data().organisationId as string | undefined) : undefined;
-
-  // Validate URL
+  // Client-side validation (fast feedback before hitting the API)
   if (!validateUrl(domain)) {
     throw new Error("Invalid URL address. Please provide a valid URL.");
   }
 
-  // Check URL uniqueness
-  const isUnique = await isUrlUnique(domain);
-  if (!isUnique) {
-    throw new Error("You already have a project with this URL.");
+  const token = await currentUser.getIdToken();
+  const response = await fetch('/api/projects', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ name, domain, config }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({})) as Record<string, unknown>;
+
+    if (err.error === 'LIMIT_REACHED') {
+      const limit = err.limit as number;
+      throw new Error(
+        `You've reached your plan's limit of ${limit} active project${limit === 1 ? '' : 's'}. ` +
+        `Upgrade your plan to create more projects.`
+      );
+    }
+
+    throw new Error((err.error as string) || `Failed to create project (${response.status})`);
   }
 
-  // Generate name from URL if not provided
-  const projectName = name?.trim() || generateNameFromUrl(domain);
-
-  const payload: Record<string, unknown> = {
-    name: projectName || null,
-    domain,
-    owner: uid,
-    organisationId: organisationId || null,
-    createdAt: serverTimestamp(),
-    ...(config ? { config } : {}),
+  const data = await response.json() as {
+    id: string;
+    name: string | null;
+    domain: string;
+    owner: string;
+    organisationId: string | null;
   };
 
-  const ref = await addDoc(collection(db, "projects"), payload);
-
-  // Track project creation in subscription usage
-  try {
-    const { incrementUsage } = await import('./subscriptionService');
-    await incrementUsage(uid, 'activeProjects', 1);
-  } catch (error) {
-    console.error('Failed to track project creation in usage:', error);
-    // Don't fail the project creation if usage tracking fails
-  }
-
   return {
-    id: ref.id,
-    name: projectName || null,
-    domain,
-    owner: uid,
-    organisationId: organisationId || null,
+    id: data.id,
+    name: data.name,
+    domain: data.domain,
+    owner: data.owner,
+    organisationId: data.organisationId ?? null,
     createdAt: null,
   };
 }

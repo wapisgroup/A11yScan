@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDB } from '@/utils/firebase-admin';
 import { withAuth } from '@/utils/api-auth';
 import { FieldValue } from 'firebase-admin/firestore';
+import {
+  checkSubscriptionLimit,
+  getPagesPerScanLimit,
+  incrementSubscriptionUsage,
+} from '@/utils/subscription-guard';
 
 /**
  * POST /api/scans/start
@@ -25,6 +30,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
       }
 
+      // Check scans-per-month subscription limit
+      const limitError = await checkSubscriptionLimit(user.uid, 'scansThisMonth');
+      if (limitError) return limitError;
+
       // Ensure project exists
       const projectRef = adminDB.collection('projects').doc(projectId);
       const projectSnap = await projectRef.get();
@@ -35,6 +44,9 @@ export async function POST(request: NextRequest) {
           createdBy: user.uid,
         }, { merge: true });
       }
+
+      // Fetch pagesPerScan cap once for both code paths
+      const pagesPerScanCap = await getPagesPerScanLimit(user.uid);
 
       if (includePageCollection) {
         // ---------------------------------------------------------------
@@ -71,6 +83,7 @@ export async function POST(request: NextRequest) {
         await pcRunRef.update({ pipelineId });
 
         // 2. Full scan run (blocked until page_collection completes)
+        // Pass pagesPerScanCap so the worker applies it when resolving pages
         const scanRunRef = await projectRef.collection('runs').add({
           type,
           status: 'blocked',
@@ -81,6 +94,7 @@ export async function POST(request: NextRequest) {
           pagesScanned: 0,
           queuedVia: 'firestore',
           resolvePagesAtStart: true,
+          ...(pagesPerScanCap !== null ? { pagesPerScanCap } : {}),
           pipelineId,
           dependsOnRunId: pcRunRef.id,
           stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
@@ -98,7 +112,11 @@ export async function POST(request: NextRequest) {
           pipelineId,
           dependsOnJobId: pcJobRef.id,
           pagesIds: null,
+          ...(pagesPerScanCap !== null ? { pagesPerScanCap } : {}),
         });
+
+        // Increment scans usage
+        await incrementSubscriptionUsage(user.uid, 'scansThisMonth', 1);
 
         return NextResponse.json({
           ok: true,
@@ -107,6 +125,7 @@ export async function POST(request: NextRequest) {
           pageCollectionJobId: pcJobRef.id,
           scanRunId: scanRunRef.id,
           scanJobId: scanJobRef.id,
+          ...(pagesPerScanCap !== null ? { pagesPerScanCap } : {}),
         });
       }
 
@@ -130,16 +149,22 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
+      // Apply pagesPerScan cap — silently truncate to plan limit
+      const cappedPageIds =
+        pagesPerScanCap !== null ? pageIds.slice(0, pagesPerScanCap) : pageIds;
+      const wasCapped = cappedPageIds.length < pageIds.length;
+
       const runRef = await projectRef.collection('runs').add({
         type,
         status: 'queued',
         startedAt: FieldValue.serverTimestamp(),
         creatorId: user.uid,
-        pagesIds: pageIds,
-        pagesTotal: pageIds.length,
+        pagesIds: cappedPageIds,
+        pagesTotal: cappedPageIds.length,
         pagesScanned: 0,
         queuedVia: 'firestore',
         resolvePagesAtStart: false,
+        ...(pagesPerScanCap !== null ? { pagesPerScanCap } : {}),
         stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
       });
 
@@ -152,14 +177,19 @@ export async function POST(request: NextRequest) {
         doneAt: null,
         status: 'queued',
         createdBy: user.uid,
-        pagesIds: pageIds,
+        pagesIds: cappedPageIds,
+        ...(pagesPerScanCap !== null ? { pagesPerScanCap } : {}),
       });
+
+      // Increment scans usage
+      await incrementSubscriptionUsage(user.uid, 'scansThisMonth', 1);
 
       return NextResponse.json({
         ok: true,
         runId: runRef.id,
         jobId: jobRef.id,
-        pagesCount: pageIds.length,
+        pagesCount: cappedPageIds.length,
+        ...(wasCapped ? { wasCapped: true, totalPages: pageIds.length, pagesPerScanCap } : {}),
       });
 
     } catch (error) {

@@ -1,57 +1,50 @@
 import { auth, db } from "@/utils/firebase";
 import {
-  addDoc,
-  collection,
   deleteDoc,
   doc,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
   updateDoc,
   where,
   type DocumentData,
   type Unsubscribe,
   type Timestamp,
+  collection,
 } from "firebase/firestore";
 import type { ScheduleCreateInput, ScheduleDoc, ScheduleUpdateInput } from "@/types/schedule";
-import { incrementUsage } from "@/services/subscriptionService";
 
 const schedulesCollection = () => collection(db, "schedules");
-
-const toTimestampOrNull = (value: Date | Timestamp | null | undefined) => {
-  if (!value) return null;
-  return value;
-};
 
 export async function createSchedule(input: ScheduleCreateInput): Promise<ScheduleDoc> {
   const user = auth.currentUser;
   if (!user) throw new Error("Not authenticated");
 
-  const payload = {
-    organizationId: input.organizationId ?? null,
-    projectId: input.projectId,
-    projectName: input.projectName,
-    projectDomain: input.projectDomain ?? null,
-    type: input.type,
-    cadence: input.cadence,
-    includePageCollection: Boolean(input.includePageCollection),
-    includeReport: Boolean(input.includeReport),
-    pageSetId: input.pageSetId ?? null,
-    pageSetName: input.pageSetName ?? null,
-    startDate: toTimestampOrNull(input.startDate ?? null),
-    status: input.status ?? "active",
-    createdBy: input.createdBy ?? user.uid,
-    createdAt: serverTimestamp(),
-  };
+  const token = await user.getIdToken();
+  const response = await fetch('/api/schedules', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  });
 
-  const ref = await addDoc(schedulesCollection(), payload);
-  await incrementUsage(user.uid, "scheduledScans", 1);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({})) as Record<string, unknown>;
 
-  return {
-    id: ref.id,
-    ...payload,
-  } as unknown as ScheduleDoc;
+    if (err.error === 'LIMIT_REACHED') {
+      const limit = err.limit as number;
+      throw new Error(
+        `You've reached your plan's limit of ${limit} scheduled scan${limit === 1 ? '' : 's'}. ` +
+        `Upgrade your plan to create more schedules.`
+      );
+    }
+
+    throw new Error((err.error as string) || `Failed to create schedule (${response.status})`);
+  }
+
+  return response.json() as Promise<ScheduleDoc>;
 }
 
 export async function updateSchedule(id: string, patch: ScheduleUpdateInput): Promise<void> {
