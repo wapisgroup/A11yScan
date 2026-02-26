@@ -43,12 +43,12 @@ export const useReportsPageState = (organisationId?: string, pageSize = 20) => {
   const [statusFilter, setStatusFilter] = useState<ReportStatus | 'all'>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
 
-  const load = useCallback(() => loadAllReports(), []);
+  const load = useCallback(() => loadAllReports(organisationId), [organisationId]);
 
   const subscribe = useCallback(
     (onNext: (items: Report[]) => void, onError: (err: unknown) => void) =>
-      subscribeReports(onNext, onError),
-    []
+      subscribeReports(organisationId ?? '', onNext, onError),
+    [organisationId]
   );
 
   const base = useItemsPageState<Report>(pageSize, load, null, subscribe);
@@ -124,7 +124,7 @@ export const useReportsPageState = (organisationId?: string, pageSize = 20) => {
     allReports: mappedReports,
     pagedReports,
     projects,
-    
+
     // Filters
     typeFilter,
     statusFilter,
@@ -132,14 +132,15 @@ export const useReportsPageState = (organisationId?: string, pageSize = 20) => {
     setTypeFilter,
     setStatusFilter,
     setProjectFilter,
-    
+
     // Pagination
     currentPage,
     totalPages,
     setPage: base.setPage,
-    
+
     // State
     loading: base.loading,
     error: base.error,
+    refresh: base.refresh,
   };
 };

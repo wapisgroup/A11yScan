@@ -42,6 +42,7 @@ export default function Reports() {
     setStatusFilter,
     setProjectFilter,
     setPage,
+    refresh,
   } = useReportsPageState(user?.organisationId, 20);
 
   const handleDelete = async (reportId: string, reportTitle: string) => {
@@ -61,7 +62,7 @@ export default function Reports() {
       if (!report) return;
 
       await deleteDoc(doc(db, "projects", report.projectId, "reports", reportId));
-      // Real-time subscription will automatically update the list
+      await refresh();
     } catch (err) {
       console.error("Failed to delete report:", err);
       alert("Failed to delete report");
@@ -102,25 +103,11 @@ export default function Reports() {
   // Pagination handled by state hook
   const safePage = Math.max(1, Math.min(currentPage, totalPages || 1));
 
-  if (loading) {
-    return (
-      <PrivateRoute>
-        <WorkspaceLayout>
-          <PageWrapper title="Reports">
-            <PageContainer title="Generated Reports">
-              <PageDataLoading>Loading reports...</PageDataLoading>
-            </PageContainer>
-          </PageWrapper>
-        </WorkspaceLayout>
-      </PrivateRoute>
-    );
-  }
-
   return (
     <PrivateRoute>
       <WorkspaceLayout>
         <PageWrapper title="Reports">
-          <PageContainer title="Generated Reports" excludePadding description="View and manage all your generated accessibility reports. Filter by type, status, or project to find specific reports. Click on a report to view details or download the PDF." buttons={<><div className="mt-4 flex items-center gap-3">
+          <PageContainer title="Generated Reports" excludePadding description="View and manage all your generated accessibility reports. Filter by type, status, or project to find specific reports. Click on a report to view details or download the PDF." buttons={loading ? undefined :<><div className="mt-4 flex items-center gap-3">
                 <DSButton
                   leadingIcon={<PiPlus size={20} />}
                   onClick={() => setShowCreateReport(true)}
@@ -135,9 +122,10 @@ export default function Reports() {
                   View Scans
                 </DSButton>
               </div></>}>
+            {loading ? <PageDataLoading>Loading reports...</PageDataLoading> : <>
             {error && <div style={{ color: 'var(--color-error)' }} className="as-p2-text mb-4">{error}</div>}
 
-            
+
             {/* Filters */}
             <div className="mb-6 flex flex-wrap gap-4 px-8 border-b border-[var(--color-border-light)] pb-4 w-full">
               {/* Type Filter */}
@@ -314,6 +302,7 @@ export default function Reports() {
                 </div>
               )}
             </div>
+            </>}
           </PageContainer>
         </PageWrapper>
 

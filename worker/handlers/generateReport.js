@@ -317,7 +317,8 @@ function groupViolations(allScans, inScopeScIds) {
                 const hasInScope = scIds.some((scId) => inScopeScIds.has(scId));
                 if (!hasInScope) return;
             }
-            const impact = issue.impact || 'moderate';
+            const rawImpact = issue.impact || 'moderate';
+            const impact = ['critical', 'serious', 'moderate', 'minor'].includes(rawImpact) ? rawImpact : 'moderate';
             const message = issue.message || 'Unknown issue';
             const ruleId = issue.ruleId || 'unknown';
             const selector = issue.selector || '';
@@ -1154,7 +1155,11 @@ async function handleGenerateReport(db, projectId, runId) {
         status: 'completed',
         createdBy: creatorId,
         stats: calculatedStats,
-        complianceProfiles: complianceProfiles
+        complianceProfiles: complianceProfiles,
+        // Fields required for collectionGroup('reports') queries
+        projectId,
+        organisationId: organisationId || null,
+        projectName: projectData?.name || projectData?.domain || null,
     });
 
     console.log('Report document created:', reportDoc.id);
