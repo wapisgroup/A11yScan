@@ -30,7 +30,7 @@ import {
   type Timestamp,
   type Unsubscribe,
   type QuerySnapshot,
-} from "firebase/firestore";
+} from "@/utils/firestore-read-tracker";
 import { onAuthStateChanged } from "firebase/auth";
 
 import { auth, db } from "@/utils/firebase";
@@ -194,67 +194,70 @@ export async function loadProjects(): Promise<Project[]> {
  *
  * @returns Firestore `Unsubscribe` function. Call it to stop listening.
  */
+function toProject(d: { id: string; data: () => DocumentData }): Project {
+  const data = d.data() as DocumentData;
+  return {
+    id: d.id,
+    name: (data.name ?? null) as string | null,
+    domain: String(data.domain ?? ""),
+    owner: (data.owner ?? null) as string | null,
+    organisationId: (data.organisationId ?? null) as string | null,
+    createdAt: (data.createdAt ?? null) as Timestamp | Date | null,
+    lastScanAt: (data.lastScanAt ?? null) as Timestamp | Date | null,
+  };
+}
+
 export function subscribeProjects(
   onNext: (projects: Project[]) => void,
-  onError?: (err: unknown) => void
+  onError?: (err: unknown) => void,
+  organisationId?: string | null,
 ): Unsubscribe {
-  // Wait for auth to initialize before subscribing
+  // Fast path: organisationId already known — skip auth/user-doc lookup entirely.
+  // This avoids onAuthStateChanged double-firing (local cache → server validation)
+  // which would otherwise cause duplicate Firestore reads.
+  if (organisationId !== undefined) {
+    if (!organisationId) { onNext([]); return () => {}; }
+    const q = query(
+      collection(db, "projects"),
+      where("organisationId", "==", organisationId),
+      orderBy("createdAt", "desc")
+    );
+    return onSnapshot(
+      q,
+      (snap: QuerySnapshot<DocumentData>) => onNext(snap.docs.map(toProject)),
+      (err: Error) => onError?.(err)
+    );
+  }
+
+  // Slow path: resolve organisationId from user doc (backwards compat / fallback).
   let unsubscribeSnapshot: Unsubscribe | null = null;
-  
+
   const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-    // Clean up any previous snapshot subscription first
-    if (unsubscribeSnapshot) {
-      unsubscribeSnapshot();
-      unsubscribeSnapshot = null;
-    }
+    if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+    if (!user) { onNext([]); return; }
 
-    if (!user) {
-      onNext([]);
-      return;
-    }
-
-    // Prefer querying by organisationId so team members see shared projects.
-    // Fall back to owner when the user is not part of an organisation.
-    let organisationId: string | null = null;
+    let orgId: string | null = null;
     try {
       const userSnap = await getDoc(doc(db, "users", user.uid));
       if (userSnap.exists()) {
-        organisationId = (userSnap.data().organisationId as string | undefined) ?? null;
+        orgId = (userSnap.data().organisationId as string | undefined) ?? null;
       }
     } catch { /* non-critical — fall back to owner query */ }
 
-    const q = organisationId
-      ? query(collection(db, "projects"), where("organisationId", "==", organisationId), orderBy("createdAt", "desc"))
+    const q = orgId
+      ? query(collection(db, "projects"), where("organisationId", "==", orgId), orderBy("createdAt", "desc"))
       : query(collection(db, "projects"), where("owner", "==", user.uid), orderBy("createdAt", "desc"));
 
     unsubscribeSnapshot = onSnapshot(
       q,
-      (snap: QuerySnapshot<DocumentData>) => {
-        const list: Project[] = snap.docs.map((d) => {
-          const data = d.data() as DocumentData;
-          return {
-            id: d.id,
-            name: (data.name ?? null) as string | null,
-            domain: String(data.domain ?? ""),
-            owner: (data.owner ?? null) as string | null,
-            organisationId: (data.organisationId ?? null) as string | null,
-            createdAt: (data.createdAt ?? null) as Timestamp | Date | null,
-            lastScanAt: (data.lastScanAt ?? null) as Timestamp | Date | null,
-          };
-        });
-
-        onNext(list);
-      },
-      (err) => onError?.(err)
+      (snap: QuerySnapshot<DocumentData>) => onNext(snap.docs.map(toProject)),
+      (err: Error) => onError?.(err)
     );
   });
-  
-  // Return cleanup function that unsubscribes from both auth and snapshot listeners
+
   return () => {
     unsubscribeAuth();
-    if (unsubscribeSnapshot) {
-      unsubscribeSnapshot();
-    }
+    if (unsubscribeSnapshot) unsubscribeSnapshot();
   };
 }
 

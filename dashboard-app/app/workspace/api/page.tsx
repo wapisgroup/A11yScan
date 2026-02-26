@@ -132,25 +132,12 @@ export default function ApiLogsPage() {
     );
   };
 
-  if (loading && entries.length === 0) {
-    return (
-      <PrivateRoute>
-        <WorkspaceLayout>
-          <PageWrapper title="API Logs">
-            <PageContainer title="API Request Logs">
-              <PageDataLoading>Loading API logs...</PageDataLoading>
-            </PageContainer>
-          </PageWrapper>
-        </WorkspaceLayout>
-      </PrivateRoute>
-    );
-  }
-
   return (
     <PrivateRoute>
       <WorkspaceLayout>
         <PageWrapper title="API Logs">
           <PageContainer title="API Request Logs" description="View all API calls made with your token. Monitor usage, debug errors, and track response times.">
+            {(loading && entries.length === 0) ? <PageDataLoading>Loading API logs...</PageDataLoading> : <>
             {/* Filters */}
             <div className="mb-6 flex flex-wrap gap-4 items-center">
               <div className="flex items-center gap-small">
@@ -238,6 +225,7 @@ export default function ApiLogsPage() {
                 </div>
               )}
             </div>
+            </>}
           </PageContainer>
         </PageWrapper>
       </WorkspaceLayout>

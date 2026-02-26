@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, limit, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, orderBy } from "@/utils/firestore-read-tracker";
 import { db } from "@/utils/firebase";
 
 export type IssueBreakdown = {
@@ -70,6 +70,69 @@ const ZERO_ISSUES: IssueBreakdown = {
   moderate: 0,
   minor: 0,
 };
+
+// ── Request deduplication + short-lived cache ─────────────────────────────────
+// Prevents multiple simultaneous widget loads from each triggering a full
+// Firestore aggregation. All callers during an in-flight fetch share the same
+// Promise. After resolution, results are served from cache for CACHE_TTL_MS.
+
+const PAGE_AGG_CACHE_TTL_MS = 60_000;  // 1 minute
+const ACTIVE_SCANS_CACHE_TTL_MS = 30_000; // 30 seconds (changes more often)
+
+type CacheEntry<T> = {
+  promise: Promise<T>;
+  resolvedAt: number | null;
+  value: T | null;
+};
+
+const pageAggCache = new Map<string, CacheEntry<PageAggregation>>();
+const activeScansCache = new Map<string, CacheEntry<ActiveRun[]>>();
+
+function cacheKey(organisationId: string, projectId?: string): string {
+  return projectId ? `${organisationId}::${projectId}` : organisationId;
+}
+
+function withCache<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string,
+  ttlMs: number,
+  fetcher: () => Promise<T>
+): Promise<T> {
+  const existing = cache.get(key);
+
+  if (existing) {
+    // In-flight — return the same Promise so all callers share one fetch
+    if (existing.resolvedAt === null) return existing.promise;
+    // Fresh cache hit
+    if (Date.now() - existing.resolvedAt < ttlMs) return Promise.resolve(existing.value!);
+  }
+
+  const entry: CacheEntry<T> = { promise: null!, resolvedAt: null, value: null };
+  entry.promise = fetcher()
+    .then((value) => {
+      entry.resolvedAt = Date.now();
+      entry.value = value;
+      return value;
+    })
+    .catch((err) => {
+      cache.delete(key); // Allow retry on error
+      throw err;
+    });
+
+  cache.set(key, entry);
+  return entry.promise;
+}
+
+/**
+ * Invalidate cached aggregation for an org (call after a scan completes or
+ * a project is created/deleted so the dashboard reflects the latest state).
+ */
+export function clearDashboardCache(organisationId: string, projectId?: string): void {
+  pageAggCache.delete(cacheKey(organisationId, projectId));
+  activeScansCache.delete(organisationId);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toNumber(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -221,92 +284,7 @@ function mergeBreakdown(target: IssueBreakdown, source: IssueBreakdown): void {
   target.minor += source.minor;
 }
 
-/**
- * Load active/running scans from Firestore.
- * Prefers top-level `runs` (fast path); falls back to project subcollections.
- */
-export async function loadActiveScans(organisationId: string): Promise<ActiveRun[]> {
-  try {
-    const projectsSnap = await getDocs(
-      query(collection(db, "projects"), where("organisationId", "==", organisationId))
-    );
-
-    const projectsMap = new Map(
-      projectsSnap.docs.map((docSnap) => [docSnap.id, docSnap.data() as Record<string, unknown>])
-    );
-
-    if (projectsMap.size === 0) {
-      return [];
-    }
-
-    const runs: ActiveRun[] = [];
-
-    // Fast path for environments that store active runs in top-level collection.
-    try {
-      const topRunsSnap = await getDocs(
-        query(collection(db, "runs"), where("status", "in", ["queued", "running"]), limit(50))
-      );
-
-      for (const runDoc of topRunsSnap.docs) {
-        const data = runDoc.data() as Record<string, unknown>;
-        const projectId = String(data.projectId ?? "");
-        const project = projectsMap.get(projectId);
-        if (!project) continue;
-
-        runs.push({
-          id: runDoc.id,
-          projectId,
-          projectName: String(project.name ?? "Unknown Project"),
-          status: (String(data.status ?? "queued") as ActiveRun["status"]),
-          pagesScanned: toNumber(data.pagesScanned),
-          pagesTotal: toNumber(data.pagesTotal),
-          startedAt: asDate(data.startedAt) ?? asDate(data.createdAt) ?? undefined,
-          runType: String(data.runType ?? data.type ?? "full-scan"),
-        });
-      }
-    } catch {
-      // Ignore and use fallback below.
-    }
-
-    if (runs.length > 0) {
-      return runs;
-    }
-
-    const projectEntries = Array.from(projectsMap.entries());
-    const perProjectRuns = await Promise.all(
-      projectEntries.map(async ([projectId, projectData]) => {
-        const snap = await getDocs(
-          query(
-            collection(db, "projects", projectId, "runs"),
-            where("status", "in", ["queued", "running"]),
-            limit(8)
-          )
-        );
-
-        return snap.docs.map((runDoc) => {
-          const data = runDoc.data() as Record<string, unknown>;
-          return {
-            id: `${projectId}:${runDoc.id}`,
-            projectId,
-            projectName: String(projectData.name ?? "Unknown Project"),
-            status: (String(data.status ?? "queued") as ActiveRun["status"]),
-            pagesScanned: toNumber(data.pagesScanned),
-            pagesTotal: toNumber(data.pagesTotal),
-            startedAt: asDate(data.startedAt) ?? asDate(data.createdAt) ?? undefined,
-            runType: String(data.runType ?? data.type ?? "full-scan"),
-          } as ActiveRun;
-        });
-      })
-    );
-
-    return perProjectRuns.flat();
-  } catch (err) {
-    console.error("Failed to load active scans:", err);
-    return [];
-  }
-}
-
-// ── Per-widget data types ────────────────────────────────────────────
+// ── Per-widget data types ─────────────────────────────────────────────────────
 
 export type SummaryCardsData = {
   totalProjects: number;
@@ -347,7 +325,7 @@ export type ProblemPagesData = {
   problemPages: ProblemPage[];
 };
 
-// ── Shared internal page aggregation ────────────────────────────────
+// ── Shared internal page aggregation ─────────────────────────────────────────
 
 type PageAggregation = {
   totalProjects: number;
@@ -364,13 +342,17 @@ type PageAggregation = {
   problemPages: ProblemPage[];
 };
 
-async function loadPageAggregation(
+/**
+ * Core Firestore aggregation — reads all org projects, their pages, and recent
+ * scans. Results are cached and deduplicated via `withCache` so multiple
+ * simultaneous widget loads share a single fetch.
+ */
+async function fetchPageAggregation(
   organisationId: string,
   projectId?: string
 ): Promise<PageAggregation> {
   let projectsQuery;
   if (projectId) {
-    // Single project — still verify it belongs to the org
     projectsQuery = query(
       collection(db, "projects"),
       where("organisationId", "==", organisationId),
@@ -474,8 +456,6 @@ async function loadPageAggregation(
     }
   }
 
-  // Load recent scan docs per project for rule-level top issues aggregation.
-  // The page docs don't store individual violations — only the scans subcollection does.
   await Promise.all(
     projectEntries.map(async ([pid]) => {
       try {
@@ -514,7 +494,106 @@ async function loadPageAggregation(
   };
 }
 
-// ── Per-widget public loaders ───────────────────────────────────────
+/** Cached wrapper — all callers within the TTL window share one fetch. */
+function loadPageAggregation(organisationId: string, projectId?: string): Promise<PageAggregation> {
+  return withCache(
+    pageAggCache,
+    cacheKey(organisationId, projectId),
+    PAGE_AGG_CACHE_TTL_MS,
+    () => fetchPageAggregation(organisationId, projectId)
+  );
+}
+
+// ── Active scans (separate cache, shorter TTL) ────────────────────────────────
+
+/**
+ * Load active/running scans from Firestore.
+ * Prefers top-level `runs` (fast path); falls back to project subcollections.
+ */
+async function fetchActiveScans(organisationId: string): Promise<ActiveRun[]> {
+  const projectsSnap = await getDocs(
+    query(collection(db, "projects"), where("organisationId", "==", organisationId))
+  );
+
+  const projectsMap = new Map(
+    projectsSnap.docs.map((docSnap) => [docSnap.id, docSnap.data() as Record<string, unknown>])
+  );
+
+  if (projectsMap.size === 0) return [];
+
+  const runs: ActiveRun[] = [];
+
+  // Fast path: top-level runs collection
+  try {
+    const topRunsSnap = await getDocs(
+      query(collection(db, "runs"), where("status", "in", ["queued", "running"]), limit(50))
+    );
+
+    for (const runDoc of topRunsSnap.docs) {
+      const data = runDoc.data() as Record<string, unknown>;
+      const projectId = String(data.projectId ?? "");
+      const project = projectsMap.get(projectId);
+      if (!project) continue;
+
+      runs.push({
+        id: runDoc.id,
+        projectId,
+        projectName: String(project.name ?? "Unknown Project"),
+        status: (String(data.status ?? "queued") as ActiveRun["status"]),
+        pagesScanned: toNumber(data.pagesScanned),
+        pagesTotal: toNumber(data.pagesTotal),
+        startedAt: asDate(data.startedAt) ?? asDate(data.createdAt) ?? undefined,
+        runType: String(data.runType ?? data.type ?? "full-scan"),
+      });
+    }
+  } catch {
+    // Ignore and use fallback below.
+  }
+
+  if (runs.length > 0) return runs;
+
+  // Fallback: subcollections per project
+  const projectEntries = Array.from(projectsMap.entries());
+  const perProjectRuns = await Promise.all(
+    projectEntries.map(async ([projectId, projectData]) => {
+      const snap = await getDocs(
+        query(
+          collection(db, "projects", projectId, "runs"),
+          where("status", "in", ["queued", "running"]),
+          limit(8)
+        )
+      );
+
+      return snap.docs.map((runDoc) => {
+        const data = runDoc.data() as Record<string, unknown>;
+        return {
+          id: `${projectId}:${runDoc.id}`,
+          projectId,
+          projectName: String(projectData.name ?? "Unknown Project"),
+          status: (String(data.status ?? "queued") as ActiveRun["status"]),
+          pagesScanned: toNumber(data.pagesScanned),
+          pagesTotal: toNumber(data.pagesTotal),
+          startedAt: asDate(data.startedAt) ?? asDate(data.createdAt) ?? undefined,
+          runType: String(data.runType ?? data.type ?? "full-scan"),
+        } as ActiveRun;
+      });
+    })
+  );
+
+  return perProjectRuns.flat();
+}
+
+export async function loadActiveScans(organisationId: string): Promise<ActiveRun[]> {
+  return withCache(
+    activeScansCache,
+    organisationId,
+    ACTIVE_SCANS_CACHE_TTL_MS,
+    () => fetchActiveScans(organisationId)
+  );
+}
+
+// ── Per-widget public loaders ─────────────────────────────────────────────────
+// Each slices the shared cached aggregation — no extra Firestore reads.
 
 export async function loadSummaryCards(
   organisationId: string,
@@ -591,181 +670,31 @@ export async function loadProblemPagesData(
 }
 
 /**
- * Load all dashboard data for a given organisation.
- * Uses bounded queries and a single pass aggregation over page docs.
+ * Load all dashboard data in one shot — reuses the same cached aggregation
+ * as the individual widget loaders so calling this alongside widgets does
+ * not cause duplicate Firestore reads.
  */
 export async function loadDashboardData(organisationId: string): Promise<DashboardData> {
   try {
-    const projectsSnap = await getDocs(
-      query(collection(db, "projects"), where("organisationId", "==", organisationId))
-    );
-
-    const totalProjects = projectsSnap.size;
-    const projectsMap = new Map<string, Record<string, unknown>>(
-      projectsSnap.docs.map((docSnap) => [docSnap.id, { id: docSnap.id, ...(docSnap.data() as Record<string, unknown>) }])
-    );
-
-    const projectEntries = Array.from(projectsMap.entries());
-
-    const pageSnapshots = await Promise.all(
-      projectEntries.map(async ([projectId]) => {
-        const subcollectionSnap = await getDocs(collection(db, "projects", projectId, "pages"));
-
-        if (!subcollectionSnap.empty) {
-          return { projectId, snap: subcollectionSnap };
-        }
-
-        const topLevelSnap = await getDocs(
-          query(collection(db, "pages"), where("projectId", "==", projectId))
-        );
-
-        return { projectId, snap: topLevelSnap };
-      })
-    );
-
-    let totalPages = 0;
-    let pagesScanned = 0;
-    let pagesUnscanned = 0;
-    let failedPages = 0;
-    let stalePages = 0;
-    let scannedLast7Days = 0;
-    let lastScanTime: Date | null = null;
-
-    const issueBreakdown: IssueBreakdown = { ...ZERO_ISSUES };
-    const recentPages: RecentPage[] = [];
-    const problemPages: ProblemPage[] = [];
-    const issueRuleMap = new Map<string, TopIssueRule>();
-
-    const now = Date.now();
-    const staleThresholdMs = 30 * 24 * 60 * 60 * 1000;
-    const recentThresholdMs = 7 * 24 * 60 * 60 * 1000;
-
-    for (const { projectId, snap } of pageSnapshots) {
-      const project = projectsMap.get(projectId);
-      const projectName = String(project?.name ?? "Unknown Project");
-
-      totalPages += snap.size;
-
-      for (const pageDoc of snap.docs) {
-        const pageData = pageDoc.data() as Record<string, unknown>;
-        const summary = getPageSummary(pageData);
-        const lastScanned = getLastScannedAt(pageData);
-        const scanned = isPageScanned(pageData, summary, lastScanned);
-
-        if (scanned) {
-          pagesScanned += 1;
-        } else {
-          pagesUnscanned += 1;
-        }
-
-        if (lastScanned) {
-          const scanMs = lastScanned.getTime();
-          if (!lastScanTime || scanMs > lastScanTime.getTime()) {
-            lastScanTime = lastScanned;
-          }
-          if (now - scanMs <= recentThresholdMs) {
-            scannedLast7Days += 1;
-          }
-          if (now - scanMs > staleThresholdMs) {
-            stalePages += 1;
-          }
-        }
-
-        const status = String(pageData.status ?? "").toLowerCase();
-        const scanStatus = String(pageData.scanStatus ?? "").toLowerCase();
-        if (status === "failed" || scanStatus === "failed") {
-          failedPages += 1;
-        }
-
-        mergeBreakdown(issueBreakdown, summary);
-
-        if (lastScanned) {
-          recentPages.push({
-            id: pageDoc.id,
-            url: String(pageData.url ?? "Unknown URL"),
-            projectName,
-            projectId,
-            status: status || "scanned",
-            criticalIssues: summary.critical,
-            lastScanned,
-          });
-        }
-
-        if (summary.critical > 5) {
-          problemPages.push({
-            id: pageDoc.id,
-            url: String(pageData.url ?? "Unknown URL"),
-            projectName,
-            projectId,
-            criticalCount: summary.critical,
-            type: "critical",
-          });
-        } else if (status === "failed" || scanStatus === "failed") {
-          problemPages.push({
-            id: pageDoc.id,
-            url: String(pageData.url ?? "Unknown URL"),
-            projectName,
-            projectId,
-            criticalCount: 0,
-            type: "failed",
-          });
-        } else if (lastScanned && now - lastScanned.getTime() > staleThresholdMs) {
-          problemPages.push({
-            id: pageDoc.id,
-            url: String(pageData.url ?? "Unknown URL"),
-            projectName,
-            projectId,
-            criticalCount: 0,
-            type: "stale",
-          });
-        }
-      }
-    }
-
-    // Load recent scan docs per project for rule-level top issues aggregation.
-    // The page docs don't store individual violations — only the scans subcollection does.
-    await Promise.all(
-      projectEntries.map(async ([projectId]) => {
-        try {
-          const scansSnap = await getDocs(
-            query(
-              collection(db, "projects", projectId, "scans"),
-              orderBy("createdAt", "desc"),
-              limit(30)
-            )
-          );
-          for (const scanDoc of scansSnap.docs) {
-            const scanData = scanDoc.data() as Record<string, unknown>;
-            addRuleCounts(issueRuleMap, scanData.issues);
-          }
-        } catch {
-          // Scans subcollection may not exist or lack the index — skip silently.
-        }
-      })
-    );
-
-    recentPages.sort((a, b) => {
-      const aMs = a.lastScanned?.getTime() ?? 0;
-      const bMs = b.lastScanned?.getTime() ?? 0;
-      return bMs - aMs;
-    });
-
-    const activeRuns = await loadActiveScans(organisationId);
+    const [agg, activeRuns] = await Promise.all([
+      loadPageAggregation(organisationId),
+      loadActiveScans(organisationId),
+    ]);
 
     return {
-      totalProjects,
-      totalPages,
-      pagesScanned,
-      pagesUnscanned,
-      scannedLast7Days,
-      stalePages,
+      totalProjects: agg.totalProjects,
+      totalPages: agg.totalPages,
+      pagesScanned: agg.pagesScanned,
+      pagesUnscanned: agg.pagesUnscanned,
+      scannedLast7Days: agg.scannedLast7Days,
+      stalePages: agg.stalePages,
       activeScans: activeRuns.length,
-      failedPages,
-      lastScanTime,
-      issueBreakdown,
-      topIssueRules: toTopRules(issueRuleMap),
-      recentPages: recentPages.slice(0, 10),
-      problemPages: problemPages.slice(0, 10),
+      failedPages: agg.failedPages,
+      lastScanTime: agg.lastScanTime,
+      issueBreakdown: agg.issueBreakdown,
+      topIssueRules: agg.topIssueRules,
+      recentPages: agg.recentPages,
+      problemPages: agg.problemPages,
       activeRuns,
     };
   } catch (err) {

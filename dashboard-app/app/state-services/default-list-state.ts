@@ -246,7 +246,6 @@ export const useItemsPageState = <D>(
         }
     }, [clearError, setError, loadItems]);
 
-    // ✅ NEW: if subscribeItems is provided, use realtime updates
     useEffect(() => {
         if (!subscribeItems) {
             void refresh();
@@ -269,11 +268,6 @@ export const useItemsPageState = <D>(
 
         return () => unsub();
     }, [subscribeItems, refresh, clearError, setError]);
-
-
-    useEffect(() => {
-        void refresh();
-    }, [refresh]);
 
 
 

@@ -128,22 +128,14 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Guard while the project is loading or if the route param is missing.
-  if (!id || !state || !project) {
-    return (
-      <PrivateRoute>
-        <WorkspaceLayout>
-          <PageContainer title="Project detail">
-            <div className="secondary-text-color">Loading…</div>
-          </PageContainer>
-        </WorkspaceLayout>
-      </PrivateRoute>
-    );
-  }
-
   return (
     <PrivateRoute>
       <WorkspaceLayout>
+        {(!id || !state || !project) ? (
+          <PageContainer title="Project detail">
+            <div className="secondary-text-color">Loading…</div>
+          </PageContainer>
+        ) : (
         <PageWrapper title={project?.name || "Project"} breadcrumbs={[{ title: "Projects", href: "/workspace/projects" }, { title: project?.name || "Project" }]}>
           <PageContainer
             excludePadding
@@ -190,7 +182,6 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           </PageContainer>
-        </PageWrapper>
 
         {/* No Pages Modal */}
         <NoPagesScanModal
@@ -198,6 +189,8 @@ export default function ProjectDetailPage() {
           onClose={() => setShowNoPageModal(false)}
           onSubmit={handleNoPageModalSubmit}
         />
+        </PageWrapper>
+        )}
       </WorkspaceLayout>
     </PrivateRoute>
   );

@@ -34,7 +34,7 @@ export type OnboardingState = {
   markReportViewed: () => Promise<void>;
 };
 
-export function useOnboarding(uid: string | null | undefined): OnboardingState {
+export function useOnboarding(uid: string | null | undefined, organisationId?: string | null): OnboardingState {
   const [welcomeSeen, setWelcomeSeen] = useState<boolean | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [hasProject, setHasProject] = useState(false);
@@ -58,9 +58,9 @@ export function useOnboarding(uid: string | null | undefined): OnboardingState {
   // Step 1 — has any project
   useEffect(() => {
     if (!uid) return;
-    const unsub = subscribeProjects((projects) => setHasProject(projects.length > 0));
+    const unsub = subscribeProjects((projects) => setHasProject(projects.length > 0), undefined, organisationId);
     return unsub;
-  }, [uid]);
+  }, [uid, organisationId]);
 
   // Step 2 — any completed page_collection job
   useEffect(() => {

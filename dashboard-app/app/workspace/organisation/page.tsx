@@ -225,43 +225,23 @@ export default function OrganisationPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <PrivateRoute>
-        <WorkspaceLayout>
-          <PageWrapper title="Organisation Settings">
+  return (
+    <PrivateRoute>
+      <WorkspaceLayout>
+        <PageWrapper title="Organisation Settings">
+          {loading ? (
             <PageContainer title="">
               <div className="flex items-center justify-center min-h-[300px]">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600" />
               </div>
             </PageContainer>
-          </PageWrapper>
-        </WorkspaceLayout>
-      </PrivateRoute>
-    );
-  }
-
-  if (!user?.organisationId) {
-    return (
-      <PrivateRoute>
-        <WorkspaceLayout>
-          <PageWrapper title="Organisation Settings">
+          ) : !user?.organisationId ? (
             <PageContainer title="">
               <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
                 No organisation found for this account.
               </div>
             </PageContainer>
-          </PageWrapper>
-        </WorkspaceLayout>
-      </PrivateRoute>
-    );
-  }
-
-  return (
-    <PrivateRoute>
-      <WorkspaceLayout>
-        <PageWrapper title="Organisation Settings">
-        
+          ) : <>
             {/* Alerts */}
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -324,6 +304,7 @@ export default function OrganisationPage() {
                 onSave={handleSaveIntegrations}
               />
             )}
+          </>}
         </PageWrapper>
       </WorkspaceLayout>
     </PrivateRoute>

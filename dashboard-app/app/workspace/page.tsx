@@ -482,18 +482,6 @@ export default function Dashboard() {
     [config.widgets, reorderWidgets]
   );
 
-  if (configLoading) {
-    return (
-      <PrivateRoute>
-        <WorkspaceLayout>
-          <PageContainer title="Dashboard" coloredBg>
-            <PageDataLoading>Loading dashboard...</PageDataLoading>
-          </PageContainer>
-        </WorkspaceLayout>
-      </PrivateRoute>
-    );
-  }
-
   const visibleWidgets = config.widgets.filter((w) => {
     if (!w.visible) return false;
     // Gate admin-only widgets
@@ -508,7 +496,7 @@ export default function Dashboard() {
     <PrivateRoute>
       <WorkspaceLayout>
         <PageContainer title="Dashboard" coloredBg>
-          <div className="max-w-7xl mx-auto space-y-6">
+          {configLoading ? <PageDataLoading>Loading dashboard...</PageDataLoading> : <div className="max-w-7xl mx-auto space-y-6">
             {/* Customize bar */}
             <DashboardCustomizeBar
               widgets={config.widgets}
@@ -557,7 +545,7 @@ export default function Dashboard() {
                 </div>
               </SortableContext>
             </DndContext>
-          </div>
+          </div>}
         </PageContainer>
       </WorkspaceLayout>
     </PrivateRoute>

@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit } from "@/utils/firestore-read-tracker";
 import { db } from "@/utils/firebase";
 
 export type PageReport = {
@@ -28,115 +28,150 @@ export type IssueSummary = {
   minor: number;
 };
 
+// Maximum scanIndex entries to read per query. Keeps reads bounded while
+// providing enough data for client-side severity / project filtering.
+const SCAN_INDEX_LIMIT = 500;
+
+// Maximum pages to read per project in the legacy fallback path.
+const FALLBACK_PAGES_LIMIT = 500;
+
+function toPageReport(data: any, fallbackId: string, fallbackProjectName?: string): PageReport {
+  const summary = data.summary || {};
+  return {
+    id: String(data.pageId || fallbackId),
+    url: String(data.url || "Unknown URL"),
+    projectId: String(data.projectId || ""),
+    projectName: String(data.projectName || fallbackProjectName || "Unknown Project"),
+    status: String(data.status || "scanned"),
+    criticalIssues: Number(summary.critical || 0),
+    seriousIssues: Number(summary.serious || 0),
+    moderateIssues: Number(summary.moderate || 0),
+    minorIssues: Number(summary.minor || 0),
+    totalIssues:
+      Number(data.totalIssues || 0) ||
+      Number(summary.critical || 0) +
+        Number(summary.serious || 0) +
+        Number(summary.moderate || 0) +
+        Number(summary.minor || 0),
+    lastScanned: data.lastScanned?.toDate?.() || data.updatedAt?.toDate?.(),
+    scanId: String(data.runId || ""),
+  };
+}
+
 /**
- * Load all page reports/scans for an organisation
- * Optionally filter by a specific project ID
+ * Load all page reports/scans for an organisation.
+ * Optionally filter by a specific project ID.
+ *
+ * Fast path: reads from the denormalized `scanIndex` collection (one doc per
+ * scanned page). scanIndex entries carry `projectName` so no separate projects
+ * query is needed — saving one read per page visit.
+ *
+ * Fallback: for orgs without scanIndex entries, reads from each project's
+ * pages subcollection (legacy path). The projects query only fires here.
  */
 export async function loadPageReports(
   organisationId: string,
   projectIdFilter?: string | null
 ): Promise<{ reports: PageReport[]; projects: ProjectInfo[] }> {
   try {
-    const reportsList: PageReport[] = [];
+    // Fast path — bounded read from the denormalized scanIndex
+    const scanIndexSnap = await getDocs(
+      projectIdFilter
+        ? query(
+            collection(db, "scanIndex"),
+            where("organisationId", "==", organisationId),
+            where("projectId", "==", projectIdFilter),
+            orderBy("lastScanned", "desc"),
+            limit(SCAN_INDEX_LIMIT)
+          )
+        : query(
+            collection(db, "scanIndex"),
+            where("organisationId", "==", organisationId),
+            orderBy("lastScanned", "desc"),
+            limit(SCAN_INDEX_LIMIT)
+          )
+    );
 
-    // Load projects
-    const projectsQuery = projectIdFilter 
-      ? query(
-          collection(db, "projects"), 
-          where("organisationId", "==", organisationId), 
-          where("__name__", "==", projectIdFilter)
-        )
-      : query(
-          collection(db, "projects"), 
-          where("organisationId", "==", organisationId)
-        );
-    
-    const projectsSnap = await getDocs(projectsQuery);
-    const projectsMap = new Map(projectsSnap.docs.map(doc => [doc.id, doc.data()]));
-    
-    // Store projects list for filter dropdown
-    const projects: ProjectInfo[] = Array.from(projectsMap.entries()).map(([id, data]) => ({
-      id,
-      name: (data as any).name || 'Unknown Project'
+    if (scanIndexSnap.size > 0) {
+      const projectsMap = new Map<string, string>();
+      const reports: PageReport[] = [];
+
+      scanIndexSnap.docs.forEach((d) => {
+        const data = d.data() as any;
+        const projId = String(data.projectId || "");
+        const projName = String(data.projectName || "Unknown Project");
+        if (projId && !projectsMap.has(projId)) projectsMap.set(projId, projName);
+        reports.push(toPageReport(data, d.id));
+      });
+
+      const projects: ProjectInfo[] = Array.from(projectsMap.entries()).map(
+        ([id, name]) => ({ id, name })
+      );
+      return { reports, projects };
+    }
+
+    // Fallback: no scanIndex entries — read from each project's pages subcollection
+    const projectsSnap = await getDocs(
+      projectIdFilter
+        ? query(
+            collection(db, "projects"),
+            where("organisationId", "==", organisationId),
+            where("__name__", "==", projectIdFilter)
+          )
+        : query(
+            collection(db, "projects"),
+            where("organisationId", "==", organisationId)
+          )
+    );
+
+    const projects: ProjectInfo[] = projectsSnap.docs.map((d) => ({
+      id: d.id,
+      name: (d.data() as any).name || "Unknown Project",
     }));
 
-    // Fast path: read from denormalized index produced by worker.
-    // One document per page, scoped by organisationId.
-    const scanIndexQuery = projectIdFilter
-      ? query(
-          collection(db, "scanIndex"),
-          where("organisationId", "==", organisationId),
-          where("projectId", "==", projectIdFilter),
-          orderBy("lastScanned", "desc")
-        )
-      : query(
-          collection(db, "scanIndex"),
-          where("organisationId", "==", organisationId),
-          orderBy("lastScanned", "desc")
-        );
+    const reports: PageReport[] = [];
 
-    const scanIndexSnap = await getDocs(scanIndexQuery);
-    scanIndexSnap.docs.forEach((d) => {
-      const data = d.data() as any;
-      const summary = data.summary || {};
-      reportsList.push({
-        id: String(data.pageId || d.id),
-        url: String(data.url || "Unknown URL"),
-        projectId: String(data.projectId || ""),
-        projectName: String(data.projectName || projectsMap.get(String(data.projectId || ""))?.name || "Unknown Project"),
-        status: String(data.status || "scanned"),
-        criticalIssues: Number(summary.critical || 0),
-        seriousIssues: Number(summary.serious || 0),
-        moderateIssues: Number(summary.moderate || 0),
-        minorIssues: Number(summary.minor || 0),
-        totalIssues:
-          Number(data.totalIssues || 0) ||
-          Number(summary.critical || 0) +
+    for (const projectDoc of projectsSnap.docs) {
+      const projectId = projectDoc.id;
+      const projectName = (projectDoc.data() as any).name || "Unknown Project";
+
+      let pagesSnap = await getDocs(
+        query(collection(db, "projects", projectId, "pages"), limit(FALLBACK_PAGES_LIMIT))
+      );
+
+      if (pagesSnap.size === 0) {
+        pagesSnap = await getDocs(
+          query(collection(db, "pages"), where("projectId", "==", projectId), limit(FALLBACK_PAGES_LIMIT))
+        );
+      }
+
+      for (const pageDoc of pagesSnap.docs) {
+        const pageData = pageDoc.data() as any;
+        const summary =
+          pageData.lastScan?.summary || pageData.summary || pageData.violationsCount || {};
+        reports.push({
+          id: pageDoc.id,
+          url: pageData.url || "Unknown URL",
+          projectId,
+          projectName,
+          status: pageData.status || "scanned",
+          criticalIssues: Number(summary.critical || 0),
+          seriousIssues: Number(summary.serious || 0),
+          moderateIssues: Number(summary.moderate || 0),
+          minorIssues: Number(summary.minor || 0),
+          totalIssues:
+            Number(summary.critical || 0) +
             Number(summary.serious || 0) +
             Number(summary.moderate || 0) +
             Number(summary.minor || 0),
-        lastScanned: data.lastScanned?.toDate?.() || data.updatedAt?.toDate?.(),
-        scanId: String(data.runId || ""),
-      });
-    });
-
-    // Backward compatibility fallback for projects that do not have scanIndex yet.
-    if (reportsList.length === 0 && projectsMap.size > 0) {
-      for (const [projectId, projectData] of projectsMap) {
-        const pagesSubcollectionQuery = query(collection(db, "projects", projectId, "pages"));
-        let pagesSnap = await getDocs(pagesSubcollectionQuery);
-
-        if (pagesSnap.size === 0) {
-          const pagesQuery = query(collection(db, "pages"), where("projectId", "==", projectId));
-          pagesSnap = await getDocs(pagesQuery);
-        }
-
-        for (const pageDoc of pagesSnap.docs) {
-          const pageData = pageDoc.data() as any;
-          const summary = pageData.lastScan?.summary || pageData.summary || pageData.violationsCount || {};
-          reportsList.push({
-            id: pageDoc.id,
-            url: pageData.url || "Unknown URL",
-            projectId,
-            projectName: (projectData as any).name || "Unknown Project",
-            status: pageData.status || "scanned",
-            criticalIssues: Number(summary.critical || 0),
-            seriousIssues: Number(summary.serious || 0),
-            moderateIssues: Number(summary.moderate || 0),
-            minorIssues: Number(summary.minor || 0),
-            totalIssues:
-              Number(summary.critical || 0) +
-              Number(summary.serious || 0) +
-              Number(summary.moderate || 0) +
-              Number(summary.minor || 0),
-            lastScanned: pageData.lastScan?.createdAt?.toDate?.() || pageData.updatedAt?.toDate?.(),
-            scanId: String(pageData.lastRunId || pageData.lastScanId || ""),
-          });
-        }
+          lastScanned:
+            pageData.lastScan?.createdAt?.toDate?.() || pageData.updatedAt?.toDate?.(),
+          scanId: String(pageData.lastRunId || pageData.lastScanId || ""),
+        });
       }
     }
 
-    return { reports: reportsList, projects };
+    return { reports, projects };
   } catch (err) {
     console.error("Failed to load page reports:", err);
     throw err;

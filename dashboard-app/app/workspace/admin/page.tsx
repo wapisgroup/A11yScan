@@ -178,28 +178,16 @@ export default function PlatformAdminPage() {
     }
   }, [loadDetail, selectedOrgId, toast]);
 
-  if (!isAdmin) {
-    return (
-      <PrivateRoute requireSubscription={false}>
-        <WorkspaceLayout>
-          <PageWrapper title="Platform Admin">
-            <PageContainer title="">
-              <div className="p-6 bg-red-50 border border-red-200 rounded-lg text-red-700">
-                You do not have platform admin access.
-              </div>
-            </PageContainer>
-          </PageWrapper>
-        </WorkspaceLayout>
-      </PrivateRoute>
-    );
-  }
-
   return (
     <PrivateRoute requireSubscription={false}>
       <WorkspaceLayout>
         <PageWrapper title="Platform Admin">
           <PageContainer title="Administration">
-            {loading ? (
+            {!isAdmin ? (
+              <div className="p-6 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                You do not have platform admin access.
+              </div>
+            ) : loading ? (
               <PageDataLoading>Loading organizations...</PageDataLoading>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

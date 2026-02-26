@@ -115,25 +115,14 @@ export default function Scans() {
     }
   }, [rescanningIds, clearRescan, refresh]);
 
-  if (loading) {
-    return (
-      <PrivateRoute>
-        <WorkspaceLayout>
-          <PageWrapper title="Scans">
-            <PageContainer title="Page Scans">
-              <PageDataLoading>Loading scans...</PageDataLoading>
-            </PageContainer>
-          </PageWrapper>
-        </WorkspaceLayout>
-      </PrivateRoute>
-    );
-  }
-
   return (
     <PrivateRoute>
       <WorkspaceLayout>
         <PageWrapper title="Scans">
           <PageContainer title="Page Scans" excludePadding description="View and manage all your page scans. Filter by project or severity to find specific results.">
+            {loading ? (
+              <PageDataLoading>Loading scans...</PageDataLoading>
+            ) : <>
             {error && <div className="text-red-600 mb-4">{error}</div>}
 
             {/* Filters */}
@@ -293,6 +282,7 @@ export default function Scans() {
                 </div>
               )}
             </div>
+            </>}
           </PageContainer>
         </PageWrapper>
       </WorkspaceLayout>

@@ -43,8 +43,8 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const isAdmin = isPlatformAdminUser(user as Record<string, any>);
-  const { hasFeature } = useSubscription();
-  const onboarding = useOnboarding(user?.uid);
+  const { hasFeature, loading: subscriptionLoading } = useSubscription();
+  const onboarding = useOnboarding(user?.uid, user?.organisationId);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
 
   // Show welcome modal once when welcomeSeen transitions from false → seen
@@ -84,7 +84,7 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     { href: URL_APP_SCANS, label: "Scans", icon: <PiNotepadLight /> },
     { href: URL_APP_SCHEDULES, label: "Schedules", icon: <PiCalendar /> },
     { href: URL_APP_REPORTS, label: "Reports", icon: <PiNotepadLight /> },
-    ...(hasFeature('apiAccess') ? [{ href: URL_APP_API, label: "API", icon: <PiCode /> }] : []),
+    ...(!subscriptionLoading && hasFeature('apiAccess') ? [{ href: URL_APP_API, label: "API", icon: <PiCode /> }] : []),
     ...(isAdmin ? [{ href: URL_APP_ADMIN, label: "Admin", icon: <FiShield /> }] : []),
     { href: URL_APP_DESIGN_SYSTEM, label: "Design System", icon: <PiPaletteLight /> },
   ];
