@@ -19,7 +19,47 @@ const { fetchHtml, normalizeUrl, escapeXml } = require('../helpers/generic');
 const { notifyPageCollectionFinished, getSlackConfigFromOrg } = require('../helpers/slack');
 
 const MAX_PAGES_DEFAULT = Number(process.env.MAX_PAGES) || 2000;
-const CRAWL_DELAY_MS = Number(process.env.CRAWL_DELAY_MS) || 100; // polite delay
+const CRAWL_DELAY_MS = Number(process.env.CRAWL_DELAY_MS) || 100; // env fallback
+
+/**
+ * Fetches robots.txt for a domain and returns all Disallow paths for User-agent: *
+ */
+async function fetchRobotsDisallowed(domain) {
+    try {
+        const robotsUrl = new URL('/robots.txt', domain).href;
+        const result = await fetchHtml(robotsUrl);
+        if (!result || result.status >= 400) return [];
+        const disallowed = [];
+        let isWildcard = false;
+        for (const rawLine of result.text.split('\n')) {
+            const line = rawLine.trim();
+            if (!line || line.startsWith('#')) continue;
+            const colonIdx = line.indexOf(':');
+            if (colonIdx === -1) continue;
+            const field = line.slice(0, colonIdx).trim().toLowerCase();
+            const value = line.slice(colonIdx + 1).trim();
+            if (field === 'user-agent') {
+                isWildcard = value === '*';
+            } else if (field === 'disallow' && isWildcard && value) {
+                disallowed.push(value);
+            }
+        }
+        return disallowed;
+    } catch (e) {
+        console.warn('[robots.txt] Failed to fetch or parse:', e.message);
+        return [];
+    }
+}
+
+function isDisallowedByRobots(urlStr, disallowedPaths) {
+    if (!disallowedPaths.length) return false;
+    try {
+        const path = new URL(urlStr).pathname;
+        return disallowedPaths.some(d => path.startsWith(d));
+    } catch {
+        return false;
+    }
+}
 
 // Initialize Storage client based on emulator mode
 let storage = null;
@@ -34,7 +74,13 @@ if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
     console.log('[Storage] Using emulator at', apiEndpoint);
 } else {
     // Initialize Storage client for production
-    storage = new Storage();
+    const storageOpts = {
+        projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
+    };
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        storageOpts.credentials = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    }
+    storage = new Storage(storageOpts);
     console.log('[Storage] Using production GCS');
 }
 
@@ -51,78 +97,97 @@ async function handlePageCollectionJob(db, projectId, runId) {
     if (!domain) throw new Error('Project missing domain');
 
     const maxPages = (project.config && project.config.maxPages) || MAX_PAGES_DEFAULT;
+    const crawlDelayMs = (project.config && typeof project.config.crawlDelayMs === 'number')
+        ? project.config.crawlDelayMs
+        : CRAWL_DELAY_MS;
+    const robotsRespect = project.config ? project.config.robotsRespect !== false : true;
 
     // Update run status -> running
     const runRef = projectRef.collection('runs').doc(runId);
     await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
 
     // BFS crawl
-    const visited = new Set();
+    const visited = new Set(); // tracks discovered URLs to avoid re-queuing
+    let fetchedCount = 0;      // tracks pages actually fetched and written to Firestore
     const queue = [];
     const nodes = []; // for graph
     const edges = [];
     queue.push(domain);
     visited.add(domain);
 
+    // Fetch robots.txt disallow rules if robotsRespect is enabled
+    let disallowedPaths = [];
+    if (robotsRespect) {
+        disallowedPaths = await fetchRobotsDisallowed(domain);
+        if (disallowedPaths.length > 0) {
+            console.log(`[robots.txt] Respecting ${disallowedPaths.length} disallowed path(s):`, disallowedPaths);
+        }
+    }
+
     // concurrency limit
     const limit = pLimit(5);
 
-    while (queue.length > 0 && visited.size < maxPages) {
-        const chunk = []
-        // build small batch
-        while (queue.length > 0 && chunk.length < 10 && visited.size + chunk.length < maxPages) {
+    while (queue.length > 0 && fetchedCount < maxPages) {
+        const chunk = [];
+        // build small batch — limit to remaining page budget
+        while (queue.length > 0 && chunk.length < 10 && fetchedCount + chunk.length < maxPages) {
             chunk.push(queue.shift());
         }
 
-        // fetch all in parallel with concurrency
+        // fetch all in parallel with concurrency; isolate errors per-page
         await Promise.all(chunk.map(u => limit(async () => {
-            await new Promise(r => setTimeout(r, CRAWL_DELAY_MS)); // polite delay
-            const pageData = await fetchHtml(u);
-            if (!pageData) return;
+            try {
+                await new Promise(r => setTimeout(r, crawlDelayMs)); // polite delay (project config)
+                const pageData = await fetchHtml(u);
+                if (!pageData) return;
 
-            const $ = cheerio.load(pageData.text);
-            const title = $('title').first().text().trim() || null;
+                const $ = cheerio.load(pageData.text);
+                const title = $('title').first().text().trim() || null;
 
-            // write page doc — create a deterministic unique id for the URL using SHA256
-            // deterministic ID means the same page URL will always map to the same doc id
-            const urlHash = crypto.createHash('sha256').update(u).digest('hex');
-            const pageId = urlHash; // you can shorten with .slice(0, 20) if you prefer shorter ids
-            const pageRef = projectRef.collection('pages').doc(pageId);
-            await pageRef.set({
-                url: u,
-                title,
-                status: 'discovered',
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                httpStatus: pageData.status
-            }, { merge: true });
+                // write page doc — create a deterministic unique id for the URL using SHA256
+                // deterministic ID means the same page URL will always map to the same doc id
+                const urlHash = crypto.createHash('sha256').update(u).digest('hex');
+                const pageId = urlHash;
+                const pageRef = projectRef.collection('pages').doc(pageId);
+                await pageRef.set({
+                    url: u,
+                    title,
+                    status: 'discovered',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    httpStatus: pageData.status
+                }, { merge: true });
 
-            nodes.push({ id: u, title });
-            // extract links
-            $('a[href]').each((i, el) => {
-                const href = $(el).attr('href');
-                const n = normalizeUrl(u, href);
-                if (!n) return;
-                // same-origin only
-                try {
-                    const uOrigin = new url.URL(domain).origin;
-                    const nOrigin = new url.URL(n).origin;
-                    if (nOrigin !== uOrigin) return;
-                } catch (err) {
-                    return;
-                }
-                edges.push({ source: u, target: n });
+                fetchedCount++;
+                nodes.push({ id: u, title });
 
-                if (!visited.has(n) && visited.size < maxPages) {
-                    visited.add(n);
-                    queue.push(n);
-                }
-            });
+                // extract links — no cap on visited; cap is on fetchedCount
+                $('a[href]').each((i, el) => {
+                    const href = $(el).attr('href');
+                    const n = normalizeUrl(u, href);
+                    if (!n) return;
+                    // same-origin only
+                    try {
+                        const uOrigin = new url.URL(domain).origin;
+                        const nOrigin = new url.URL(n).origin;
+                        if (nOrigin !== uOrigin) return;
+                    } catch (err) {
+                        return;
+                    }
+                    edges.push({ source: u, target: n });
 
-            // update run progress minimally
-            await runRef.update({
-                pagesScanned: admin.firestore.FieldValue.increment(1)
-            });
+                    if (!visited.has(n) && !isDisallowedByRobots(n, disallowedPaths)) {
+                        visited.add(n);
+                        queue.push(n);
+                    }
+                });
 
+                // update run progress minimally
+                await runRef.update({
+                    pagesScanned: admin.firestore.FieldValue.increment(1)
+                });
+            } catch (err) {
+                console.warn('[pageCollection] Error processing page', u, err && err.message);
+            }
         })));
     } // end while
 
@@ -157,9 +222,14 @@ async function handlePageCollectionJob(db, projectId, runId) {
                 sitemapGraphUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(jsonPath)}?alt=media`;
                 console.log('[Storage] Using emulator URLs:', { sitemapUrl, sitemapGraphUrl });
             } else {
-                // Production: use signed URLs
-                [sitemapUrl] = await bucket.file(xmlPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 }); // 7 days
-                [sitemapGraphUrl] = await bucket.file(jsonPath).getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 });
+                // Production: use Firebase download tokens (non-expiring, browser-accessible, CORS-friendly)
+                const { randomUUID } = require('crypto');
+                const xmlToken = randomUUID();
+                const jsonToken = randomUUID();
+                await bucket.file(xmlPath).setMetadata({ metadata: { firebaseStorageDownloadTokens: xmlToken } });
+                await bucket.file(jsonPath).setMetadata({ metadata: { firebaseStorageDownloadTokens: jsonToken } });
+                sitemapUrl = `https://firebasestorage.googleapis.com/v0/b/${defaultBucketName}/o/${encodeURIComponent(xmlPath)}?alt=media&token=${xmlToken}`;
+                sitemapGraphUrl = `https://firebasestorage.googleapis.com/v0/b/${defaultBucketName}/o/${encodeURIComponent(jsonPath)}?alt=media&token=${jsonToken}`;
             }
 
             // Store urls on project

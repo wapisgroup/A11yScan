@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 
-import { db, storage } from "@/utils/firebase";
+import { db, auth, storage } from "@/utils/firebase";
 import type { TimestampLike } from "@/types/default";
 
 type ViolationsCount = {
@@ -81,22 +81,23 @@ export type Project = {
 export type PageReportState = {
   projectId: string;
   pageId: string;
-  
+
   // Data
   project: Project | null;
   page: PageDoc | null;
   scans: ScanDoc[];
   selectedScan: ScanDoc | null;
   downloadUrl: string | null;
-  
+  snapshotHtml: string | null;
+
   // Loading states
   loading: boolean;
   error: string;
-  
+
   // Scan selection
   selectedScanId: string | null;
   setSelectedScanId: (id: string | null) => void;
-  
+
   // Computed values
   summary: Required<ViolationsCount>;
   groupedIssues: Record<string, Issue[]>;
@@ -118,7 +119,7 @@ export const usePageReportState = (
   projectId: string | undefined,
   pageId: string | undefined
 ): PageReportState | null => {
-  if (!projectId || !pageId) return null;
+  const enabled = Boolean(projectId && pageId);
 
   const [project, setProject] = useState<Project | null>(null);
   const [page, setPage] = useState<PageDoc | null>(null);
@@ -126,6 +127,7 @@ export const usePageReportState = (
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const [selectedScan, setSelectedScan] = useState<ScanDoc | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [snapshotHtml, setSnapshotHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
@@ -250,6 +252,43 @@ export const usePageReportState = (
     void fetchUrl();
   }, [selectedScan, page]);
 
+  // Load snapshot HTML for the preview tab
+  useEffect(() => {
+    async function loadSnapshot() {
+      setSnapshotHtml(null);
+      if (!selectedScan) return;
+
+      const scan = selectedScan as Record<string, unknown>;
+      const pageInfo = scan.pageInfo as Record<string, unknown> | null | undefined;
+
+      // 1. Inline HTML stored directly in Firestore (no Storage fetch needed)
+      const inlineHtml =
+        (pageInfo?.pageSnapshot as string | null | undefined) ??
+        (scan.pageSnapshot as string | null | undefined) ??
+        null;
+      if (inlineHtml) { setSnapshotHtml(inlineHtml); return; }
+
+      // 2. Fetch via server-side proxy route to avoid CORS issues with Firebase Storage
+      const runId = (scan.runId as string | null | undefined) ?? null;
+      const scanPageId = ((scan.pageId as string | null | undefined) ?? pageId) ?? null;
+      const storedUrl = (scan.pageSnapshotUrl as string | null | undefined) ?? null;
+      if (!runId || !scanPageId || !projectId) return;
+
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const urlParam = storedUrl ? `&url=${encodeURIComponent(storedUrl)}` : '';
+        const res = await fetch(
+          `/api/projects/${projectId}/snapshot?runId=${runId}&pageId=${scanPageId}${urlParam}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
+        if (res.ok) setSnapshotHtml(await res.text());
+      } catch { /* snapshot not available */ }
+    }
+
+    void loadSnapshot();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedScan]);
+
   // Computed: summary
   const summary = useMemo<Required<ViolationsCount>>(() => {
     const base =
@@ -290,6 +329,8 @@ export const usePageReportState = (
     [summary]
   );
 
+  if (!enabled || !projectId || !pageId) return null;
+
   return {
     projectId,
     pageId,
@@ -298,6 +339,7 @@ export const usePageReportState = (
     scans,
     selectedScan,
     downloadUrl,
+    snapshotHtml,
     loading,
     error,
     selectedScanId,

@@ -7,11 +7,15 @@ import { DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from "./libs/metadata";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
+  preload: true,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+  preload: true,
 });
 
 export const metadata: Metadata = {
@@ -77,22 +81,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <Script
-          src="https://t.contentsquare.net/uxa/d162dd496349f.js"
-          strategy="beforeInteractive"
-        />
-      </head>
+      <head />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-WS8NRW2R29"
-          strategy="afterInteractive"
+          src="https://t.contentsquare.net/uxa/d162dd496349f.js"
+          strategy="lazyOnload"
         />
-        <Script id="google-analytics" strategy="afterInteractive">
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-WS8NRW2R29"
+          strategy="lazyOnload"
+        />
+        <Script id="google-analytics" strategy="lazyOnload">
           {"window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-WS8NRW2R29');"}
         </Script>
         <script

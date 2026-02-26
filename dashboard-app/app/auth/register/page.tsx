@@ -66,16 +66,17 @@ export default function RegisterPage() {
       setTempUserId(result.user.uid);
       setStep("company");
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        if (err.message.includes("auth/email-already-in-use")) {
-          setError("This email is already registered. Please sign in instead.");
-        } else if (err.message.includes("auth/invalid-email")) {
-          setError("Please enter a valid email address.");
-        } else {
-          setError(err.message);
-        }
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("auth/email-already-in-use")) {
+        setError("This email is already registered. Please sign in instead.");
+      } else if (msg.includes("auth/invalid-email")) {
+        setError("Please enter a valid email address.");
+      } else if (msg.includes("auth/weak-password")) {
+        setError("Password is too weak. Please choose a stronger password.");
+      } else if (msg.includes("auth/too-many-requests")) {
+        setError("Too many attempts. Please wait a moment and try again.");
       } else {
-        setError(String(err));
+        setError("Something went wrong. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -93,7 +94,12 @@ export default function RegisterPage() {
         setLoading(false);
       }, 500);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("auth/popup-closed-by-user") || msg.includes("auth/cancelled-popup-request")) {
+        setError("Sign-in was cancelled. Please try again.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
       setLoading(false);
     }
   };

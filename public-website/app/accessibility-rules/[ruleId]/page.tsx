@@ -86,16 +86,17 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
           <div className="container mx-auto px-4 md:px-6 lg:px-8">
             <div className="max-w-5xl mx-auto">
               <nav className="flex items-center gap-2 text-sm text-slate-600 mb-4">
-                <Link href="/" className="hover:text-indigo-600">Home</Link>
+                <Link href="/" className="hover:text-[#5f3b8f]">Home</Link>
                 <span>/</span>
-                <Link href="/accessibility-rules" className="hover:text-indigo-600">Accessibility Rules</Link>
+                <Link href="/accessibility-rules" className="hover:text-[#5f3b8f]">Accessibility Rules</Link>
                 <span>/</span>
                 <span className="text-slate-900 font-medium">{rule.title}</span>
               </nav>
 
               <Link
                 href="/accessibility-rules"
-                className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold"
+                className="inline-flex items-center gap-2 font-semibold hover:opacity-80 transition-opacity"
+                style={{ color: '#5f3b8f' }}
               >
                 <HiArrowLeft className="w-5 h-5" />
                 Back to All Rules
@@ -140,10 +141,10 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
               {rule.ruleDescription && (
                 <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200">
                   <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-6 flex items-center">
-                    <HiClipboardDocumentList className="w-8 h-8 mr-3 text-purple-600" />
+                    <HiClipboardDocumentList className="w-8 h-8 mr-3" style={{ color: '#5f3b8f' }} />
                     Rule Description
                   </h2>
-                  <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-indigo-600 prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
+                  <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-[#5f3b8f] prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
@@ -165,7 +166,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                               {String(children).replace(/\n$/, '')}
                             </SyntaxHighlighter>
                           ) : (
-                            <code className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                            <code className="text-[#5f3b8f] bg-[#5f3b8f]/10 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                               {children}
                             </code>
                           );
@@ -181,10 +182,10 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
               {/* Why It Matters */}
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200">
                 <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-6 flex items-center">
-                  <HiInformationCircle className="w-8 h-8 mr-3 text-blue-600" />
+                  <HiInformationCircle className="w-8 h-8 mr-3" style={{ color: '#3861ab' }} />
                   Why It Matters
                 </h2>
-                <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-indigo-600 prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
+                <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-[#5f3b8f] prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -206,7 +207,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                             {String(children).replace(/\n$/, '')}
                           </SyntaxHighlighter>
                         ) : (
-                          <code className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                          <code className="text-[#5f3b8f] bg-[#5f3b8f]/10 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                             {children}
                           </code>
                         );
@@ -221,10 +222,10 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
               {/* How to Fix */}
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200">
                 <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-6 flex items-center">
-                  <HiCheckCircle className="w-8 h-8 mr-3 text-green-600" />
+                  <HiCheckCircle className="w-8 h-8 mr-3" style={{ color: '#39b0ce' }} />
                   How to Fix
                 </h2>
-                <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-indigo-600 prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
+                <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-[#5f3b8f] prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -246,7 +247,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                             {String(children).replace(/\n$/, '')}
                           </SyntaxHighlighter>
                         ) : (
-                          <code className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                          <code className="text-[#5f3b8f] bg-[#5f3b8f]/10 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                             {children}
                           </code>
                         );
@@ -265,7 +266,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                     <HiExclamationTriangle className="w-8 h-8 mr-3 text-red-600" />
                     Common Mistakes
                   </h2>
-                  <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-indigo-600 prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
+                  <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-[#5f3b8f] prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
@@ -287,7 +288,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                               {String(children).replace(/\n$/, '')}
                             </SyntaxHighlighter>
                           ) : (
-                            <code className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                            <code className="text-[#5f3b8f] bg-[#5f3b8f]/10 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                               {children}
                             </code>
                           );
@@ -304,10 +305,10 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
               {rule.testing && (
                 <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200">
                   <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-6 flex items-center">
-                    <HiClipboardDocumentList className="w-8 h-8 mr-3 text-purple-600" />
+                    <HiClipboardDocumentList className="w-8 h-8 mr-3" style={{ color: '#5f3b8f' }} />
                     Testing
                   </h2>
-                  <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-indigo-600 prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
+                  <div className="prose prose-lg max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-a:text-[#5f3b8f] prose-strong:text-slate-900 prose-pre:p-0 prose-pre:bg-transparent">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
@@ -329,7 +330,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                               {String(children).replace(/\n$/, '')}
                             </SyntaxHighlighter>
                           ) : (
-                            <code className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                            <code className="text-[#5f3b8f] bg-[#5f3b8f]/10 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                               {children}
                             </code>
                           );
@@ -346,7 +347,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
 
               {/* Resources */}
               {rule.resources && rule.resources.length > 0 && (
-                <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-blue-200">
+                <div className="p-8 rounded-2xl border-2" style={{ background: 'rgba(95,59,143,0.04)', borderColor: 'rgba(95,59,143,0.2)' }}>
                   <h2 className="text-2xl font-bold text-slate-900 mb-6">External Resources</h2>
                   <ul className="space-y-3">
                     {rule.resources.map((resource, index) => (
@@ -355,7 +356,8 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                           href={resource.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center text-indigo-700 hover:text-indigo-900 hover:underline font-medium group"
+                          className="flex items-center hover:underline font-medium group hover:opacity-80 transition-opacity"
+                          style={{ color: '#5f3b8f' }}
                         >
                           <svg className="w-5 h-5 mr-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -376,11 +378,11 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                     <Link
                       key={related.ruleId}
                       href={`/accessibility-rules/${related.ruleId}`}
-                      className="block p-6 bg-white rounded-xl border-2 border-slate-200 hover:shadow-lg hover:border-indigo-400 transition-all duration-200 group"
+                      className="block p-6 bg-white rounded-xl border-2 border-slate-200 hover:shadow-lg hover:border-[#5f3b8f] transition-all duration-200 group"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <code className="text-sm text-indigo-600 font-mono font-bold bg-indigo-50 px-2 py-1 rounded">
+                          <code className="text-sm font-mono font-bold px-2 py-1 rounded" style={{ color: '#5f3b8f', background: 'rgba(95,59,143,0.08)' }}>
                             {related.ruleId}
                           </code>
                           <p className="text-sm text-slate-700 mt-3 group-hover:text-slate-900">
@@ -388,7 +390,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
                           </p>
                         </div>
                         <svg
-                          className="w-6 h-6 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 ml-4"
+                          className="w-6 h-6 text-slate-400 group-hover:text-[#5f3b8f] group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 ml-4"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -406,19 +408,21 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
         </section>
 
         {/* CTA */}
-        <section className="py-16 md:py-20 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600">
+        <section className="py-16 md:py-20 relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #2d2d6e 0%, #5f3b8f 55%, #3861ab 100%)' }}>
           <div className="container mx-auto px-4 md:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto text-center text-white">
               <HiShieldCheck className="w-16 h-16 mx-auto mb-6 opacity-90" />
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 Automate Your Accessibility Testing
               </h2>
-              <p className="text-lg md:text-xl mb-8 text-indigo-100">
+              <p className="text-lg md:text-xl mb-8 text-blue-100">
                 Our tool automatically checks for this rule and hundreds of other accessibility issues.
               </p>
               <Link
                 href={URL_AUTH_REGISTER}
-                className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-xl font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
+                className="inline-block bg-white px-8 py-4 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-lg"
+                style={{ color: '#5f3b8f' }}
               >
                 Start Your Free Trial
               </Link>

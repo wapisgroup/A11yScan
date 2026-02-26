@@ -37,20 +37,23 @@ const rulesDirectory = path.join(
 // Create instance with explicit path to avoid Next.js __dirname transformation
 const rulesService = new AccessibilityRulesService(rulesDirectory);
 
-const LOGO_SVG_PATH = path.join(__dirname, '../assets/logo.svg');
 const LOGO_PNG_PATH = path.join(__dirname, '../assets/logo.png');
-let LOGO_SVG = null;
-let LOGO_SVG_SIMPLE = null;
-let LOGO_PNG_BASE64 = null;
+const LOGO_SVG_PATH = path.join(__dirname, '../assets/logo.svg');
+let LOGO_PNG_DATA_URL = null;
+let LOGO_SVG_NORMALIZED = null;
 try {
-    LOGO_SVG = fs.readFileSync(LOGO_SVG_PATH, 'utf8');
-    LOGO_SVG_SIMPLE = LOGO_SVG;
-        // .replace(/<defs>[\s\S]*?<\/defs>/g, '')
-        // .replace(/\sclass="[^"]*"/g, '')
-        // .replace(/fill="url\([^"]+\)"/g, 'fill="#5f3b8f"');
-} catch (err) {
-    console.warn('Failed to load logo SVG:', err && err.message ? err.message : err);
-    LOGO_SVG = null;
+    const pngBuf = fs.readFileSync(LOGO_PNG_PATH);
+    LOGO_PNG_DATA_URL = `data:image/png;base64,${pngBuf.toString('base64')}`;
+} catch {
+    // no PNG — try SVG below
+}
+if (!LOGO_PNG_DATA_URL) {
+    try {
+        const svgStr = fs.readFileSync(LOGO_SVG_PATH, 'utf8');
+        LOGO_SVG_NORMALIZED = normalizeSvgForPdfmake(svgStr);
+    } catch (err) {
+        console.warn('Failed to load built-in logo:', err && err.message ? err.message : err);
+    }
 }
 
 
@@ -285,7 +288,13 @@ if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
     });
     console.log('[Storage] Using emulator at', apiEndpoint);
 } else {
-    storage = new Storage();
+    const storageOpts = {
+        projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
+    };
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        storageOpts.credentials = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    }
+    storage = new Storage(storageOpts);
     console.log('[Storage] Using production GCS');
 }
 
@@ -357,9 +366,106 @@ function groupViolations(allScans, inScopeScIds) {
 }
 
 /**
+ * Normalise an SVG string for pdfmake's renderer.
+ * pdfmake processes SVG linearly, so <defs> must appear before any element
+ * that references them. Some tools (Figma exports, CMS-generated SVGs) emit
+ * <defs> at the end of the file, which causes clip-path / gradient forward
+ * references to silently fail and the whole group to render empty.
+ */
+function normalizeSvgForPdfmake(svgString) {
+    const defs = [];
+    const withoutDefs = svgString.replace(/<defs[\s\S]*?<\/defs>/gi, (match) => {
+        defs.push(match);
+        return '';
+    });
+    if (!defs.length) return svgString;
+    // Re-insert all defs immediately after the opening <svg ...> tag
+    return withoutDefs.replace(/(<svg[^>]*>)/, `$1${defs.join('')}`);
+}
+
+/**
+ * Fetch a URL following up to `maxRedirects` redirects.
+ * Returns { buffer, contentType } or null on failure.
+ */
+function fetchUrl(url, maxRedirects = 5) {
+    return new Promise((resolve) => {
+        const attempt = (currentUrl, remaining) => {
+            const lib = currentUrl.startsWith('https') ? require('https') : require('http');
+            lib.get(currentUrl, (res) => {
+                if ((res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) && res.headers.location && remaining > 0) {
+                    res.resume();
+                    attempt(res.headers.location, remaining - 1);
+                    return;
+                }
+                if (res.statusCode !== 200) { res.resume(); resolve(null); return; }
+                const contentType = res.headers['content-type'] || 'image/png';
+                const chunks = [];
+                res.on('data', c => chunks.push(c));
+                res.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType }));
+                res.on('error', () => resolve(null));
+            }).on('error', () => resolve(null));
+        };
+        attempt(url, maxRedirects);
+    });
+}
+
+/**
+ * Fetch org branding from Firestore.
+ * Returns { primaryColor, secondaryColor, logoDataUrl } or defaults on failure.
+ */
+async function loadOrgBranding(db, organisationId) {
+    const defaults = { primaryColor: null, secondaryColor: null, logoDataUrl: null, logoSvg: null };
+    if (!organisationId) return defaults;
+
+    try {
+        const orgSnap = await db.collection('organisations').doc(organisationId).get();
+        if (!orgSnap.exists) return defaults;
+        const data = orgSnap.data() || {};
+
+        let logoDataUrl = null;
+        let logoSvg = null;
+        const logoUrl = data.customLogo && typeof data.customLogo === 'string' ? data.customLogo.trim() : null;
+        if (logoUrl && (logoUrl.startsWith('https://') || logoUrl.startsWith('http://'))) {
+            try {
+                const result = await fetchUrl(logoUrl);
+                if (result) {
+                    const mime = result.contentType.split(';')[0].trim().toLowerCase();
+                    // Detect SVG by MIME type OR by content (some servers serve SVGs as text/plain etc.)
+                    const isSvgMime = mime === 'image/svg+xml' || mime === 'image/svg';
+                    const contentStart = result.buffer.slice(0, 100).toString('utf8').trimStart();
+                    const isSvgContent = contentStart.startsWith('<svg') || contentStart.startsWith('<?xml');
+                    if (isSvgMime || isSvgContent) {
+                        // pdfmake renders SVGs via the `svg` property, not `image`
+                        // Normalise defs ordering so forward references resolve correctly
+                        logoSvg = normalizeSvgForPdfmake(result.buffer.toString('utf8'));
+                    } else {
+                        // Normalise MIME to one pdfmake supports (png or jpeg)
+                        const pdfMime = mime === 'image/jpeg' || mime === 'image/jpg' ? 'image/jpeg' : 'image/png';
+                        logoDataUrl = `data:${pdfMime};base64,${result.buffer.toString('base64')}`;
+                    }
+                }
+            } catch {
+                logoDataUrl = null;
+                logoSvg = null;
+            }
+        }
+
+        return {
+            primaryColor: data.primaryColor || null,
+            secondaryColor: data.secondaryColor || null,
+            logoDataUrl,
+            logoSvg,
+        };
+    } catch (err) {
+        console.warn('Failed to load org branding:', err && err.message ? err.message : err);
+        return defaults;
+    }
+}
+
+/**
  * Generate PDF report
  */
-async function generatePDF(projectData, runData, groupedViolations, reportTitle, complianceProfiles, standardsMatrix, scIssueIndex, inScopeScIds, ruleDataById) {
+async function generatePDF(projectData, runData, groupedViolations, reportTitle, complianceProfiles, standardsMatrix, scIssueIndex, inScopeScIds, ruleDataById, orgBranding) {
     return new Promise((resolve, reject) => {
         try {
             const fonts = {
@@ -717,14 +823,22 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                 });
             });
 
+            const headerBgColor = (orgBranding && orgBranding.primaryColor) || '#F8FAFC';
+            const headerTextColor = (orgBranding && orgBranding.secondaryColor) || '#64748B';
+
             const header = (currentPage, pageCount, pageSize) => {
                 const headerProject = projectData?.name || '';
                 const domainProject = projectData?.domain || '';
-                const logoNode = LOGO_PNG_BASE64
-                    ? { image: `data:image/png;base64,${LOGO_PNG_BASE64}`, width: 90 }
-                    : (LOGO_SVG_SIMPLE || LOGO_SVG)
-                        ? { svg: LOGO_SVG_SIMPLE || LOGO_SVG, width: 90 }
-                        : { text: 'Ablelytics', style: 'brand' };
+                // Prefer org custom logo (SVG or raster), then built-in logo, then text
+                const logoNode = (orgBranding && orgBranding.logoSvg)
+                    ? { svg: orgBranding.logoSvg, width: 120 }
+                    : (orgBranding && orgBranding.logoDataUrl)
+                        ? { image: orgBranding.logoDataUrl, fit: [120, 28] }
+                        : LOGO_PNG_DATA_URL
+                            ? { image: LOGO_PNG_DATA_URL, fit: [120, 28] }
+                            : LOGO_SVG_NORMALIZED
+                                ? { svg: LOGO_SVG_NORMALIZED, width: 120 }
+                                : { text: 'Ablelytics', style: 'brand' };
                 return {
                     margin: [0, 0, 0, 0],
                     stack: [
@@ -736,7 +850,7 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                                     y: 0,
                                     w: pageSize.width,
                                     h: 44,
-                                    color: '#F8FAFC'
+                                    color: headerBgColor
                                 }
                             ],
                             absolutePosition: { x: 0, y: 0 }
@@ -745,8 +859,8 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                             columns: [
                                 { stack: [logoNode], width: 'auto' },
                                 { stack: [
-                                    { text: headerProject, alignment: 'right', style: 'headerProject' },
-                                    { text: domainProject, alignment: 'right', style: 'headerProject' }
+                                    { text: headerProject, alignment: 'right', style: 'headerProject', color: headerTextColor },
+                                    { text: domainProject, alignment: 'right', style: 'headerProject', color: headerTextColor }
                                 ] }
                             ],
                             margin: [50, 10, 50, 0],
@@ -927,7 +1041,25 @@ async function handleGenerateReport(db, projectId, runId) {
             if (issue.ruleId) ruleIds.push(issue.ruleId);
         });
     });
-    const ruleDataById = await loadRuleDescriptions(ruleIds);
+    // Resolve organisationId: prefer project field, fall back to creator's user doc
+    let organisationId = projectData?.organisationId || null;
+    if (!organisationId && creatorId && creatorId !== 'system') {
+        try {
+            const userSnap = await db.collection('users').doc(creatorId).get();
+            if (userSnap.exists) organisationId = userSnap.data().organisationId || null;
+        } catch { /* ignore */ }
+    }
+
+    const [ruleDataById, orgBranding] = await Promise.all([
+        loadRuleDescriptions(ruleIds),
+        loadOrgBranding(db, organisationId),
+    ]);
+    console.log('[generateReport] orgBranding loaded:', {
+        organisationId,
+        primaryColor: orgBranding.primaryColor,
+        secondaryColor: orgBranding.secondaryColor,
+        hasLogo: !!orgBranding.logoDataUrl,
+    });
 
     // Group violations by type and code
     const groupedViolations = groupViolations(allScans, inScopeScIds);
@@ -951,7 +1083,8 @@ async function handleGenerateReport(db, projectId, runId) {
         standardsMatrix,
         scIssueIndex,
         inScopeScIds,
-        ruleDataById
+        ruleDataById,
+        orgBranding
     );
 
     // Upload PDF to storage

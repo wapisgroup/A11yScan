@@ -8,6 +8,29 @@ import { URL_APP_DASHBOARD, URL_APP_WORKSPACE, URL_AUTH_REGISTER } from "@/utils
 import { FaGoogle } from "react-icons/fa";
 import { AuthLayout } from "@/components/auth/auth-layout";
 
+function friendlyAuthError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("auth/invalid-login-credentials") ||
+      msg.includes("auth/invalid-credential") ||
+      msg.includes("auth/wrong-password") ||
+      msg.includes("auth/user-not-found")) {
+    return "Incorrect email or password. Please try again.";
+  }
+  if (msg.includes("auth/too-many-requests")) {
+    return "Too many failed attempts. Please wait a moment and try again.";
+  }
+  if (msg.includes("auth/user-disabled")) {
+    return "This account has been disabled. Please contact support.";
+  }
+  if (msg.includes("auth/network-request-failed")) {
+    return "Network error. Please check your connection and try again.";
+  }
+  if (msg.includes("auth/popup-closed-by-user") || msg.includes("auth/cancelled-popup-request")) {
+    return "Sign-in was cancelled. Please try again.";
+  }
+  return "Something went wrong. Please try again.";
+}
+
 export default function LoginPage() {
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
@@ -25,19 +48,7 @@ export default function LoginPage() {
       await login(email, password);
       router.replace(URL_APP_DASHBOARD);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        if (err.message.includes("auth/invalid-credential") || err.message.includes("auth/wrong-password")) {
-          setError("Invalid email or password. Please try again.");
-        } else if (err.message.includes("auth/user-not-found")) {
-          setError("No account found with this email.");
-        } else if (err.message.includes("auth/too-many-requests")) {
-          setError("Too many failed attempts. Please try again later.");
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError(String(err));
-      }
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -51,7 +62,7 @@ export default function LoginPage() {
       await loginWithGoogle();
       router.replace(URL_APP_WORKSPACE);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }

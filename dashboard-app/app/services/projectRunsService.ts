@@ -10,12 +10,96 @@ import {
   updateDoc,
   where,
   orderBy,
+  limit,
+  serverTimestamp,
 } from "firebase/firestore";
 
 import { db } from "@/utils/firebase";
 import type { PageDoc } from "@/types/page-types";
 import { RunDoc } from "@/state-services/project-detail-states_old";
 
+type RunLike = PageDoc & {
+  pipelineId?: string | null;
+  pagesTotal?: number | null;
+  pagesScanned?: number | null;
+  pagesIds?: string[] | null;
+  type?: string | null;
+  status?: string | null;
+  groupedRuns?: RunLike[] | null;
+};
+
+const normalizeRunStatus = (value: unknown): string => {
+  const s = String(value ?? "").toLowerCase();
+  if (!s) return "queued";
+  if (["completed", "done", "finished", "success"].includes(s)) return "done";
+  if (["failed", "error"].includes(s)) return "failed";
+  if (["processing", "in-progress", "running"].includes(s)) return "running";
+  if (["blocked"].includes(s)) return "blocked";
+  return s;
+};
+
+const toMillisSafe = (value: unknown): number => {
+  const maybe = value as { toMillis?: () => number };
+  if (maybe && typeof maybe.toMillis === "function") return maybe.toMillis();
+  return 0;
+};
+
+const sortRunsDesc = (runs: RunLike[]): RunLike[] =>
+  [...runs].sort((a, b) => {
+    const aTime = toMillisSafe((a as any).startedAt) || toMillisSafe((a as any).createdAt);
+    const bTime = toMillisSafe((b as any).startedAt) || toMillisSafe((b as any).createdAt);
+    return bTime - aTime;
+  });
+
+function groupRunsByPipeline(rawRuns: RunLike[]): RunLike[] {
+  const ordered = sortRunsDesc(rawRuns);
+  const groups = new Map<string, RunLike[]>();
+
+  ordered.forEach((run) => {
+    const key = String((run.pipelineId ?? run.id) || run.id);
+    const current = groups.get(key) ?? [];
+    current.push(run);
+    groups.set(key, current);
+  });
+
+  const aggregated: RunLike[] = [];
+
+  groups.forEach((runs, groupKey) => {
+    if (runs.length === 1) {
+      aggregated.push(runs[0]);
+      return;
+    }
+
+    const statuses = runs.map((r) => normalizeRunStatus(r.status));
+    let status = "queued";
+    if (statuses.some((s) => s === "failed")) status = "failed";
+    else if (statuses.some((s) => s === "running")) status = "running";
+    else if (statuses.some((s) => s === "blocked")) status = "blocked";
+    else if (statuses.some((s) => s === "queued")) status = "queued";
+    else if (statuses.every((s) => s === "done")) status = "done";
+
+    const pagesScanned = runs.reduce((acc, r) => acc + Number((r.pagesScanned ?? 0) || 0), 0);
+    const pagesTotal = runs.reduce((acc, r) => {
+      const direct = Number((r.pagesTotal ?? 0) || 0);
+      const fallback = Array.isArray(r.pagesIds) ? r.pagesIds.length : 0;
+      return acc + (direct > 0 ? direct : fallback);
+    }, 0);
+
+    const representative = runs[0];
+    aggregated.push({
+      ...representative,
+      id: representative.id,
+      type: "full_scan",
+      status,
+      pipelineId: groupKey,
+      pagesScanned,
+      pagesTotal,
+      groupedRuns: runs,
+    });
+  });
+
+  return sortRunsDesc(aggregated);
+}
 
 /**
  * Builds the Firestore query used to load pages.
@@ -42,7 +126,7 @@ export async function loadProjectRuns(projectId: string): Promise<PageDoc[]> {
   const q = buildPagesQuery(projectId);
   const snap = await getDocs(q);
 
-  return snap.docs
+  const runs = snap.docs
     .map((d) => {
       const data = d.data() as DocumentData;
       return {
@@ -54,13 +138,9 @@ export async function loadProjectRuns(projectId: string): Promise<PageDoc[]> {
       } as PageDoc;
     })
     // Exclude soft-hidden runs
-    .filter((r) => (r as any).hidden !== true)
-    // Sort by startedAt descending (newest first), fallback to createdAt
-    .sort((a, b) => {
-      const aTime = (a as any).startedAt?.toMillis?.() ?? (a as any).createdAt?.toMillis?.() ?? 0;
-      const bTime = (b as any).startedAt?.toMillis?.() ?? (b as any).createdAt?.toMillis?.() ?? 0;
-      return bTime - aTime;
-    });
+    .filter((r) => (r as any).hidden !== true) as RunLike[];
+
+  return groupRunsByPipeline(runs);
 }
 
 export function subscribeProjectRuns(
@@ -90,15 +170,9 @@ export function subscribeProjectRuns(
           } as PageDoc;
         })
         // Exclude soft-hidden runs
-        .filter((r) => (r as any).hidden !== true)
-        // Sort by startedAt descending (newest first), fallback to createdAt
-        .sort((a, b) => {
-          const aTime = (a as any).startedAt?.toMillis?.() ?? (a as any).createdAt?.toMillis?.() ?? 0;
-          const bTime = (b as any).startedAt?.toMillis?.() ?? (b as any).createdAt?.toMillis?.() ?? 0;
-          return bTime - aTime;
-        });
+        .filter((r) => (r as any).hidden !== true) as RunLike[];
 
-      onNext(runs);
+      onNext(groupRunsByPipeline(runs));
     },
     (error) => {
       if (onError) {
@@ -144,6 +218,32 @@ export async function deleteProjectRun(projectId: string, id: string): Promise<v
 
 
 /**
+ * Cancels a run and its associated queued/blocked jobs.
+ *
+ * @param projectId - Parent project id.
+ * @param id - Run document id.
+ */
+export async function cancelProjectRun(projectId: string, id: string): Promise<void> {
+  if (!projectId) throw new Error("projectId required");
+  if (!id) throw new Error("run id required");
+
+  const runRef = doc(db, "projects", projectId, "runs", id);
+  await updateDoc(runRef, { status: "cancelled", cancelledAt: serverTimestamp() });
+
+  // Cancel any associated jobs that haven't started yet
+  const jobsQuery = query(
+    collection(db, "jobs"),
+    where("projectId", "==", projectId),
+    where("runId", "==", id)
+  );
+  const jobsSnap = await getDocs(jobsQuery);
+  const updates = jobsSnap.docs
+    .filter((d) => ["queued", "blocked"].includes(String(d.data().status ?? "")))
+    .map((d) => updateDoc(d.ref, { status: "cancelled" }));
+  await Promise.all(updates);
+}
+
+/**
  * Soft-hides a run document under a project.
  *
  * This is a non-destructive alternative to deletion. The worker/UI can
@@ -163,4 +263,59 @@ export async function hideProjectRun(projectId: string, id: string): Promise<voi
   // We store `hidden` as a boolean for simplicity.
   // If you later want auditability, add `hiddenAt` (serverTimestamp) and `hiddenBy`.
   await updateDoc(runRef, { hidden: true });
+}
+
+const SCAN_RUN_TYPES = new Set(["scan_pages", "full_scan"]);
+
+const tsToDate = (ts: unknown): Date | null => {
+  if (!ts) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v = ts as any;
+    return typeof v.toDate === "function" ? v.toDate() : new Date(v);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * getLastScanDates
+ * ----------------
+ * For each project ID, finds the most recent `scan_pages` or `full_scan` run
+ * and returns its `startedAt` timestamp.
+ *
+ * Queries all runs per project client-side to avoid needing a composite index.
+ * Suitable for the projects list where N is small (typical user has <50 projects).
+ */
+export async function getLastScanDates(
+  projectIds: string[]
+): Promise<Map<string, Date | null>> {
+  const result = new Map<string, Date | null>();
+  if (!projectIds.length) return result;
+
+  await Promise.all(
+    projectIds.map(async (projectId) => {
+      try {
+        const snap = await getDocs(collection(db, "projects", projectId, "runs"));
+        let latestMs = 0;
+
+        for (const d of snap.docs) {
+          const data = d.data() as DocumentData;
+          if (!SCAN_RUN_TYPES.has(String(data.type ?? ""))) continue;
+
+          const date = tsToDate(data.startedAt) ?? tsToDate(data.createdAt);
+          if (date) {
+            const ms = date.getTime();
+            if (ms > latestMs) latestMs = ms;
+          }
+        }
+
+        result.set(projectId, latestMs > 0 ? new Date(latestMs) : null);
+      } catch {
+        result.set(projectId, null);
+      }
+    })
+  );
+
+  return result;
 }

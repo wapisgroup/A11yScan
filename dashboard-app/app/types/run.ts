@@ -10,6 +10,9 @@ export type RunDoc = {
   startedAt?: unknown;
   pagesTotal?: number | null;
   pagesScanned?: number | null;
+  pagesIds?: string[] | null;
+  pipelineId?: string | null;
+  groupedRuns?: RunDoc[] | null;
 };
 
 /**

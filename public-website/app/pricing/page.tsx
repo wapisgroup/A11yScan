@@ -1,14 +1,11 @@
-// src/pages/Pricing.jsx
-import React from "react";
 import { LoggedOutFooter } from "../components/organism/logged-out-footer";
 import { LoggedOutHeader } from "../components/organism/logged-out-header";
 import { LoggedOutLayout } from "../components/organism/logged-out-layout";
-import { MainSections } from "../components/molecule/main-sections";
 import { buildPageMetadata } from "../libs/metadata";
-import { RevealSection } from "../components/molecule/reveal-section";
 import Link from "next/link";
 import { URL_FRONTEND_CONTACT } from "@/app/services/urlServices";
 import { startTrial } from "../services/urlServices";
+import { HiCheckCircle, HiSparkles } from "react-icons/hi2";
 
 export const metadata = buildPageMetadata({
     title: "Pricing",
@@ -17,214 +14,235 @@ export const metadata = buildPageMetadata({
     path: "/pricing"
 });
 
+type PlanFeature = { text: string; bold?: boolean };
+
+function CheckItem({ text, bold, color }: PlanFeature & { color: string }) {
+    return (
+        <li className="flex items-start gap-3">
+            <HiCheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color }} />
+            <span className="text-slate-700 text-sm">{bold ? <strong>{text}</strong> : text}</span>
+        </li>
+    );
+}
+
 export default function PricingPage() {
     return (
         <LoggedOutLayout>
             <LoggedOutHeader />
 
-            <MainSections>
-                {/* Hero */}
-                <section className="py-16 md:py-24 lg:py-32">
-                    <div className="text-center max-w-4xl mx-auto">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full mb-6">
-                            <span className="text-xs font-semibold text-green-700">14-DAY FREE TRIAL • NO CREDIT CARD REQUIRED</span>
-                        </div>
-                        <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6">
-                            Simple, Transparent Pricing
-                        </h1>
-                        <p className="text-xl text-slate-600 mb-8">
-                            Choose the plan that fits your needs. All plans include our core accessibility testing features.
-                        </p>
+            {/* Hero */}
+            <section className="py-16 md:py-24 lg:py-28 relative overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none"
+                    style={{ background: 'linear-gradient(135deg, rgba(45,45,110,0.04), rgba(95,59,143,0.06), rgba(57,176,206,0.03))' }} />
+                <div className="text-center max-w-4xl mx-auto px-4 md:px-6 lg:px-8 relative">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-6 border"
+                        style={{ background: 'rgba(95,59,143,0.07)', borderColor: 'rgba(95,59,143,0.2)', color: '#5f3b8f' }}>
+                        <HiSparkles className="w-4 h-4" />
+                        14-DAY FREE TRIAL · NO CREDIT CARD REQUIRED
                     </div>
-                </section>
+                    <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6">
+                        Simple, Transparent Pricing
+                    </h1>
+                    <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+                        Choose the plan that fits your team. Every plan includes automated crawling, three scan engines, and PDF reports.
+                    </p>
+                </div>
+            </section>
 
-                {/* Pricing tiers */}
-                <RevealSection custom={1}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+            {/* Pricing tiers */}
+            <section className="pb-16 md:pb-24">
+                <div className="container mx-auto px-4 md:px-6 lg:px-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-start">
+
                         {/* Basic */}
                         <div className="bg-white rounded-2xl border-2 border-slate-200 p-8 flex flex-col">
                             <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Basic</h3>
-                                <div className="flex items-baseline gap-2 mb-4">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Basic</h3>
+                                <div className="flex items-baseline gap-1 mb-3">
                                     <span className="text-4xl font-bold text-slate-900">$49</span>
-                                    <span className="text-slate-600">/month</span>
+                                    <span className="text-slate-500 text-sm">/month</span>
                                 </div>
-                                <p className="text-slate-600">Perfect for freelancers and small projects</p>
+                                <p className="text-slate-500 text-sm">For freelancers and small projects</p>
                             </div>
-
-                            <ul className="space-y-4 mb-8 flex-grow">
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">3 active projects</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">50 scans per month</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">100 pages per scan</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">30-day report history</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Scheduled scans (1 active)</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">PDF reports</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Axe-core + Ablelytics-core engines</span></li>
+                            <ul className="space-y-3 mb-8 flex-grow">
+                                {[
+                                    "3 active projects",
+                                    "50 scans per month",
+                                    "100 pages per scan",
+                                    "30-day report history",
+                                    "Scheduled scans (1 active)",
+                                    "PDF reports",
+                                    "Axe-core + Ablelytics Core engines",
+                                ].map(t => <CheckItem key={t} text={t} color="#64748b" />)}
                             </ul>
-
-                            <Link href={startTrial} className="w-full">
-                                <button className="w-full px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg transition-colors">
-                                    Start Free Trial
-                                </button>
+                            <Link href={startTrial}
+                                className="block w-full px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-xl transition-colors text-center text-sm">
+                                Start Free Trial
                             </Link>
                         </div>
 
-                        {/* Starter */}
-                        <div className="bg-white rounded-2xl border-4 border-purple-500 p-8 flex flex-col relative shadow-2xl scale-105">
-                            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-purple-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                                MOST POPULAR
+                        {/* Starter — featured */}
+                        <div className="bg-white rounded-2xl p-8 flex flex-col relative shadow-2xl"
+                            style={{ outline: '2px solid #5f3b8f', outlineOffset: '0px' }}>
+                            <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                                <span className="text-xs font-bold px-4 py-1.5 rounded-full text-white shadow"
+                                    style={{ background: 'linear-gradient(90deg, #5f3b8f, #3861ab)' }}>
+                                    MOST POPULAR
+                                </span>
                             </div>
-                            <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Starter</h3>
-                                <div className="flex items-baseline gap-2 mb-4">
+                            <div className="mb-6 mt-2">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Starter</h3>
+                                <div className="flex items-baseline gap-1 mb-3">
                                     <span className="text-4xl font-bold text-slate-900">$149</span>
-                                    <span className="text-slate-600">/month</span>
+                                    <span className="text-slate-500 text-sm">/month</span>
                                 </div>
-                                <p className="text-slate-600">For growing teams and agencies</p>
+                                <p className="text-slate-500 text-sm">For growing teams and agencies</p>
                             </div>
-
-                            <ul className="space-y-4 mb-8 flex-grow">
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700"><strong>10 active projects</strong></span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">200 scans per month</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">500 pages per scan</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">90-day report history</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700"><strong>AI heuristics with monthly limits</strong></span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">White-label reports</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">API access + Slack notifications</span></li>
+                            <ul className="space-y-3 mb-8 flex-grow">
+                                {[
+                                    { text: "10 active projects", bold: true },
+                                    { text: "200 scans per month" },
+                                    { text: "500 pages per scan" },
+                                    { text: "90-day report history" },
+                                    { text: "AI heuristics with monthly limits", bold: true },
+                                    { text: "White-label reports" },
+                                    { text: "API access + Slack notifications" },
+                                ].map(t => <CheckItem key={t.text} text={t.text} bold={t.bold} color="#5f3b8f" />)}
                             </ul>
-
-                            <Link href={startTrial} className="w-full">
-                                <button className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors">
-                                    Start Free Trial
-                                </button>
+                            <Link href={startTrial}
+                                className="block w-full px-6 py-3 text-white font-semibold rounded-xl transition-all text-center text-sm hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+                                style={{ background: 'linear-gradient(135deg, #5f3b8f, #3861ab)' }}>
+                                Start Free Trial
                             </Link>
                         </div>
 
                         {/* Professional */}
                         <div className="bg-white rounded-2xl border-2 border-slate-200 p-8 flex flex-col">
                             <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Professional</h3>
-                                <div className="flex items-baseline gap-2 mb-4">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Professional</h3>
+                                <div className="flex items-baseline gap-1 mb-3">
                                     <span className="text-4xl font-bold text-slate-900">$399</span>
-                                    <span className="text-slate-600">/month</span>
+                                    <span className="text-slate-500 text-sm">/month</span>
                                 </div>
-                                <p className="text-slate-600">For enterprises and large agencies</p>
+                                <p className="text-slate-500 text-sm">For enterprises and large agencies</p>
                             </div>
-
-                            <ul className="space-y-4 mb-8 flex-grow">
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700"><strong>Unlimited projects</strong></span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">1,000 scans per month</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">2,000 pages per scan</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">365-day report history</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">CI/CD + webhooks</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Advanced analytics + bulk ops</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">AI heuristics with higher limits</span></li>
+                            <ul className="space-y-3 mb-8 flex-grow">
+                                {[
+                                    { text: "Unlimited projects", bold: true },
+                                    { text: "1,000 scans per month" },
+                                    { text: "2,000 pages per scan" },
+                                    { text: "365-day report history" },
+                                    { text: "CI/CD + webhooks" },
+                                    { text: "Advanced analytics + bulk ops" },
+                                    { text: "AI heuristics with higher limits" },
+                                ].map(t => <CheckItem key={t.text} text={t.text} bold={t.bold} color="#3861ab" />)}
                             </ul>
-
-                            <Link href={startTrial} className="w-full">
-                                <button className="w-full px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors">
-                                    Start Free Trial
-                                </button>
+                            <Link href={startTrial}
+                                className="block w-full px-6 py-3 font-semibold rounded-xl transition-colors text-center text-sm text-white hover:opacity-90"
+                                style={{ background: '#3861ab' }}>
+                                Start Free Trial
                             </Link>
                         </div>
 
                         {/* Enterprise */}
                         <div className="bg-white rounded-2xl border-2 border-slate-200 p-8 flex flex-col">
                             <div className="mb-6">
-                                <h3 className="text-2xl font-bold text-slate-900 mb-2">Enterprise</h3>
-                                <div className="flex items-baseline gap-2 mb-4">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Enterprise</h3>
+                                <div className="flex items-baseline gap-1 mb-3">
                                     <span className="text-3xl font-bold text-slate-900">Custom</span>
                                 </div>
-                                <p className="text-slate-600">Tailored solutions for large organizations</p>
+                                <p className="text-slate-500 text-sm">Tailored solutions for large organisations</p>
                             </div>
-
-                            <ul className="space-y-4 mb-8 flex-grow">
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700"><strong>Unlimited scans & pages</strong></span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">SSO, SAML, and on-prem options</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Dedicated account manager</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Custom integrations + SLAs</span></li>
-                                <li className="flex items-start gap-3"><span className="text-green-600 mt-1">✓</span><span className="text-slate-700">Manual testing add-on</span></li>
+                            <ul className="space-y-3 mb-8 flex-grow">
+                                {[
+                                    { text: "Unlimited scans & pages", bold: true },
+                                    { text: "SSO, SAML, and on-prem options" },
+                                    { text: "Dedicated account manager" },
+                                    { text: "Custom integrations + SLAs" },
+                                    { text: "Manual testing add-on" },
+                                ].map(t => <CheckItem key={t.text} text={t.text} bold={t.bold} color="#39b0ce" />)}
                             </ul>
-
-                            <Link href={URL_FRONTEND_CONTACT} className="w-full">
-                                <button className="w-full px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors">
-                                    Contact Sales
-                                </button>
+                            <Link href={URL_FRONTEND_CONTACT}
+                                className="block w-full px-6 py-3 font-semibold rounded-xl transition-colors text-center text-sm text-white hover:opacity-90"
+                                style={{ background: '#2d2d6e' }}>
+                                Contact Sales
                             </Link>
                         </div>
-                    </div>
-                </RevealSection>
 
-                {/* FAQ Section */}
-                <RevealSection custom={2}>
-                    <div className="max-w-4xl mx-auto">
-                        <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">
-                            Pricing FAQ
-                        </h2>
-                        <div className="space-y-6">
-                            <div className="bg-white rounded-lg border border-slate-200 p-6">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                                    What counts as a "page" in my scan limit?
-                                </h3>
-                                <p className="text-slate-600">
-                                    Each unique URL that gets tested counts as one page. If you scan the same page multiple times in different runs, it only counts once per scan, not cumulatively.
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-slate-200 p-6">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                                    Can I upgrade or downgrade my plan at any time?
-                                </h3>
-                                <p className="text-slate-600">
-                                    Yes! You can change plans anytime from your dashboard. Upgrades take effect immediately, and downgrades take effect at the end of your current billing period.
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-slate-200 p-6">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                                    Do you offer annual billing?
-                                </h3>
-                                <p className="text-slate-600">
-                                    Yes! Annual plans get a 20% discount. Contact sales for annual Enterprise pricing.
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-slate-200 p-6">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                                    Are AI testing requests limited?
-                                </h3>
-                                <p className="text-slate-600">
-                                    Yes. AI heuristics and AI fix suggestions are metered by plan. Starter includes monthly AI credits, Professional includes higher limits, and Enterprise can customize limits.
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-lg border border-slate-200 p-6">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                                    What payment methods do you accept?
-                                </h3>
-                                <p className="text-slate-600">
-                                    We accept all major credit cards (Visa, Mastercard, AmEx). Enterprise customers can pay via invoice/wire transfer.
-                                </p>
-                            </div>
-                        </div>
                     </div>
-                </RevealSection>
 
-                {/* CTA */}
-                <RevealSection custom={3}>
-                    <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-12 text-center text-white">
-                        <h2 className="text-4xl font-bold mb-4">
-                            Ready to Improve Your Accessibility?
-                        </h2>
-                        <p className="text-xl mb-8 text-purple-100">
-                            Start your 14-day free trial. No credit card required.
-                        </p>
-                        <Link href={startTrial}>
-                            <button className="px-8 py-4 bg-white hover:bg-gray-100 text-purple-600 font-bold rounded-lg transition-colors text-lg">
-                                Start Free Trial
-                            </button>
-                        </Link>
+                    {/* Annual discount note */}
+                    <p className="text-center text-slate-500 text-sm mt-8">
+                        Annual billing available — save 20% on any plan. <Link href={URL_FRONTEND_CONTACT} className="font-semibold underline" style={{ color: '#5f3b8f' }}>Contact us</Link> for a quote.
+                    </p>
+                </div>
+            </section>
+
+            {/* FAQ Section */}
+            <section className="py-16 md:py-20 bg-slate-50">
+                <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8">
+                    <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-12">
+                        Pricing FAQ
+                    </h2>
+                    <div className="space-y-4">
+                        {[
+                            {
+                                q: 'What counts as a "page" in my scan limit?',
+                                a: "Each unique URL tested counts as one page. If you scan the same page multiple times across different runs, it counts once per scan — not cumulatively."
+                            },
+                            {
+                                q: "Can I upgrade or downgrade my plan at any time?",
+                                a: "Yes. You can change plans any time from your dashboard. Upgrades take effect immediately; downgrades take effect at the end of your current billing period."
+                            },
+                            {
+                                q: "Do you offer annual billing?",
+                                a: "Yes — annual plans get a 20% discount. Contact sales for annual Enterprise pricing."
+                            },
+                            {
+                                q: "Are AI testing requests limited?",
+                                a: "AI heuristics and fix suggestions are metered by plan. Starter includes monthly AI credits, Professional includes higher limits, and Enterprise can customise limits."
+                            },
+                            {
+                                q: "What payment methods do you accept?",
+                                a: "We accept all major credit cards (Visa, Mastercard, AmEx). Enterprise customers can pay via invoice or wire transfer."
+                            },
+                            {
+                                q: "What happens after my free trial?",
+                                a: "After 14 days your trial ends and you'll be prompted to choose a plan. Your projects and scan history are preserved. No charge unless you choose to subscribe."
+                            },
+                        ].map(({ q, a }) => (
+                            <div key={q} className="bg-white rounded-2xl border border-slate-200 p-7 shadow-sm">
+                                <h3 className="text-base font-semibold text-slate-900 mb-2">{q}</h3>
+                                <p className="text-slate-600 text-sm leading-relaxed">{a}</p>
+                            </div>
+                        ))}
                     </div>
-                </RevealSection>
+                </div>
+            </section>
 
-            </MainSections>
+            {/* CTA */}
+            <section className="py-16 md:py-24 relative overflow-hidden"
+                style={{ background: 'linear-gradient(135deg, #2d2d6e 0%, #5f3b8f 55%, #3861ab 100%)' }}>
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-10"
+                        style={{ background: 'radial-gradient(circle, #39b0ce, transparent)' }} />
+                </div>
+                <div className="container mx-auto px-4 md:px-6 lg:px-8 text-center text-white relative">
+                    <h2 className="text-4xl font-bold mb-4">
+                        Ready to Improve Your Accessibility?
+                    </h2>
+                    <p className="text-xl mb-10 opacity-85 max-w-xl mx-auto">
+                        Start your 14-day free trial. No credit card required.
+                    </p>
+                    <Link href={startTrial}
+                        className="inline-block px-10 py-4 bg-white font-bold rounded-xl transition-all text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                        style={{ color: '#5f3b8f' }}>
+                        Start Free Trial
+                    </Link>
+                </div>
+            </section>
+
             <LoggedOutFooter />
         </LoggedOutLayout>
-    )
+    );
 }

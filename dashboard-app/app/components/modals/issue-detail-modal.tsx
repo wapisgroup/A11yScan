@@ -17,6 +17,16 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import type { RuleData } from '@/actions/getRuleData';
 
 
+function transformHelpUrl(url: string | null | undefined): string | null | undefined {
+  if (!url) return url;
+  // Replace dequeuniversity axe rule URLs with ablelytics rule pages
+  // e.g. https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI
+  //   → https://www.ablelytics.com/accessibility-rules/color-contrast/
+  const match = url.match(/dequeuniversity\.com\/rules\/axe\/[\d.]+\/([^?#/]+)/);
+  if (match) return `https://www.ablelytics.com/accessibility-rules/${match[1]}/`;
+  return url;
+}
+
 export type IssueData = {
   ruleId?: string | null;
   impact?: string;
@@ -398,12 +408,12 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
                     External Reference
                   </h3>
                   <a
-                    href={issue.helpUrl}
+                    href={transformHelpUrl(issue.helpUrl) ?? ''}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="as-p2-text text-brand hover:underline break-all"
                   >
-                    {issue.helpUrl}
+                    {transformHelpUrl(issue.helpUrl)}
                   </a>
                 </div>
               )}
@@ -457,7 +467,7 @@ export default function IssueDetailModal({ isOpen, onClose, issue }: IssueDetail
                   <p className="as-p2-text secondary-text-color mb-2">Rule documentation not available</p>
                   {issue.helpUrl && (
                     <a
-                      href={issue.helpUrl}
+                      href={transformHelpUrl(issue.helpUrl) ?? ''}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="as-p2-text text-brand hover:underline"

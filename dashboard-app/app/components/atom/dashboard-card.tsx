@@ -1,3 +1,8 @@
+/**
+ * Dashboard Card
+ * Shared component in atom/dashboard-card.tsx.
+ */
+
 import Link from "next/link";
 import { ReactNode } from "react";
 
@@ -19,14 +24,17 @@ export function DashboardCard({
   link,
   iconColor = "text-gray-500",
   valueColor = "text-gray-900",
-  borderColor = "border-gray-200",
   hoverBorderColor,
 }: DashboardCardProps) {
+  const cardClassName = `bg-white rounded-xl p-4 border border-[var(--color-border-light)] ${
+    hoverBorderColor ? `hover:${hoverBorderColor}` : "hover:border-[#BFD0E6]"
+  } hover:shadow-sm transition-all block`;
+
   const cardContent = (
     <>
       <div className="flex items-center gap-2 mb-2">
         <div className={`text-xl ${iconColor}`}>{icon}</div>
-        <span className="text-xs text-gray-600">{title}</span>
+        <span className="as-p3-text secondary-text-color">{title}</span>
       </div>
       <div className={`text-3xl font-bold ${valueColor}`}>{value}</div>
     </>
@@ -34,19 +42,14 @@ export function DashboardCard({
 
   if (link) {
     return (
-      <Link
-        href={link}
-        className={`bg-white rounded-xl p-4 border ${borderColor} ${
-          hoverBorderColor ? `hover:${hoverBorderColor}` : "hover:border-gray-300"
-        } hover:shadow-md transition-all block`}
-      >
+      <Link href={link} className={cardClassName}>
         {cardContent}
       </Link>
     );
   }
 
   return (
-    <div className={`bg-white rounded-xl p-4 border ${borderColor}`}>
+    <div className={`bg-white rounded-xl p-4 border border-[var(--color-border-light)]`}>
       {cardContent}
     </div>
   );

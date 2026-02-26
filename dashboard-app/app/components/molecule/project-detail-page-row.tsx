@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Project Detail Page Row
+ * Shared component in molecule/project-detail-page-row.tsx.
+ */
+
 import React, { useEffect, useMemo, useState } from "react";
 import {
   collection,
@@ -14,7 +19,7 @@ import {
 
 import { db } from "@/utils/firebase";
 import { PiPlay, PiArrowClockwise, PiFileText, PiTrash, PiHourglassLow } from "react-icons/pi";
-import { Button } from "../atom/button";
+import { DSIconButton } from "../atom/ds-icon-button";
 import { ProjectInfoLine } from "../atom/project-info-line";
 import {  statusFromRun } from "@/ui-helpers/page-helpers";
 import { PageDoc } from "@/types/page-types";
@@ -40,8 +45,10 @@ type PageRowProps = {
 };
 
 export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowProps) {
-  const httpStatus = Number(page.httpStatus);
-  const isHttpOk = httpStatus >= 200 && httpStatus < 300;
+  const httpStatus = page.httpStatus != null ? Number(page.httpStatus) : null;
+  // Treat missing httpStatus as OK — pages added via sitemap upload or manually before
+  // a status check have no httpStatus yet; the scan itself will validate them.
+  const isHttpOk = httpStatus === null || (httpStatus >= 200 && httpStatus < 300);
   const [referencingRun, setReferencingRun] = useState<RunDoc | null>(null);
 
 
@@ -110,58 +117,25 @@ export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowPr
   const status = useMemo(() => {
     const runStatus = statusFromRun(referencingRun);
     const pageStatus = normalizeStatus(page.status);
-    
-    // If there's an active run (queued/running), use its status
-    if (referencingRun && (runStatus === "queued" || runStatus === "running" || runStatus === "pending")) {
-      console.log('[PageRow] Status calculation:', { 
-        pageId: page.id, 
-        pageStatus, 
-        runStatus, 
-        referencingRun,
-        finalStatus: runStatus,
-        reason: 'active run takes priority'
-      });
-      return runStatus;
-    }
-    
-    // Otherwise use page status if available
-    if (page.status) {
-      console.log('[PageRow] Status calculation:', { 
-        pageId: page.id, 
-        pageStatus, 
-        runStatus, 
-        referencingRun,
-        finalStatus: pageStatus,
-        reason: 'page status'
-      });
+
+    // Prefer page-level status so we don't mark all queued pages as "in progress".
+    if (["queued", "running", "pending", "scanned", "failed"].includes(pageStatus)) {
       return pageStatus;
     }
-    
-    // Fall back to run status
-    console.log('[PageRow] Status calculation:', { 
-      pageId: page.id, 
-      pageStatus, 
-      runStatus, 
-      referencingRun,
-      finalStatus: runStatus,
-      reason: 'fallback to run status'
-    });
-    return runStatus;
-  }, [page.status, page.id, referencingRun]);
+
+    // Fall back to run-derived status only for finished states.
+    if (referencingRun && runStatus === "scanned") {
+      return "scanned";
+    }
+
+    return pageStatus || "discovered";
+  }, [page.status, referencingRun]);
 
   const isScanned = status === "scanned";
   // Check for queued/running states (statusFromRun returns "queued" for running tasks)
   const isRunning = status === "queued" || status === "running" || status === "pending";
   const hasRunBeenStarted = Boolean(referencingRun);
   const hasCompletedScan = Boolean(page.lastScan || (page.status === "scanned"));
-
-  console.log('[PageRow] Display state:', {
-    pageId: page.id,
-    status,
-    isRunning,
-    isScanned,
-    hasCompletedScan
-  });
 
   const lastRunId = page.lastRunId || referencingRun?.id || null;
   const hasScan = Boolean(page.lastScan || page.lastRunId || referencingRun?.id);
@@ -190,10 +164,9 @@ export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowPr
       <div className="flex gap-medium items-center">
         {/* Show Scan/Re-scan button only when not running */}
         {isHttpOk && !isRunning && (
-          <Button
-            title={hasCompletedScan ? "Re-scan" : "Scan"}
+          <DSIconButton
+            label={hasCompletedScan ? "Re-scan" : "Scan"}
             icon={hasCompletedScan ? <PiArrowClockwise size={18} /> : <PiPlay size={18} />}
-            variant="secondary"
             onClick={() => onScan?.()}
           />
         )}
@@ -221,20 +194,20 @@ export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowPr
 
         {/* Show Report button only when scanned */}
         {isHttpOk && hasCompletedScan && (
-          <Button
-            title="Report"
+          <DSIconButton
+            label="Report"
             icon={<PiFileText size={18} />}
-            variant="secondary"
             onClick={() => onOpen?.()}
           />
         )}
 
-        {/* Delete button always visible */}
-        <Button
-          title="Delete"
+        {/* Delete button — disabled while page is being scanned */}
+        <DSIconButton
+          label="Delete"
           icon={<PiTrash size={18} />}
-          variant="secondary"
+          variant="danger"
           onClick={() => onDelete?.()}
+          disabled={isRunning}
         />
       </div>
     </div>

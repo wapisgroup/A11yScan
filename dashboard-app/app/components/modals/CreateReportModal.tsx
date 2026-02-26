@@ -1,9 +1,16 @@
 "use client";
 
+/**
+ * CreateReportModal
+ * Shared component in modals/CreateReportModal.tsx.
+ */
+
 import { useState, useEffect } from "react";
-import { PiFileText, PiX, PiListChecks, PiGlobe, PiInfo } from "react-icons/pi";
-import { Button } from "@/components/atom/button";
+import { PiListChecks, PiGlobe, PiInfo, PiWarning } from "react-icons/pi";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { createReport, getScannedPages, getPageSetPages } from "@/services/reportService";
+import { loadProjects, type Project } from "@/services/projectsService";
 import { collection, query, getDocs } from "firebase/firestore";
 import { db } from "@/utils/firebase";
 
@@ -18,12 +25,19 @@ type PageSet = {
 type CreateReportModalProps = {
   open: boolean;
   onClose: () => void;
-  projectId: string;
+  projectId?: string;
   userId: string;
   onSuccess?: () => void;
 };
 
-export function CreateReportModal({ open, onClose, projectId, userId, onSuccess }: CreateReportModalProps) {
+export function CreateReportModal({ open, onClose, projectId: initialProjectId, userId, onSuccess }: CreateReportModalProps) {
+  const needsProjectPicker = !initialProjectId;
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId ?? '');
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  const projectId = initialProjectId || selectedProjectId;
+
   const [selectedType, setSelectedType] = useState<ReportType>('full');
   const [pageSets, setPageSets] = useState<PageSet[]>([]);
   const [selectedPageSetId, setSelectedPageSetId] = useState<string>('');
@@ -31,6 +45,31 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loadingPageSets, setLoadingPageSets] = useState(false);
+  const [scannedPageCount, setScannedPageCount] = useState<number | null>(null);
+  const [loadingScannedCount, setLoadingScannedCount] = useState(false);
+
+  // Load projects when picker is needed
+  useEffect(() => {
+    if (!open || !needsProjectPicker) return;
+    setLoadingProjects(true);
+    loadProjects()
+      .then((list) => {
+        setProjects(list);
+        if (list.length > 0 && !selectedProjectId) setSelectedProjectId(list[0].id);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingProjects(false));
+  }, [open, needsProjectPicker]);
+
+  useEffect(() => {
+    if (!open) return;
+    setScannedPageCount(null);
+    setLoadingScannedCount(true);
+    getScannedPages(projectId)
+      .then((pages) => setScannedPageCount(pages.length))
+      .catch(() => setScannedPageCount(0))
+      .finally(() => setLoadingScannedCount(false));
+  }, [open, projectId]);
 
   useEffect(() => {
     if (open && selectedType === 'pageset') {
@@ -49,7 +88,7 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
         return {
           id: doc.id,
           name: data.name || 'Untitled Page Set',
-          pageCount: data.pageIds?.length || 0,
+          pageCount: Number(data.pageCount || data.pageIds?.length || 0),
         };
       });
       
@@ -126,31 +165,67 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
     setReportTitle('');
     setSelectedType('full');
     setSelectedPageSetId('');
+    if (needsProjectPicker) setSelectedProjectId('');
     setError('');
     onClose();
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h3 className="as-h3-text primary-text-color">Generate Accessibility Report</h3>
-            <p className="as-p2-text secondary-text-color mt-1">Create a comprehensive PDF report</p>
-          </div>
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+    <DSDrawerShell
+      open={open}
+      title="Generate Report"
+      subtitle="Create a comprehensive PDF report"
+      widthClassName="w-[520px]"
+      onClose={handleClose}
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <DSButton variant="outline" onClick={handleClose} disabled={loading}>
+            Cancel
+          </DSButton>
+          <DSButton
+            onClick={() => void handleSubmit()}
+            disabled={loading || loadingScannedCount || scannedPageCount === 0 || (selectedType === 'pageset' && pageSets.length === 0)}
           >
-            <PiX size={24} className="secondary-text-color" />
-          </button>
+            {loading ? "Generating…" : "Generate Report"}
+          </DSButton>
         </div>
+      }
+    >
+      <div className="p-6 space-y-6 overflow-y-auto h-full">
+          {/* Project picker (only when projectId not provided) */}
+          {needsProjectPicker && (
+            <div>
+              <label className="block as-p2-text primary-text-color mb-2">Project</label>
+              {loadingProjects ? (
+                <div className="as-p3-text secondary-text-color">Loading projects…</div>
+              ) : (
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent"
+                >
+                  <option value="">Select a project</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name || p.domain}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
+          {/* No scans warning */}
+          {!loadingScannedCount && scannedPageCount === 0 && (
+            <div className="flex gap-3 p-4 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30">
+              <PiWarning size={20} className="text-[var(--color-warning)] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="as-p2-text primary-text-color font-medium mb-0.5">No scanned pages yet</p>
+                <p className="as-p3-text secondary-text-color">
+                  Run a scan on your pages before generating a report. Reports are built from scan results.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Report Title */}
           <div>
             <label className="block as-p2-text primary-text-color mb-2">
@@ -294,23 +369,6 @@ export function CreateReportModal({ open, onClose, projectId, userId, onSuccess 
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
-          <Button
-            title="Cancel"
-            variant="secondary"
-            onClick={handleClose}
-            disabled={loading}
-          />
-          <Button
-            title={loading ? "Generating..." : "Generate Report"}
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={loading || (selectedType === 'pageset' && pageSets.length === 0)}
-          />
-        </div>
-      </div>
-    </div>
+    </DSDrawerShell>
   );
 }

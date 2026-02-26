@@ -49,6 +49,17 @@ export function PrivateRoute({
           // No subscription, redirect to onboarding
           router.replace('/onboarding');
         } else {
+          // Check for expired trial
+          const status = String(subscription.status || '').toLowerCase();
+          if ((status === 'trialing' || status === 'trial') && subscription.trialEnd) {
+            const trialEndDate = typeof (subscription.trialEnd as any).toDate === 'function'
+              ? (subscription.trialEnd as any).toDate()
+              : new Date(subscription.trialEnd as any);
+            if (trialEndDate < new Date()) {
+              router.replace('/workspace/billing?trial_expired=true');
+              return;
+            }
+          }
           setHasSubscription(true);
         }
       } catch (error) {

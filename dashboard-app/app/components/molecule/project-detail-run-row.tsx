@@ -1,20 +1,28 @@
 "use client";
 
-import { RunDoc } from "@/types/run";
+/**
+ * Project Detail Run Row
+ * Shared component in molecule/project-detail-run-row.tsx.
+ */
+
+import { RunDoc, runTypesList } from "@/types/run";
 import { safeInt, toDateSafe } from "@/ui-helpers/default";
 import React, { useMemo } from "react";
-import { Button } from "../atom/button";
-import { FaEyeSlash, FaTrash, FaTrashAlt } from "react-icons/fa";
+import { DSButton } from "../atom/ds-button";
+import { DSIconButton } from "../atom/ds-icon-button";
+import { FaEyeSlash, FaTrashAlt } from "react-icons/fa";
+import { PiX } from "react-icons/pi";
 
 type RunRowProps = {
   run: RunDoc;
   onView: (run: RunDoc) => void;
   onRemove: (run: RunDoc) => void;
   onHide: (run: RunDoc) => void;
+  onCancel: (run: RunDoc) => void;
 };
 
-export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
-  const pagesTotal = safeInt(run.pagesTotal);
+export function RunRow({ run, onView, onRemove, onHide, onCancel }: RunRowProps) {
+  const pagesTotal = safeInt(run.pagesTotal) || (Array.isArray(run.pagesIds) ? run.pagesIds.length : 0);
   const pagesScanned = safeInt(run.pagesScanned);
 
   const progress = useMemo(() => {
@@ -24,7 +32,7 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
 
     const status = String(run.status ?? "").toLowerCase();
     if (["done", "finished", "completed", "success"].includes(status)) return 100;
-    if (["queued", "running", "pending"].includes(status)) return 1;
+    if (["queued", "running", "pending", "blocked", "processing"].includes(status)) return 1;
     return 0;
   }, [pagesScanned, pagesTotal, run.status]);
 
@@ -33,8 +41,10 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
     return d.toLocaleString();
   }, [run.startedAt]);
 
-  const typeLabel = (run.type ?? "scan") as string;
+  const typeLabel = runTypesList[(run.type ?? "") as keyof typeof runTypesList] ?? run.type ?? "Scan";
   const statusLabel = (run.status ?? "-") as string;
+  const isGrouped = Array.isArray(run.groupedRuns) && run.groupedRuns.length > 1;
+  const groupedRuns = (run.groupedRuns ?? []) as RunDoc[];
 
   /**
    * Special UI case:
@@ -46,16 +56,21 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
     String(run.status ?? "").toLowerCase() === "running";
 
   return (
-    <div className="flex items-center justify-between gap-4 p-3 bg-white/2 rounded-md  w-full">
+    <div className="flex items-center justify-between gap-4 p-3 bg-white rounded-md  w-full">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-3">
           <div className="as-p2-text primary-text-color truncate">
             {typeLabel} · {startedLabel}
           </div>
           <div className="as-p3-text secondary-text-color">status: {statusLabel}</div>
+          {isGrouped && (
+            <div className="as-p3-text secondary-text-color">
+              pipeline · {run.groupedRuns?.length ?? 0} runs
+            </div>
+          )}
         </div>
 
-        <div className="mt-2 h-2 bg-white/6 rounded-md overflow-hidden max-w-[600px]">
+        <div className="mt-2 h-2 bg-[var(--color-bg-light)] rounded-md overflow-hidden max-w-[600px]">
           <div
             className={
               isPageCollectionRunning
@@ -79,19 +94,60 @@ export function RunRow({ run, onView, onRemove, onHide }: RunRowProps) {
             </>
           )}
         </div>
+
+        {isGrouped && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {groupedRuns.map((stage) => {
+              const stageStatus = String(stage.status ?? "queued").toLowerCase();
+              const stagePagesTotal =
+                safeInt(stage.pagesTotal) || (Array.isArray(stage.pagesIds) ? stage.pagesIds.length : 0);
+              const stagePagesScanned = safeInt(stage.pagesScanned);
+              const stageTone =
+                stageStatus === "done" || stageStatus === "completed"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : stageStatus === "failed"
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : stageStatus === "running" || stageStatus === "processing"
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : stageStatus === "blocked"
+                        ? "bg-slate-100 text-slate-700 border-slate-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200";
+
+              return (
+                <span
+                  key={stage.id}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 as-p3-text ${stageTone}`}
+                  title={`${runTypesList[(stage.type ?? "") as keyof typeof runTypesList] ?? stage.type ?? "stage"} · ${stageStatus}`}
+                >
+                  <strong>{runTypesList[(stage.type ?? "") as keyof typeof runTypesList] ?? stage.type ?? "stage"}</strong>
+                  <span>{stageStatus}</span>
+                  {stagePagesTotal > 0 && (
+                    <span>
+                      {stagePagesScanned}/{stagePagesTotal}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        
         {String(run.status ?? "").toLowerCase() === "done" && (
-          <Button
-            variant="secondary"
+          <DSButton
+            variant="outline"
+            size="sm"
             onClick={() => onView(run)}
-            title={`View`}
-          />
+          >
+            View
+          </DSButton>
         )}
-        {run.status == 'queued' && <Button variant="danger" onClick={()=>onRemove(run)} title={<FaTrashAlt/>}/>}
-        {run.status == 'done' && <Button variant="danger" onClick={()=>onHide(run)} title={<FaEyeSlash />}/>}
+        {["queued", "running", "processing", "pending", "blocked"].includes(String(run.status ?? "").toLowerCase()) && (
+          <DSIconButton variant="danger" icon={<PiX size={16} />} label="Cancel run" onClick={() => onCancel(run)} />
+        )}
+        {run.status == 'queued' && <DSIconButton variant="danger" icon={<FaTrashAlt />} label="Delete queued run" onClick={()=>onRemove(run)} />}
+        {run.status == 'done' && <DSIconButton variant="danger" icon={<FaEyeSlash />} label="Hide run" onClick={()=>onHide(run)} />}
       </div>
       <style jsx>{`
         .run-progress-indeterminate {

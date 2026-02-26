@@ -1,6 +1,11 @@
 "use client";
 
-import React, { type ReactNode, useEffect } from "react";
+/**
+ * Workspace Layout
+ * Shared component in organism/workspace-layout.tsx.
+ */
+
+import React, { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,14 +16,23 @@ import {
   URL_APP_REPORTS,
   URL_APP_SCANS,
   URL_APP_SCHEDULES,
+  URL_APP_DESIGN_SYSTEM,
+  URL_APP_API,
 } from "@/utils/urls";
-import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight, PiCalendar } from "react-icons/pi";
-import { FiUser, FiLogOut, FiSettings, FiCreditCard } from "react-icons/fi";
+import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight, PiCalendar, PiPaletteLight, PiCode } from "react-icons/pi";
+import { FiUser, FiLogOut, FiSettings, FiCreditCard, FiShield } from "react-icons/fi";
 import { useToast } from "../providers/window-provider";
 import { subscribeToJobsWithToasts } from "@/services/jobsService";
+import { subscribeToUserNotificationsWithToasts } from "@/services/userNotificationsService";
 import { useAuth } from "@/utils/firebase";
-import { URL_APP_PROFILE, URL_APP_ORGANISATION, URL_APP_BILLING } from "@/utils/urls";
+import { URL_APP_PROFILE, URL_APP_ORGANISATION, URL_APP_BILLING, URL_APP_ADMIN } from "@/utils/urls";
 import { useRouter } from "next/navigation";
+import { isPlatformAdminUser } from "@/utils/platform-admin";
+import { useSubscription } from "@/hooks/use-subscription";
+import { useOnboarding } from "@/hooks/use-onboarding";
+import { OnboardingContext } from "@/contexts/onboarding-context";
+import { WelcomeModal } from "@/components/modals/welcome-modal";
+import { OnboardingChecklist } from "@/components/organism/onboarding-checklist";
 
 type WorkspaceLayoutProps = {
   children: ReactNode;
@@ -28,11 +42,32 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const toast = useToast();
   const { user, logout } = useAuth();
   const router = useRouter();
+  const isAdmin = isPlatformAdminUser(user as Record<string, any>);
+  const { hasFeature } = useSubscription();
+  const onboarding = useOnboarding(user?.uid);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+
+  // Show welcome modal once when welcomeSeen transitions from false → seen
+  useEffect(() => {
+    if (onboarding.welcomeSeen === false) {
+      setWelcomeOpen(true);
+    }
+  }, [onboarding.welcomeSeen]);
+
+  const handleCloseWelcome = () => {
+    setWelcomeOpen(false);
+    onboarding.markWelcomeSeen();
+  };
 
   useEffect(() => {
-    const unsubscribe = subscribeToJobsWithToasts(toast);
+    const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user?.uid ?? null });
     return unsubscribe;
-  }, [toast]);
+  }, [toast, user?.uid]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToUserNotificationsWithToasts(toast, user?.uid ?? null);
+    return unsubscribe;
+  }, [toast, user?.uid]);
 
   const handleLogout = async () => {
     try {
@@ -49,11 +84,15 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     { href: URL_APP_SCANS, label: "Scans", icon: <PiNotepadLight /> },
     { href: URL_APP_SCHEDULES, label: "Schedules", icon: <PiCalendar /> },
     { href: URL_APP_REPORTS, label: "Reports", icon: <PiNotepadLight /> },
+    ...(hasFeature('apiAccess') ? [{ href: URL_APP_API, label: "API", icon: <PiCode /> }] : []),
+    ...(isAdmin ? [{ href: URL_APP_ADMIN, label: "Admin", icon: <FiShield /> }] : []),
+    { href: URL_APP_DESIGN_SYSTEM, label: "Design System", icon: <PiPaletteLight /> },
   ];
 
   const pathname = usePathname();
 
   return (
+    <OnboardingContext.Provider value={onboarding}>
     <div className="min-h-screen">
       {/* <Header /> */}
 
@@ -189,11 +228,16 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
         {/* Main Content Area with left margin to account for fixed sidebar */}
         <div className="flex-1 ml-64">
-          <div className="flex flex-col gap-x-2 bg-gradient-to-b from-[#F8FAFC] via-[#F1F5F9] to-[#FFFFFF] min-h-screen">
+          <div className="flex flex-col gap-x-2 bg-[var(--color-bg-light)] min-h-screen">
             <main className="px-6 pt-6">{children}</main>
           </div>
         </div>
       </div>
+
+      {/* Onboarding */}
+      <WelcomeModal open={welcomeOpen} onClose={handleCloseWelcome} />
+      <OnboardingChecklist onboarding={onboarding} />
     </div>
+    </OnboardingContext.Provider>
   );
 }

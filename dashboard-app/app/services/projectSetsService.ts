@@ -12,7 +12,8 @@ import {
   type Query,
 } from "firebase/firestore";
 
-import type { PageSetTDO } from "@/types/page-types-set";
+import type { PageSetRule, PageSetTDO } from "@/types/page-types-set";
+import { normalizePageSetRules } from "@/services/pageSetResolver";
 
 /**
  * PageSetCreateInput
@@ -24,6 +25,7 @@ export type PageSetCreateInput = {
   name: string;
   filterText: string;
   regex: string;
+  rules?: PageSetRule[];
   pageIds: string[];
 };
 
@@ -57,7 +59,7 @@ const buildPageSetsQuery = (projectId: string): Query<DocumentData> => {
  * Creates a new page set document in `pageSets` collection.
  */
 export async function createPageSet(object: PageSetCreateInput): Promise<PageSetDoc> {
-  const { projectId, name, filterText,regex, pageIds } = object;
+  const { projectId, name, filterText, regex, rules = [], pageIds } = object;
 
   if (!projectId) throw new Error("projectId required");
   if (!name) throw new Error("name required");
@@ -68,9 +70,17 @@ export async function createPageSet(object: PageSetCreateInput): Promise<PageSet
     name,
     filterText,
     regex,
+    rules,
     pageIds,
+    pageCount: pageIds.length,
+    filterSpec: {
+      rules,
+      regex,
+      filterText,
+    },
     owner: auth.currentUser ? auth.currentUser.uid : null,
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   };
 
   const ref = await addDoc(collection(db, "projects", projectId, "pageSets"), payload);
@@ -108,9 +118,14 @@ export async function loadPageSets(projectId: string): Promise<PageSetTDO[]> {
       // currently expects them.
       filterText: String(data.filterText ?? ""),
       regex: String(data.regex ?? ""),
-
-      filterSpec: String(data.filterSpec ?? ""),
+      rules: normalizePageSetRules({
+        regex: String(data.regex ?? ""),
+        filterText: String(data.filterText ?? ""),
+        rules: Array.isArray(data.rules) ? data.rules : undefined,
+      }),
+      filterSpec: data.filterSpec ?? null,
       pageIds,
+      pageCount: Number(data.pageCount || pageIds.length || 0),
 
       owner: (data.owner ?? null) as string | null,
 
@@ -129,7 +144,7 @@ export async function loadPageSets(projectId: string): Promise<PageSetTDO[]> {
 export async function updatePageSet(
   projectId: string,
   id: string,
-  patch: Partial<Pick<PageSetCreateInput, "name" | "filterText" | "regex" | "pageIds">>
+  patch: Partial<Pick<PageSetCreateInput, "name" | "filterText" | "regex" | "rules" | "pageIds">>
 ): Promise<void> {
   if (!projectId) throw new Error("projectId required");
   if (!id) throw new Error("id required");
@@ -139,7 +154,19 @@ export async function updatePageSet(
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.filterText !== undefined ? { filterText: patch.filterText } : {}),
     ...(patch.regex !== undefined ? { regex: patch.regex } : {}),
+    ...(patch.rules !== undefined ? { rules: patch.rules } : {}),
     ...(patch.pageIds !== undefined ? { pageIds: patch.pageIds } : {}),
+    ...(patch.pageIds !== undefined ? { pageCount: patch.pageIds.length } : {}),
+    ...(patch.rules !== undefined || patch.regex !== undefined || patch.filterText !== undefined
+      ? {
+          filterSpec: {
+            rules: patch.rules,
+            regex: patch.regex,
+            filterText: patch.filterText,
+          },
+        }
+      : {}),
+    updatedAt: serverTimestamp(),
   });
 }
 

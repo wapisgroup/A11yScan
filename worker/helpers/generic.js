@@ -1,8 +1,10 @@
 const url = require("url");
 
 async function fetchHtml(u) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20000);
     try {
-        const res = await fetch(u, { redirect: 'follow', timeout: 20000, headers: { 'User-Agent': 'A11yScan-SitemapBot/1.0' } });
+        const res = await fetch(u, { redirect: 'follow', signal: ctrl.signal, headers: { 'User-Agent': 'A11yScan-SitemapBot/1.0' } });
         const ct = res.headers.get('content-type') || '';
         if (!ct.includes('text/html')) return null;
         const text = await res.text();
@@ -10,6 +12,8 @@ async function fetchHtml(u) {
     } catch (err) {
         console.warn('fetch error', u, err && err.message);
         return null;
+    } finally {
+        clearTimeout(timer);
     }
 }
 

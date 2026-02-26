@@ -1,6 +1,5 @@
 // ---------- structured sitemap helpers ----------
 const {URL} = require("url");
-const { Storage } = require('@google-cloud/storage');
 
 // Build a nested tree from pages (pages = nodes array with { id:url, title })
 function buildSitemapTree(pages, options = {}) {
@@ -76,46 +75,31 @@ function treeToList(tree) {
 }
 
 async function uploadTreeJson(admin, treeJson, treePath) {
-    // Decide bucket name (prefer admin app bucket, else env)
-    const bucketName = admin.app().options?.storageBucket || process.env.STORAGE_BUCKET || process.env.STORAGE_BUCKET_NAME || process.env.STORAGE_BUCKET;
-    if (!bucketName) throw new Error('No storage bucket configured (set admin app bucket or STORAGE_BUCKET env)');
+    // Use admin.storage() — already initialized correctly for both emulator and production.
+    // This avoids needing a separate @google-cloud/storage client with separate credentials.
+    const bucketName = admin.app().options?.storageBucket
+        || process.env.STORAGE_BUCKET
+        || process.env.STORAGE_BUCKET_NAME;
+    if (!bucketName) throw new Error('No storage bucket configured (set admin app storageBucket or STORAGE_BUCKET env)');
 
-    // Create Storage client differently for emulator vs real GCS
-    let storageClient;
-    if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
-        // FIREBASE_STORAGE_EMULATOR_HOST may be like "localhost:9199" or "http://localhost:9199"
-        console.log('FIREBASE_STORAGE_EMULATOR_HOST may be like "localhost:9199" or "http://localhost:9199"')
-        let host = process.env.FIREBASE_STORAGE_EMULATOR_HOST.replace(/^https?:\/\//, '');
-        const apiEndpoint = `http://${host}`; // @google-cloud/storage expects protocol in apiEndpoint
-        // Provide projectId to the client so it doesn't try to fetch metadata
-        console.log({ apiEndpoint, projectId: process.env.GCLOUD_PROJECT || 'local-project' })
-        storageClient = new Storage({ apiEndpoint, projectId: process.env.GCLOUD_PROJECT || 'local-project' });
-        console.log('[storage] configured to use emulator at', apiEndpoint);
-    } else {
-        storageClient = new Storage(); // production
-    }
-
-    console.log('storageClient',storageClient);
-    const bucket = storageClient.bucket(bucketName);
+    const bucket = admin.storage().bucket(bucketName);
     // ensure treePath doesn't start with leading slash
     const objectPath = treePath.replace(/^\/+/, '');
+    const file = bucket.file(objectPath);
 
     // Upload the JSON
-    await bucket.file(objectPath).save(treeJson, { contentType: 'application/json' });
+    await file.save(treeJson, { contentType: 'application/json' });
 
-    // Return a usable download URL depending on emulator vs real
+    // Return a usable download URL depending on emulator vs production
     if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
-        // direct emulator download endpoint (no signed URLs)
         const host = process.env.FIREBASE_STORAGE_EMULATOR_HOST.replace(/^https?:\/\//, '');
-        const emulatorUrl = `http://${host}/v0/b/${bucketName}/o/${encodeURIComponent(objectPath)}?alt=media`;
-        return emulatorUrl;
+        return `http://${host}/v0/b/${bucketName}/o/${encodeURIComponent(objectPath)}?alt=media`;
     } else {
-        // production: attempt signed URL (7 days)
-        const [signedUrl] = await bucket.file(objectPath).getSignedUrl({
-            action: 'read',
-            expires: Date.now() + 1000 * 60 * 60 * 24 * 7
-        });
-        return signedUrl;
+        // Production: Firebase download token (non-expiring, browser-accessible, CORS-friendly)
+        const { randomUUID } = require('crypto');
+        const downloadToken = randomUUID();
+        await file.setMetadata({ metadata: { firebaseStorageDownloadTokens: downloadToken } });
+        return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(objectPath)}?alt=media&token=${downloadToken}`;
     }
 }
 

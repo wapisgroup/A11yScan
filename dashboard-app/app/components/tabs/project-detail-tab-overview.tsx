@@ -1,9 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+/**
+ * Project Detail Tab Overview
+ * Shared component in tabs/project-detail-tab-overview.tsx.
+ */
+
+import React, { useCallback, useEffect, useState } from "react";
 import { subscribeProjectRuns } from "@/services/projectRunsService";
 import { PiPlay, PiGlobe, PiTreeStructure, PiDownloadSimple, PiArrowRight } from "react-icons/pi";
+import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
+import { SitemapTree, type SitemapNode } from "@/components/organism/sitemap-tree";
 
 import {
   startFullScan,
@@ -12,8 +18,9 @@ import {
 } from "@/services/projectDetailService";
 import { OverviewTaskRow } from "../molecule/overview-task-row";
 import { PageContainer } from "../molecule/page-container";
-import { Button } from "../atom/button";
+import { DSButton } from "../atom/ds-button";
 import { useAlert } from "../providers/window-provider";
+import { auth } from "@/utils/firebase";
 
 type Run = {
   id: string;
@@ -39,6 +46,9 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
   const projectId = project?.id;
   const alert = useAlert();
   const [latestRuns, setLatestRuns] = useState<Run[]>([]);
+  const [sitemapDrawerOpen, setSitemapDrawerOpen] = useState(false);
+  const [sitemapTree, setSitemapTree] = useState<SitemapNode | null>(null);
+  const [sitemapLoading, setSitemapLoading] = useState(false);
 
   // Subscribe to runs for real-time updates
   useEffect(() => {
@@ -68,9 +78,66 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
     await alert(result);
   };
 
+  const handleDownloadSitemap = useCallback(async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not authenticated');
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`/api/projects/${projectId}/sitemap`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sitemap.xml';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      await alert({ title: 'Error', message: err instanceof Error ? err.message : 'Failed to download sitemap' });
+    }
+  }, [projectId, alert]);
+
+  const handleViewSitemapDrawer = useCallback(async () => {
+    setSitemapDrawerOpen(true);
+    if (!projectId) return;
+    setSitemapLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/projects/${projectId}/sitemap-tree`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSitemapTree(data);
+      }
+    } catch {
+      // leave tree null — drawer shows "not available" message
+    } finally {
+      setSitemapLoading(false);
+    }
+  }, [projectId]);
+
   if (!projectId) return <div>Loading</div>;
 
   return (
+    <>
+    <DSDrawerShell
+      open={sitemapDrawerOpen}
+      onClose={() => setSitemapDrawerOpen(false)}
+      title="Sitemap Diagram"
+    >
+      <div className="p-4">
+        {sitemapLoading ? (
+          <div className="text-slate-500 text-sm">Loading sitemap...</div>
+        ) : sitemapTree ? (
+          <SitemapTree tree={sitemapTree} />
+        ) : (
+          <div className="text-slate-500 text-sm">No sitemap available for this project. Generate a sitemap first.</div>
+        )}
+      </div>
+    </DSDrawerShell>
     <div className="flex flex-col gap-6">
       {/* Quick Actions Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -85,11 +152,12 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
           <p className="text-sm text-slate-600 mb-4">
             Automatically discover and collect all pages from your website's sitemap and internal links.
           </p>
-          <Button
-            variant="secondary"
-            title="Collect pages from website"
+          <DSButton
+            variant="outline"
             onClick={handleStartPageCollection}
-          />
+          >
+            Collect pages from website
+          </DSButton>
         </div>
 
         {/* Full Scan Card */}
@@ -103,11 +171,7 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
           <p className="text-sm text-slate-600 mb-4">
             Run a comprehensive accessibility scan across all collected pages to identify issues.
           </p>
-          <Button
-            variant="primary"
-            title="Start full scan"
-            onClick={handleStartFullScan}
-          />
+          <DSButton onClick={handleStartFullScan}>Start full scan</DSButton>
         </div>
       </div>
 
@@ -132,11 +196,10 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
                 </div>
                 
                 <div className="flex flex-col gap-3">
-                  <a 
-                    href={project.sitemapUrl} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors group"
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadSitemap()}
+                    className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors group w-full text-left"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-white rounded border border-slate-200">
@@ -148,11 +211,12 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
                       </div>
                     </div>
                     <PiArrowRight size={18} className="text-slate-400 group-hover:text-slate-600" />
-                  </a>
+                  </button>
                   
-                  <Link 
-                    href={`/workspace/sitemap/${projectId}`}
-                    className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors group"
+                  <button
+                    type="button"
+                    onClick={() => void handleViewSitemapDrawer()}
+                    className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors group w-full text-left"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-white rounded border border-slate-200">
@@ -164,14 +228,12 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
                       </div>
                     </div>
                     <PiArrowRight size={18} className="text-slate-400 group-hover:text-slate-600" />
-                  </Link>
+                  </button>
                 </div>
 
-                <Button 
-                  onClick={handleStartSitemap} 
-                  variant="secondary" 
-                  title="Regenerate sitemap" 
-                />
+                <DSButton onClick={handleStartSitemap} variant="outline">
+                  Regenerate sitemap
+                </DSButton>
               </>
             ) : (
               <>
@@ -184,11 +246,9 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
                     <p className="text-xs text-slate-500">Generate a sitemap to visualize your site structure</p>
                   </div>
                 </div>
-                <Button 
-                  onClick={handleStartSitemap} 
-                  variant="primary" 
-                  title="Generate sitemap" 
-                />
+                <DSButton onClick={handleStartSitemap}>
+                  Generate sitemap
+                </DSButton>
               </>
             )}
           </div>
@@ -260,5 +320,6 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
         </PageContainer>
       </div>
     </div>
+    </>
   );
 }

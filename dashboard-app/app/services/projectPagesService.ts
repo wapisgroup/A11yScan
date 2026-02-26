@@ -9,8 +9,7 @@ import {
 } from "firebase/firestore";
 
 import { deleteDoc, doc } from "firebase/firestore";
-import { db } from "@/utils/firebase";
-import { callServerFunction } from "./serverService";
+import { db, auth } from "@/utils/firebase";
 import type { PageDoc } from "@/types/page-types";
 
 export type RunSelectedPagesResult = {
@@ -132,9 +131,23 @@ export async function runSelectedPages(
   }
 
   try {
-    // Use scanPage to scan the selected pages
-    const payload = { projectId, pagesIds: pageIds };
-    await callServerFunction("scanPage", payload);
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("User not authenticated");
+    const token = await currentUser.getIdToken();
+
+    const response = await fetch("/api/pages/scan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ projectId, pagesIds: pageIds }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error((error as any).message || `Server returned ${response.status}`);
+    }
 
     return {
       title: "Information",
@@ -240,7 +253,7 @@ export async function removeNon2xxPages(
 ): Promise<number> {
   const non2xxPages = pages.filter(page => {
     const status = page.httpStatus;
-    return !status || status < 200 || status >= 300;
+    return status != null && (status < 200 || status >= 300);
   });
 
   await removePages(projectId, non2xxPages.map(p => p.id));

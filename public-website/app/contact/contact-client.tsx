@@ -5,115 +5,136 @@ import { LoggedOutHeader } from "../components/organism/logged-out-header";
 import { LoggedOutFooter } from "../components/organism/logged-out-footer";
 import { LoggedOutLayout } from "../components/organism/logged-out-layout";
 import { ContactPageForm } from "../components/sections/ContactPage/form";
-import { HiEnvelope, HiLifebuoy, HiUserGroup, HiClock, HiDocumentText, HiChatBubbleLeftRight, HiCalendarDays } from "react-icons/hi2";
+import {
+    HiEnvelope,
+    HiLifebuoy,
+    HiUserGroup,
+    HiClock,
+    HiDocumentText,
+    HiChatBubbleLeftRight,
+    HiCalendarDays,
+    HiCheckCircle,
+    HiArrowRight,
+} from "react-icons/hi2";
 import Link from "next/link";
 import { URL_FRONTEND_FAQS, URL_FRONTEND_PRICING, URL_FRONTEND_FEATURES } from "@/app/services/urlServices";
 
 export default function ContactClient() {
     const [isCalendlyOpen, setIsCalendlyOpen] = useState(false);
-    const openCalendlyPopup = () => setIsCalendlyOpen(true);
-    const closeCalendlyPopup = () => setIsCalendlyOpen(false);
 
     return (
         <LoggedOutLayout>
             <LoggedOutHeader />
 
-            {/* Hero Section */}
-            <section className="bg-white py-20 md:py-28">
-                <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
+            {/* Hero */}
+            <section className="py-16 md:py-24 relative overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none"
+                    style={{ background: 'linear-gradient(135deg, rgba(45,45,110,0.04), rgba(95,59,143,0.06), rgba(57,176,206,0.03))' }} />
+                <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 relative">
                     <div className="max-w-4xl mx-auto text-center">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-full text-emerald-700 text-sm font-semibold mb-6">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-6 border"
+                            style={{ background: 'rgba(95,59,143,0.07)', borderColor: 'rgba(95,59,143,0.2)', color: '#5f3b8f' }}>
                             <HiChatBubbleLeftRight className="w-4 h-4" />
                             We're Here to Help
                         </div>
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-6 leading-tight">
                             Get in Touch
                         </h1>
-                        <p className="text-xl text-slate-600 leading-relaxed">
-                            Have questions about Ablelytics? Our team is here to help with pricing, technical questions, or custom solutions.
+                        <p className="text-xl text-slate-600 leading-relaxed max-w-2xl mx-auto">
+                            Questions about Ablelytics? Our team is here to help with pricing, technical questions, or custom solutions.
                         </p>
                     </div>
                 </div>
             </section>
 
-            {/* Contact Cards Section */}
-            <section className="bg-slate-50 py-20 md:py-28">
+            {/* Contact channels */}
+            <section className="bg-slate-50 py-12 md:py-16">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto mb-16">
-                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-8 text-center hover:shadow-lg transition-shadow">
-                            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center mx-auto mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-0">
+
+                        <div className="bg-white rounded-2xl border-2 border-slate-100 p-8 text-center hover:shadow-md transition-shadow hover:border-[#5f3b8f]/30">
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-5"
+                                style={{ background: 'linear-gradient(135deg, #5f3b8f, #3861ab)' }}>
                                 <HiEnvelope className="w-7 h-7 text-white" />
                             </div>
-                            <h3 className="text-2xl font-bold text-slate-900 mb-3">Sales</h3>
-                            <p className="text-slate-600 mb-6 leading-relaxed">
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Sales</h3>
+                            <p className="text-slate-500 mb-5 text-sm leading-relaxed">
                                 Questions about pricing, plans, or custom solutions?
                             </p>
-                            <a 
-                                href="mailto:sales@ablelytics.com" 
-                                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold"
+                            <a
+                                href="mailto:sales@ablelytics.com"
+                                className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+                                style={{ color: '#5f3b8f' }}
                             >
                                 sales@ablelytics.com
-                                <span>→</span>
+                                <HiArrowRight className="w-4 h-4" />
                             </a>
                         </div>
 
-                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-2xl p-8 text-center hover:shadow-lg transition-shadow">
-                            <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center mx-auto mb-6">
+                        <div className="bg-white rounded-2xl border-2 border-slate-100 p-8 text-center hover:shadow-md transition-shadow hover:border-[#3861ab]/30">
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-5"
+                                style={{ background: 'linear-gradient(135deg, #3861ab, #39b0ce)' }}>
                                 <HiLifebuoy className="w-7 h-7 text-white" />
                             </div>
-                            <h3 className="text-2xl font-bold text-slate-900 mb-3">Support</h3>
-                            <p className="text-slate-600 mb-6 leading-relaxed">
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Support</h3>
+                            <p className="text-slate-500 mb-5 text-sm leading-relaxed">
                                 Need technical help or have questions about using Ablelytics?
                             </p>
-                            <a 
-                                href="mailto:support@ablelytics.com" 
-                                className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-semibold"
+                            <a
+                                href="mailto:support@ablelytics.com"
+                                className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+                                style={{ color: '#3861ab' }}
                             >
                                 support@ablelytics.com
-                                <span>→</span>
+                                <HiArrowRight className="w-4 h-4" />
                             </a>
                         </div>
 
-                        <div className="bg-gradient-to-br from-violet-50 to-purple-50 border-2 border-violet-200 rounded-2xl p-8 text-center hover:shadow-lg transition-shadow">
-                            <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center mx-auto mb-6">
+                        <div className="bg-white rounded-2xl border-2 border-slate-100 p-8 text-center hover:shadow-md transition-shadow hover:border-[#39b0ce]/30">
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-5"
+                                style={{ background: 'linear-gradient(135deg, #2d2d6e, #5f3b8f)' }}>
                                 <HiUserGroup className="w-7 h-7 text-white" />
                             </div>
-                            <h3 className="text-2xl font-bold text-slate-900 mb-3">Partnerships</h3>
-                            <p className="text-slate-600 mb-6 leading-relaxed">
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Partnerships</h3>
+                            <p className="text-slate-500 mb-5 text-sm leading-relaxed">
                                 Interested in becoming a partner or reseller?
                             </p>
-                            <a 
-                                href="mailto:partners@ablelytics.com" 
-                                className="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700 font-semibold"
+                            <a
+                                href="mailto:partners@ablelytics.com"
+                                className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+                                style={{ color: '#39b0ce' }}
                             >
                                 partners@ablelytics.com
-                                <span>→</span>
+                                <HiArrowRight className="w-4 h-4" />
                             </a>
                         </div>
 
-                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-8 text-center hover:shadow-lg transition-shadow">
-                            <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center mx-auto mb-6">
+                        <div className="bg-white rounded-2xl border-2 border-slate-100 p-8 text-center hover:shadow-md transition-shadow">
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-5"
+                                style={{ background: 'linear-gradient(135deg, #39b0ce, #3861ab)' }}>
                                 <HiCalendarDays className="w-7 h-7 text-white" />
                             </div>
-                            <h3 className="text-2xl font-bold text-slate-900 mb-3">Schedule a Demo</h3>
-                            <p className="text-slate-600 mb-6 leading-relaxed">
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Schedule a Demo</h3>
+                            <p className="text-slate-500 mb-5 text-sm leading-relaxed">
                                 Book a 30-minute walkthrough and get a tailored plan for your team.
                             </p>
                             <button
                                 type="button"
-                                onClick={openCalendlyPopup}
-                                className="inline-flex items-center gap-2 text-amber-600 hover:text-amber-700 font-semibold"
+                                onClick={() => setIsCalendlyOpen(true)}
+                                className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+                                style={{ color: '#3861ab' }}
                             >
                                 Book time
-                                <span>→</span>
+                                <HiArrowRight className="w-4 h-4" />
                             </button>
                         </div>
+
                     </div>
                 </div>
             </section>
 
-            {/* Contact Form Section */}
-            <section className="bg-white py-20 md:py-28">
+            {/* Contact Form + sidebar */}
+            <section className="bg-white py-16 md:py-24">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
                     <div className="max-w-5xl mx-auto">
                         <div className="text-center mb-12">
@@ -121,29 +142,60 @@ export default function ContactClient() {
                                 Send Us a Message
                             </h2>
                             <p className="text-lg text-slate-600">
-                                Fill out the form below and we'll get back to you as soon as possible
+                                Fill out the form below and we'll get back to you within one business day.
                             </p>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                             <div className="lg:col-span-2 bg-slate-50 rounded-2xl p-8 md:p-10 border border-slate-200 shadow-sm">
                                 <ContactPageForm />
                             </div>
-                            <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
-                                <h3 className="text-xl font-bold text-slate-900 mb-4">What happens next</h3>
-                                <ul className="space-y-3 text-slate-600">
-                                    <li>• We reply within one business day</li>
-                                    <li>• You get a tailored plan and pricing</li>
-                                    <li>• We can run a sample scan together</li>
-                                </ul>
-                                <div className="mt-6">
-                                    <button
-                                        type="button"
-                                        onClick={openCalendlyPopup}
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition-colors"
-                                    >
-                                        Schedule a demo
-                                        <span>→</span>
-                                    </button>
+                            <div className="space-y-5">
+                                <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-sm">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-4">What happens next</h3>
+                                    <ul className="space-y-3">
+                                        {[
+                                            "We reply within one business day",
+                                            "You get a tailored plan and pricing",
+                                            "We can run a sample scan together",
+                                        ].map(item => (
+                                            <li key={item} className="flex items-start gap-2.5 text-sm text-slate-600">
+                                                <HiCheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#5f3b8f' }} />
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <div className="mt-6 pt-5 border-t border-slate-100">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsCalendlyOpen(true)}
+                                            className="inline-flex items-center gap-2 px-4 py-2.5 text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+                                            style={{ background: 'linear-gradient(135deg, #5f3b8f, #3861ab)' }}
+                                        >
+                                            <HiCalendarDays className="w-4 h-4" />
+                                            Schedule a demo
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-2xl p-7 border border-slate-200 shadow-sm">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                        <HiClock className="w-5 h-5" style={{ color: '#3861ab' }} />
+                                        Response times
+                                    </h3>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between py-2 border-b border-slate-100">
+                                            <span className="text-slate-600">Sales enquiries</span>
+                                            <span className="font-semibold text-slate-900">4 hours</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-slate-100">
+                                            <span className="text-slate-600">Support tickets</span>
+                                            <span className="font-semibold text-slate-900">24 hours</span>
+                                        </div>
+                                        <div className="flex justify-between py-2">
+                                            <span className="text-slate-600">Business hours</span>
+                                            <span className="font-semibold text-slate-900">Mon–Fri, 9–6 EST</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -151,89 +203,44 @@ export default function ContactClient() {
                 </div>
             </section>
 
-            {/* Additional Info Section */}
-            <section className="bg-slate-50 py-20 md:py-28">
+            {/* Quick links */}
+            <section className="bg-slate-50 py-12 md:py-16">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
-                                    <HiClock className="w-6 h-6 text-white" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-slate-900">Business Hours</h3>
-                            </div>
-                            <div className="space-y-3 text-slate-600">
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="font-semibold">Monday - Friday</span>
-                                    <span>9:00 AM - 6:00 PM EST</span>
-                                </div>
-                                <div className="flex justify-between py-2 border-b border-slate-100">
-                                    <span className="font-semibold">Saturday - Sunday</span>
-                                    <span>Closed</span>
-                                </div>
-                                <p className="text-sm text-slate-500 mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                                    <strong className="text-amber-700">Response Times:</strong><br />
-                                    Sales inquiries: 4 hours<br />
-                                    Support tickets: 24 hours
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-xl flex items-center justify-center">
-                                    <HiDocumentText className="w-6 h-6 text-white" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-slate-900">Quick Links</h3>
-                            </div>
-                            <div className="space-y-3">
-                                <Link 
-                                    href={URL_FRONTEND_FAQS} 
-                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
-                                >
-                                    <span className="text-slate-700 font-medium">View FAQs</span>
-                                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
+                    <div className="max-w-3xl mx-auto">
+                        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                            <HiDocumentText className="w-5 h-5" style={{ color: '#5f3b8f' }} />
+                            Quick Links
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {[
+                                { href: URL_FRONTEND_FAQS, label: "View FAQs", desc: "Browse common questions" },
+                                { href: URL_FRONTEND_PRICING, label: "Pricing Plans", desc: "Compare plans and features" },
+                                { href: URL_FRONTEND_FEATURES, label: "Feature Overview", desc: "See what's included" },
+                            ].map(({ href, label, desc }) => (
+                                <Link key={href} href={href}
+                                    className="bg-white rounded-xl p-5 border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all group">
+                                    <div className="font-semibold text-slate-900 text-sm mb-1 group-hover:text-[#5f3b8f] transition-colors">{label}</div>
+                                    <div className="text-xs text-slate-500">{desc}</div>
                                 </Link>
-                                <Link 
-                                    href={URL_FRONTEND_PRICING} 
-                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
-                                >
-                                    <span className="text-slate-700 font-medium">Pricing Plans</span>
-                                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
-                                </Link>
-                                <Link 
-                                    href={URL_FRONTEND_FEATURES} 
-                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
-                                >
-                                    <span className="text-slate-700 font-medium">Feature Overview</span>
-                                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
-                                </Link>
-                                <a 
-                                    href="/" 
-                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    <span className="text-slate-700 font-medium">Documentation</span>
-                                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform">→</span>
-                                </a>
-                            </div>
+                            ))}
                         </div>
                     </div>
                 </div>
             </section>
 
             <LoggedOutFooter />
-            {isCalendlyOpen ? (
+
+            {/* Calendly modal */}
+            {isCalendlyOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
                     <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-200 p-4">
+                        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                             <h2 className="text-lg font-semibold text-slate-900">Schedule a demo</h2>
                             <button
                                 type="button"
-                                onClick={closeCalendlyPopup}
-                                className="rounded-lg px-3 py-1 text-sm font-semibold text-slate-600 hover:text-slate-900"
-                                aria-label="Close calendly"
+                                onClick={() => setIsCalendlyOpen(false)}
+                                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                aria-label="Close"
                             >
                                 Close
                             </button>
@@ -248,7 +255,7 @@ export default function ContactClient() {
                         </div>
                     </div>
                 </div>
-            ) : null}
+            )}
         </LoggedOutLayout>
     );
 }

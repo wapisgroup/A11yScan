@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../utils/firebase';
-import { 
-  getUserSubscription, 
+import { onSnapshot, doc } from 'firebase/firestore';
+import { useAuth, db } from '../utils/firebase';
+import {
   getPackageConfig,
   hasFeature as checkHasFeature,
   canPerformAction as checkCanPerformAction,
@@ -35,7 +35,7 @@ export function useSubscription(): UseSubscriptionReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSubscription = async () => {
+  useEffect(() => {
     if (!user?.uid) {
       setSubscription(null);
       setPackageConfig(null);
@@ -43,30 +43,36 @@ export function useSubscription(): UseSubscriptionReturn {
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const sub = await getUserSubscription(user.uid);
-      setSubscription(sub);
-      
-      if (sub) {
-        const config = getPackageConfig(sub.packageName);
-        setPackageConfig(config);
-      } else {
-        setPackageConfig(null);
-      }
-    } catch (err) {
-      console.error('Error fetching subscription:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load subscription');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setLoading(true);
+    setError(null);
 
-  useEffect(() => {
-    fetchSubscription();
+    const unsubscribe = onSnapshot(
+      doc(db, 'subscriptions', user.uid),
+      (snap) => {
+        if (!snap.exists()) {
+          setSubscription(null);
+          setPackageConfig(null);
+        } else {
+          const sub = snap.data() as Subscription;
+          setSubscription(sub);
+          // packageName is not in the type but may exist on the doc; fall back to packageId
+          const config = getPackageConfig((sub as any).packageName || sub.packageId);
+          setPackageConfig(config);
+        }
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error fetching subscription:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load subscription');
+        setLoading(false);
+      }
+    );
+
+    return unsubscribe;
   }, [user?.uid]);
+
+  // Kept for API compatibility — real-time listener means manual refetch is a no-op
+  const fetchSubscription = async () => {};
 
   const hasFeature = (featureKey: keyof PackageConfig['features']): boolean => {
     return checkHasFeature(subscription, featureKey);
@@ -76,7 +82,7 @@ export function useSubscription(): UseSubscriptionReturn {
     return checkCanPerformAction(subscription, action);
   };
 
-  const usageLimits = fetchUsageLimits(subscription);
+  const usageLimits = fetchUsageLimits(subscription, packageConfig?.limits);
   const trialDaysRemaining = subscription ? getTrialDaysRemaining(subscription) : 0;
   const needsUpgrade = checkNeedsUpgrade(subscription);
   const statusMessage = getStatusMessage(subscription);

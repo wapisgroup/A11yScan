@@ -9,7 +9,16 @@ const stripe = new Stripe(STRIPE_CONFIG.secretKey, {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, organizationId, packageName, billingCycle, email, customerName, organizationStripeCustomerId } = body;
+    const {
+      userId,
+      organizationId,
+      packageName,
+      billingCycle,
+      email,
+      customerName,
+      organizationStripeCustomerId,
+      cancelTrialSubscriptionId,
+    } = body;
 
     // Validate required fields
     if (!userId || !organizationId || !packageName || !billingCycle || !email) {
@@ -21,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Get Stripe Price ID
     const priceId = getStripePriceId(packageName, billingCycle);
-    
+
     if (!priceId) {
       return NextResponse.json(
         { message: 'Invalid package or billing cycle' },
@@ -33,6 +42,17 @@ export async function POST(request: NextRequest) {
     let customerId: string | undefined = organizationStripeCustomerId;
     if (customerId) {
       console.log('Reusing existing Stripe customer for organization:', customerId);
+    }
+
+    // If upgrading from a trial, cancel the trial subscription first
+    // so Checkout creates a fresh paid subscription
+    if (cancelTrialSubscriptionId) {
+      try {
+        await stripe.subscriptions.cancel(cancelTrialSubscriptionId);
+        console.log('Cancelled trial subscription before checkout:', cancelTrialSubscriptionId);
+      } catch (err) {
+        console.warn('Could not cancel trial subscription:', err);
+      }
     }
 
     // Create Checkout Session
@@ -61,8 +81,21 @@ export async function POST(request: NextRequest) {
           packageName,
           billingCycle,
         },
+        // Only basic plan gets a trial period via Checkout
         trial_period_days: packageName === 'basic' ? 14 : undefined,
       },
+      // Allow customers to add their VAT / tax ID during checkout
+      tax_id_collection: {
+        enabled: true,
+      },
+      // customer_update is required for tax_id_collection but only valid
+      // when reusing an existing Stripe customer
+      ...(customerId ? {
+        customer_update: {
+          name: 'auto',
+          address: 'auto',
+        },
+      } : {}),
       success_url: STRIPE_CONFIG.successUrl,
       cancel_url: STRIPE_CONFIG.cancelUrl,
       allow_promotion_codes: true,

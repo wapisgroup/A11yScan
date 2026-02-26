@@ -179,12 +179,13 @@ export default async function AccessibilityRulesPage() {
         <section className="py-16 md:py-24 lg:py-32">
           <div className="container mx-auto px-4 md:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-full text-emerald-700 text-sm font-semibold mb-8">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-8 border"
+                style={{ background: 'rgba(95,59,143,0.07)', borderColor: 'rgba(95,59,143,0.2)', color: '#5f3b8f' }}>
                 <HiBookOpen className="w-4 h-4" />
                 {rules.length} Accessibility Rules
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-6 leading-tight">
-                Complete <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Accessibility Rules</span> Reference
+                Complete <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg, #5f3b8f, #3861ab)' }}>Accessibility Rules</span> Reference
               </h1>
               <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed">
                 Comprehensive guide to web accessibility rules. Learn about WCAG compliance,
@@ -193,7 +194,8 @@ export default async function AccessibilityRulesPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
                   href={URL_AUTH_REGISTER}
-                  className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-semibold hover:from-indigo-700 hover:to-violet-700 transition-all shadow-lg hover:shadow-xl"
+                  className="px-8 py-4 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #5f3b8f, #3861ab)' }}
                 >
                   Start Testing Your Site
                 </Link>
@@ -208,7 +210,7 @@ export default async function AccessibilityRulesPage() {
             <div className="max-w-6xl mx-auto">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center hover:shadow-md transition-shadow">
-                  <div className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent mb-2">{rules.length}</div>
+                  <div className="text-4xl font-bold bg-clip-text text-transparent mb-2" style={{ backgroundImage: 'linear-gradient(135deg, #5f3b8f, #3861ab)' }}>{rules.length}</div>
                   <div className="text-sm text-slate-600 font-medium">Total Rules</div>
                 </div>
 
@@ -279,7 +281,7 @@ export default async function AccessibilityRulesPage() {
                   </table>
                 </div>
                 <details className="mt-6">
-                  <summary className="cursor-pointer text-sm font-semibold text-indigo-600">
+                  <summary className="cursor-pointer text-sm font-semibold" style={{ color: '#5f3b8f' }}>
                     Show all criteria
                   </summary>
                   <div className="mt-4 overflow-x-auto">
@@ -327,7 +329,8 @@ export default async function AccessibilityRulesPage() {
                       <h2 className="text-3xl font-bold text-slate-900">
                         {category}
                       </h2>
-                      <span className="ml-4 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
+                      <span className="ml-4 px-3 py-1 rounded-full text-sm font-semibold"
+                        style={{ background: 'rgba(95,59,143,0.1)', color: '#5f3b8f' }}>
                         {categoryRules.length} {categoryRules.length === 1 ? 'rule' : 'rules'}
                       </span>
                     </div>
@@ -337,7 +340,7 @@ export default async function AccessibilityRulesPage() {
                         <Link
                           key={rule.ruleId}
                           href={`/accessibility-rules/${rule.ruleId}`}
-                          className="block bg-white rounded-xl border-2 border-slate-200 p-6 hover:shadow-xl hover:border-indigo-400 transition-all duration-200 group"
+                          className="block bg-white rounded-xl border-2 border-slate-200 p-6 hover:shadow-xl hover:border-[#5f3b8f] transition-all duration-200 group"
                         >
                           {/* Header with Severity and Arrow */}
                           <div className="flex items-start justify-between mb-4">
@@ -345,7 +348,7 @@ export default async function AccessibilityRulesPage() {
                               {rule.severity}
                             </span>
                             <svg
-                              className="w-6 h-6 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all duration-200"
+                              className="w-6 h-6 text-slate-400 group-hover:text-[#5f3b8f] group-hover:translate-x-1 transition-all duration-200"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -355,7 +358,7 @@ export default async function AccessibilityRulesPage() {
                           </div>
 
                           {/* Title */}
-                          <h3 className="text-lg font-bold text-slate-900 mb-3 group-hover:text-indigo-600 transition-colors">
+                          <h3 className="text-lg font-bold text-slate-900 mb-3 group-hover:text-[#5f3b8f] transition-colors">
                             {rule.title}
                           </h3>
 
@@ -383,19 +386,21 @@ export default async function AccessibilityRulesPage() {
         </section>
 
         {/* Footer CTA */}
-        <section className="py-16 md:py-20 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600">
+        <section className="py-16 md:py-20 relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #2d2d6e 0%, #5f3b8f 55%, #3861ab 100%)' }}>
           <div className="container mx-auto px-4 md:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto text-center text-white">
               <HiShieldCheck className="w-16 h-16 mx-auto mb-6 opacity-90" />
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 Need Help with Accessibility?
               </h2>
-              <p className="text-lg md:text-xl mb-8 text-indigo-100">
+              <p className="text-lg md:text-xl mb-8 text-blue-100">
                 Our automated accessibility checker can scan your website and identify issues based on these rules.
               </p>
               <Link
                 href={URL_AUTH_REGISTER}
-                className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-xl font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
+                className="inline-block bg-white px-8 py-4 rounded-xl font-semibold hover:bg-slate-50 transition-colors shadow-lg"
+                style={{ color: '#5f3b8f' }}
               >
                 Start Your Free Trial
               </Link>
