@@ -5,7 +5,7 @@
  * Shared component in tabs/project-detail-tab-runs.tsx.
  */
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { RunRow } from "../molecule/project-detail-run-row";
 import { PageContainer } from "../molecule/page-container";
 import { useProjectRunsPageState } from "@/state-services/project-detail-runs-state";
@@ -29,6 +29,15 @@ export function RunsTab({ project }: RunsTabProps) {
 
   const state = useProjectRunsPageState(projectId);
 
+  // Local input state for debounced text filter.
+  // Keeps the input snappy while reducing Firestore requests to one per pause.
+  const { setFilterText } = state;
+  const [inputText, setInputText] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setFilterText(inputText), 300);
+    return () => clearTimeout(timer);
+  }, [inputText, setFilterText]);
+
   const [viewingRun, setViewingRun] = useState<RunDoc | null>(null);
   const [reportPageId, setReportPageId] = useState<string | null>(null);
   const [reportProjectId, setReportProjectId] = useState<string>("");
@@ -36,7 +45,15 @@ export function RunsTab({ project }: RunsTabProps) {
 
   if (!projectId || !state) return <div>Loading</div>;
 
-  const { pagedItems, totalCount, setPage, pagination, filterText, setFilterText, filterCategory, setFilterCategory } = state;
+  const {
+    pagedItems,
+    totalCount,
+    setPage,
+    pagination,
+    filterCategory,
+    setFilterCategory,
+    refresh
+  } = state;
   const { totalPages, safePage } = pagination;
 
   const handleRemoveRun = useCallback(
@@ -56,9 +73,10 @@ export function RunsTab({ project }: RunsTabProps) {
         for (const r of runsToDelete) {
           await deleteProjectRun(projectId, r.id);
         }
+        await refresh();
       }
     },
-    [projectId, confirm]
+    [projectId, confirm, refresh]
   );
 
   const handleHideRun = useCallback(
@@ -70,8 +88,9 @@ export function RunsTab({ project }: RunsTabProps) {
       for (const r of runsToHide) {
         await hideProjectRun(projectId, r.id);
       }
+      await refresh();
     },
-    [projectId]
+    [projectId, refresh]
   );
 
   const handleCancelRun = useCallback(
@@ -90,9 +109,10 @@ export function RunsTab({ project }: RunsTabProps) {
         for (const r of runsToCancel) {
           await cancelProjectRun(projectId, r.id);
         }
+        await refresh();
       }
     },
-    [projectId, confirm]
+    [projectId, confirm, refresh]
   );
 
   const handleViewRun = useCallback((run: RunDoc) => {
@@ -113,8 +133,8 @@ export function RunsTab({ project }: RunsTabProps) {
           <div className="flex items-center justify-between border-b border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)]">
             <div className="flex gap-small items-center">
               <input
-                value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
                 placeholder="Filter by url or title"
                 className="input w-52"
               />

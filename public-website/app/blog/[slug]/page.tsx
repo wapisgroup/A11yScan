@@ -151,6 +151,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   return (
     <LoggedOutLayout>
       <LoggedOutHeader />
+      <main>
       <div className="min-h-screen py-12 px-4">
         <article className="max-w-4xl mx-auto">
           {/* Back to blog */}
@@ -251,6 +252,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         )}
         </article>
       </div>
+      </main>
       <LoggedOutFooter />
     </LoggedOutLayout>
   )

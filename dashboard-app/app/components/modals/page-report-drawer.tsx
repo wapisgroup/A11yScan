@@ -14,7 +14,7 @@ import IssueDetailModal, { type IssueData } from "@/components/modals/issue-deta
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { DSBadge } from "@/components/atom/ds-badge";
 import { scanSinglePage } from "@/services/projectDetailService";
-import { useOnboardingContext } from "@/contexts/onboarding-context";
+// import { useOnboardingContext } from "@/contexts/onboarding-context";
 
 type DrawerTab = "report" | "preview";
 type SeverityFilter = "all" | "critical" | "serious" | "moderate" | "minor";
@@ -59,7 +59,7 @@ export default function PageReportDrawer({
   onScanChange
 }: DrawerProps) {
   const state = usePageReportState(projectId, pageId || undefined);
-  const onboarding = useOnboardingContext();
+  // const onboarding = useOnboardingContext();
   const [selectedIssue, setSelectedIssue] = useState<IssueData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
@@ -71,11 +71,11 @@ export default function PageReportDrawer({
   const [expandedOccurrenceIdx, setExpandedOccurrenceIdx] = useState(0);
 
   // Mark report viewed for onboarding step 4
-  React.useEffect(() => {
-    if (open && pageId) {
-      onboarding?.markReportViewed();
-    }
-  }, [open, pageId, onboarding]);
+  // React.useEffect(() => {
+  //   if (open && pageId) {
+  //     onboarding?.markReportViewed();
+  //   }
+  // }, [open, pageId, onboarding]);
 
   React.useEffect(() => {
     if (!open || !state) return;

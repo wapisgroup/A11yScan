@@ -34,6 +34,18 @@ const SCAN_INDEX_LIMIT = 500;
 
 // Maximum pages to read per project in the legacy fallback path.
 const FALLBACK_PAGES_LIMIT = 500;
+// Short cache to collapse React StrictMode duplicate fetches in development.
+const LOAD_CACHE_TTL_MS = 2_000;
+
+type PageReportsResult = { reports: PageReport[]; projects: ProjectInfo[] };
+type CacheEntry = { expiresAt: number; data: PageReportsResult };
+
+const loadCache = new Map<string, CacheEntry>();
+const loadInflight = new Map<string, Promise<PageReportsResult>>();
+
+function cacheKey(organisationId: string, projectIdFilter?: string | null): string {
+  return `${organisationId}::${projectIdFilter || '*'}`;
+}
 
 function toPageReport(data: any, fallbackId: string, fallbackProjectName?: string): PageReport {
   const summary = data.summary || {};
@@ -73,6 +85,17 @@ export async function loadPageReports(
   organisationId: string,
   projectIdFilter?: string | null
 ): Promise<{ reports: PageReport[]; projects: ProjectInfo[] }> {
+  const key = cacheKey(organisationId, projectIdFilter);
+  const cached = loadCache.get(key);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  const inflight = loadInflight.get(key);
+  if (inflight) return inflight;
+
+  const loader = (async (): Promise<PageReportsResult> => {
   try {
     // Fast path — bounded read from the denormalized scanIndex
     const scanIndexSnap = await getDocs(
@@ -107,7 +130,9 @@ export async function loadPageReports(
       const projects: ProjectInfo[] = Array.from(projectsMap.entries()).map(
         ([id, name]) => ({ id, name })
       );
-      return { reports, projects };
+      const result = { reports, projects };
+      loadCache.set(key, { data: result, expiresAt: Date.now() + LOAD_CACHE_TTL_MS });
+      return result;
     }
 
     // Fallback: no scanIndex entries — read from each project's pages subcollection
@@ -171,9 +196,17 @@ export async function loadPageReports(
       }
     }
 
-    return { reports, projects };
+    const result = { reports, projects };
+    loadCache.set(key, { data: result, expiresAt: Date.now() + LOAD_CACHE_TTL_MS });
+    return result;
   } catch (err) {
     console.error("Failed to load page reports:", err);
     throw err;
   }
+  })();
+
+  loadInflight.set(key, loader);
+  return loader.finally(() => {
+    loadInflight.delete(key);
+  });
 }

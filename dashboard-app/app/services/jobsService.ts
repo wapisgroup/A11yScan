@@ -128,6 +128,7 @@ export function subscribeToJobsWithToasts(
   toast: ToastFunction,
   options?: {
     userId?: string | null;
+    limitCount?: number;
     onError?: (error: unknown) => void;
   }
 ): () => void {
@@ -141,11 +142,13 @@ export function subscribeToJobsWithToasts(
     if (Number.isFinite(parsed) && parsed > 0) lastToastTs = parsed;
   }
 
+  const limitCount = Math.max(1, Math.min(Number(options?.limitCount ?? 5), 25));
+
   // Filter at query level when userId is known — avoids reading every job in the collection.
   // Requires a composite index: jobs(createdBy ASC, createdAt DESC).
   const jobsQuery = options?.userId
-    ? query(collection(db, "jobs"), where("createdBy", "==", options.userId), orderBy("createdAt", "desc"), limit(100))
-    : query(collection(db, "jobs"), orderBy("createdAt", "desc"), limit(100));
+    ? query(collection(db, "jobs"), where("createdBy", "==", options.userId), orderBy("createdAt", "desc"), limit(limitCount))
+    : query(collection(db, "jobs"), orderBy("createdAt", "desc"), limit(limitCount));
 
   const unsubscribe = onSnapshot(
     jobsQuery,

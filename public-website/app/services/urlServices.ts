@@ -31,7 +31,7 @@ export const URL_FRONTEND_SOLUTIONS_DEVELOPERS = "/solutions/developers"
 
 
 export const URL_DOCUMENTATION = "https://docs.ablelytics.com"
-export const URL_DOCUMENTATION_API = `${URL_DOCUMENTATION}/api`
+export const URL_DOCUMENTATION_API = `${URL_DOCUMENTATION}/docs/api-and-integrations`
 
 
 

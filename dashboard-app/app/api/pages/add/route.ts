@@ -55,18 +55,34 @@ export async function POST(request: NextRequest) {
       const projectRef = adminDB.collection('projects').doc(projectId);
       const pageRef = projectRef.collection('pages').doc(pageId);
 
-      await pageRef.set(
-        {
+      const is404 = httpStatus !== null && (httpStatus < 200 || httpStatus >= 300);
+      const wasCreated = await adminDB.runTransaction(async (tx) => {
+        const existingPage = await tx.get(pageRef);
+        if (existingPage.exists) {
+          return false;
+        }
+
+        tx.set(pageRef, {
           url,
           status: 'discovered',
           createdAt: FieldValue.serverTimestamp(),
           createdBy: user.uid,
           ...(httpStatus !== null ? { httpStatus } : {}),
-        },
-        { merge: true }
-      );
+        });
 
-      return NextResponse.json({ ok: true, pageId, httpStatus });
+        tx.set(projectRef, {
+          projectStats: {
+            pagesTotal: FieldValue.increment(is404 ? 0 : 1),
+            pages404: FieldValue.increment(is404 ? 1 : 0),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+
+        return true;
+      });
+
+      return NextResponse.json({ ok: true, pageId, httpStatus, created: wasCreated });
 
     } catch (error) {
       console.error('Error adding page:', error);

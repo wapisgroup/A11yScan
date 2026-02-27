@@ -275,14 +275,14 @@ export default function HomeClient({ blogPosts = [] }: HomeClientProps) {
                       { icon: HiSparkles, label: "AI Analysis", sub: "Semantic reasoning, confidence scoring & fix suggestions", color: "from-[#5f3b8f] to-[#39b0ce]" },
                       { icon: HiDocumentText, label: "Unified Report", sub: "Every issue mapped to WCAG criteria", color: "from-[#39b0ce] to-[#3861ab]" },
                     ].map((step, i) => (
-                      <div key={i}>
+                      <div key={i} className="w-full">
                         <div className="flex items-center gap-4 bg-slate-800 rounded-xl p-4 border border-slate-700">
                           <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${step.color} flex items-center justify-center flex-shrink-0`}>
                             <step.icon className="w-4 h-4 text-white" />
                           </div>
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-white">{step.label}</div>
-                            <div className="text-xs text-slate-400 truncate">{step.sub}</div>
+                            <div className="text-xs text-slate-400">{step.sub}</div>
                           </div>
                         </div>
                         {i < 4 && (

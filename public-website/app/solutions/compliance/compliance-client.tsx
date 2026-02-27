@@ -21,7 +21,7 @@ export default function ComplianceClient() {
   return (
     <LoggedOutLayout>
       <LoggedOutHeader />
-
+<main>
       {/* Hero Section */}
       <section className="py-20 md:py-28 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #2d2d6e 0%, #5f3b8f 55%, #3861ab 100%)' }}>
@@ -83,7 +83,7 @@ export default function ComplianceClient() {
                 <p className="text-slate-700 leading-relaxed mb-4">
                   Over 4,600 digital accessibility lawsuits were filed in 2023 alone. Average settlement and legal costs reach <strong>$75,000–$150,000</strong> per case - before remediation.
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-600">
                   Plus reputational damage and mandatory remediation timelines
                 </p>
               </div>
@@ -95,7 +95,7 @@ export default function ComplianceClient() {
                 <p className="text-slate-700 leading-relaxed mb-4">
                   Navigate WCAG 2.2, ADA Title III, Section 508, the European Accessibility Act (June 2025), and evolving state-level requirements simultaneously.
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-600">
                   Each with different timelines and enforcement mechanisms
                 </p>
               </div>
@@ -107,7 +107,7 @@ export default function ComplianceClient() {
                 <p className="text-slate-700 leading-relaxed mb-4">
                   Traditional audits are slow, expensive, and only provide point-in-time snapshots. Sites change constantly - compliance doesn't stay static.
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-600">
                   Manual audits can't scale with your release cadence
                 </p>
               </div>
@@ -281,7 +281,7 @@ export default function ComplianceClient() {
                   <p className="text-slate-700">Accessibility lawsuits filed in the US in 2023</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-4xl font-bold mb-2" style={{ color: '#39b0ce' }}>10×</div>
+                  <div className="text-4xl font-bold mb-2" style={{ color: '#6083c4' }}>10×</div>
                   <p className="text-slate-700">Faster than manual compliance audits</p>
                 </div>
               </div>
@@ -328,7 +328,7 @@ export default function ComplianceClient() {
           </div>
         </div>
       </section>
-
+</main>
       <LoggedOutFooter />
     </LoggedOutLayout>
   );

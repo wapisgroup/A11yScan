@@ -9,6 +9,7 @@ export type PageDoc = {
   id: string;
   url: string;
   title?: string | null;
+  artifactUrl?: string | null;
   status?: string | null;
   httpStatus?: number | string | null;
   lastRunId?: string | null;

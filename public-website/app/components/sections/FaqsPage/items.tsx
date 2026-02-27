@@ -46,8 +46,8 @@ export const FAQPageItemsSection = ({ faqs }: FAQPageItemsSectionProps) => {
                 </div>
 
                 <div className="md:col-span-2 flex-col flex gap-small">
-                    <label className="block as-h5-text primary-text-color">Category</label>
-                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+                    <label htmlFor="category" className="block as-h5-text primary-text-color">Category</label>
+                    <select value={categoryFilter} name="category" id="category" onChange={e => setCategoryFilter(e.target.value)}
                         className="w-full input">
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>

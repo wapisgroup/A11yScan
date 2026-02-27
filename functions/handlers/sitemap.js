@@ -35,17 +35,24 @@ async function startSitemapHandler(payload, context) {
     }, { merge: true });
   }
 
+  const organisationId = projectSnap.exists ? (projectSnap.data().organisationId || null) : null;
+
   // Add a run document in the runs subcollection for this project
-  const runRef = await projectRef.collection('runs').add({
+  const runRef = projectRef.collection('runs').doc();
+  const runId = runRef.id;
+  await runRef.set({
     type: 'pages_to_sitemap',
     status: 'queued',
     startedAt: nowTimestamp(),
     creatorId: context?.auth?.uid || 'system',
     pagesTotal: 0,
     pagesScanned: 0,
+    queuedVia: 'firestore',
+    runId,
+    projectId,
+    organisationId,
     stats: { critical: 0, serious: 0, moderate: 0, minor: 0 }
   });
-  const runId = runRef.id;
 
   // Firestore fallback job document
   const payloadJob = {
@@ -57,7 +64,6 @@ async function startSitemapHandler(payload, context) {
     createdBy: context?.auth?.uid || null
   };
   await db.collection('jobs').add(payloadJob);
-  await runRef.update({ status: 'queued', queuedVia: 'firestore' });
 
   return { ok: true, runId, via: 'firestore-fallback' };
 }

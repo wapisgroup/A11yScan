@@ -38,6 +38,8 @@ async function startScanHandler(payload, context) {
     }, { merge: true });
   }
 
+  const organisationId = projectSnap.exists ? (projectSnap.data().organisationId || null) : null;
+
   // Use explicit pages list when provided, otherwise scan all pages in the project.
   let pagesIds = [];
   if (explicitPageIds && explicitPageIds.length > 0) {
@@ -59,8 +61,10 @@ async function startScanHandler(payload, context) {
 
   // Optional pipeline mode: first collect pages, then start the scan run/job.
   if (includePageCollection) {
-    const pipelineId = db.collection('_pipelines').doc().id;
-    const collectionRunRef = await projectRef.collection('runs').add({
+    const collectionRunRef = projectRef.collection('runs').doc();
+    const collectionRunId = collectionRunRef.id;
+    const pipelineId = collectionRunId;
+    await collectionRunRef.set({
       type: 'page_collection',
       status: 'queued',
       startedAt: nowTimestamp(),
@@ -68,9 +72,11 @@ async function startScanHandler(payload, context) {
       pipelineId,
       pagesTotal: 0,
       pagesScanned: 0,
+      runId: collectionRunId,
+      projectId,
+      organisationId,
       stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
     });
-    const collectionRunId = collectionRunRef.id;
 
     const collectionJobRef = await db.collection('jobs').add({
       action: 'page_collection',
@@ -84,7 +90,9 @@ async function startScanHandler(payload, context) {
       pipelineId,
     });
 
-    const scanRunRef = await projectRef.collection('runs').add({
+    const scanRunRef = projectRef.collection('runs').doc();
+    const scanRunId = scanRunRef.id;
+    await scanRunRef.set({
       type,
       status: 'blocked',
       creatorId: context?.auth?.uid || 'system',
@@ -97,6 +105,9 @@ async function startScanHandler(payload, context) {
       resolvePagesAtStart: !(explicitPageIds && explicitPageIds.length > 0),
       parentRunId: collectionRunId,
       pipelineId,
+      runId: scanRunId,
+      projectId,
+      organisationId,
       stats: {
         critical: 0,
         minor: 0,
@@ -104,7 +115,6 @@ async function startScanHandler(payload, context) {
         serious: 0,
       },
     });
-    const scanRunId = scanRunRef.id;
 
     const scanJobRef = await db.collection('jobs').add({
       action: type,
@@ -133,7 +143,9 @@ async function startScanHandler(payload, context) {
   }
 
   // Create a run document with all page IDs
-  const runRef = await projectRef.collection('runs').add({
+  const runRef = projectRef.collection('runs').doc();
+  const runId = runRef.id;
+  await runRef.set({
     type: type,
     status: 'queued',
     creatorId: context?.auth?.uid || 'system',
@@ -143,6 +155,9 @@ async function startScanHandler(payload, context) {
     pagesTotal: pagesIds.length,
     pagesScanned: 0,
     queuedVia: 'firestore',
+    runId,
+    projectId,
+    organisationId,
     stats: {
       critical: 0,
       minor: 0,
@@ -150,7 +165,6 @@ async function startScanHandler(payload, context) {
       serious: 0,
     },
   });
-  const runId = runRef.id;
 
   // Create a job document in the root jobs collection
   const jobPayload = {

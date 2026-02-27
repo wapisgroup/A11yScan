@@ -20,7 +20,7 @@ export default function WhyAccessibilityClient() {
     return (
         <LoggedOutLayout>
             <LoggedOutHeader />
-            
+            <main>
             {/* Hero Section */}
             <section className="py-20 md:py-28 relative overflow-hidden"
                 style={{ background: 'linear-gradient(135deg, #2d2d6e 0%, #5f3b8f 55%, #3861ab 100%)' }}>
@@ -246,7 +246,7 @@ export default function WhyAccessibilityClient() {
                     </div>
                 </div>
             </section>
-
+</main>
             <LoggedOutFooter />
         </LoggedOutLayout>
     );

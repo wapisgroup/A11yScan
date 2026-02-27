@@ -1,25 +1,34 @@
 // functions/api/routes/projects.js
 const express = require('express');
 const admin = require('firebase-admin');
-const { nowTimestamp } = require('../../utils/helpers');
+const { nowTimestamp, getPackageConfig, parsePaginationParams, paginate } = require('../../utils/helpers');
 
 const router = express.Router();
 const db = admin.firestore();
 
 /**
  * GET /projects — list all projects for the user's org
+ *
+ * Query params:
+ *   limit  (number, default 50, max 200) — page size
+ *   after  (string)                      — cursor: last document ID from previous page
  */
 router.get('/', async (req, res) => {
   try {
-    const { organisationId, uid } = req.apiUser;
-    const snap = await db
-      .collection('projects')
-      .where('organisationId', '==', organisationId)
-      .orderBy('createdAt', 'desc')
-      .get();
+    const { organisationId } = req.apiUser;
+    const { pageSize, afterId } = parsePaginationParams(req.query, 50, 200);
+    const projectsCol = db.collection('projects');
+    const { docs, hasMore, nextCursor } = await paginate(
+      projectsCol.where('organisationId', '==', organisationId).orderBy('createdAt', 'desc'),
+      pageSize,
+      afterId,
+      projectsCol
+    );
 
-    const projects = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.json({ data: projects });
+    res.json({
+      data: docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      pagination: { limit: pageSize, nextCursor, hasMore },
+    });
   } catch (err) {
     console.error('GET /projects error:', err);
     res.status(500).json({ error: 'Failed to list projects' });
@@ -31,11 +40,31 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { organisationId, uid } = req.apiUser;
+    const { organisationId, uid, subscription } = req.apiUser;
     const { name, domain, description } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'name is required' });
+    }
+
+    // Count actual org projects to enforce the activeProjects plan limit
+    const existingSnap = await db
+      .collection('projects')
+      .where('organisationId', '==', organisationId)
+      .get();
+
+    const packageId = String(subscription.packageId || 'basic').toLowerCase();
+    const packageConfig = getPackageConfig(packageId) || getPackageConfig('basic');
+    const limit = packageConfig?.limits?.activeProjects;
+
+    if (typeof limit === 'number' && existingSnap.size >= limit) {
+      return res.status(429).json({
+        error: 'LIMIT_REACHED',
+        limitType: 'activeProjects',
+        limit,
+        current: existingSnap.size,
+        upgradeUrl: '/workspace/billing',
+      });
     }
 
     const data = {
@@ -43,6 +72,7 @@ router.post('/', async (req, res) => {
       domain: domain || null,
       description: description || null,
       organisationId,
+      owner: uid,
       createdBy: uid,
       createdAt: nowTimestamp(),
       status: 'active',

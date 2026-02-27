@@ -7,8 +7,6 @@ import { deleteDoc, doc } from '@/utils/firestore-read-tracker';
 import { PiFilePdf, PiDownload, PiTrash, PiCalendar, PiGlobe, PiWarning, PiCheckCircle, PiPlus } from "react-icons/pi";
 
 import { PageContainer } from "@/components/molecule/page-container";
-import { WorkspaceLayout } from "@/components/organism/workspace-layout";
-import { PrivateRoute } from "@/utils/private-router";
 import { Pagination } from "@/components/molecule/pagination";
 import { useAuth, db } from "@/utils/firebase";
 import { useReportsPageState } from "@/state-services/reports-state";
@@ -104,10 +102,8 @@ export default function Reports() {
   const safePage = Math.max(1, Math.min(currentPage, totalPages || 1));
 
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
-        <PageWrapper title="Reports">
-          <PageContainer title="Generated Reports" excludePadding description="View and manage all your generated accessibility reports. Filter by type, status, or project to find specific reports. Click on a report to view details or download the PDF." buttons={loading ? undefined :<><div className="mt-4 flex items-center gap-3">
+    <PageWrapper title="Reports">
+      <PageContainer title="Generated Reports" excludePadding description="View and manage all your generated accessibility reports. Filter by type, status, or project to find specific reports. Click on a report to view details or download the PDF." buttons={loading ? undefined :<><div className="mt-4 flex items-center gap-3">
                 <DSButton
                   leadingIcon={<PiPlus size={20} />}
                   onClick={() => setShowCreateReport(true)}
@@ -303,16 +299,14 @@ export default function Reports() {
               )}
             </div>
             </>}
-          </PageContainer>
-        </PageWrapper>
+      </PageContainer>
 
-        <CreateReportModal
-          open={showCreateReport}
-          onClose={() => setShowCreateReport(false)}
-          userId={user?.uid ?? ''}
-          onSuccess={() => setShowCreateReport(false)}
-        />
-      </WorkspaceLayout>
-    </PrivateRoute>
+      <CreateReportModal
+        open={showCreateReport}
+        onClose={() => setShowCreateReport(false)}
+        userId={user?.uid ?? ''}
+        onSuccess={() => setShowCreateReport(false)}
+      />
+    </PageWrapper>
   );
 }

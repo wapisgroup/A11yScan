@@ -1,7 +1,7 @@
 // functions/api/routes/scans.js
 const express = require('express');
 const admin = require('firebase-admin');
-const { nowTimestamp } = require('../../utils/helpers');
+const { nowTimestamp, parsePaginationParams, paginate } = require('../../utils/helpers');
 
 const router = express.Router();
 const db = admin.firestore();
@@ -109,15 +109,29 @@ router.post('/:id/scans', async (req, res) => {
 
 /**
  * GET /projects/:id/issues — list issues for a project
+ *
+ * Query params:
+ *   limit  (number, default 100, max 500) — page size
+ *   after  (string)                       — cursor: last document ID from previous page
  */
 router.get('/:id/issues', async (req, res) => {
   try {
     const project = await getProjectOrFail(req, res);
     if (!project) return;
 
-    const snap = await project.ref.collection('issues').orderBy('createdAt', 'desc').get();
-    const issues = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.json({ data: issues });
+    const { pageSize, afterId } = parsePaginationParams(req.query, 100);
+    const issuesCol = project.ref.collection('issues');
+    const { docs, hasMore, nextCursor } = await paginate(
+      issuesCol.orderBy('createdAt', 'desc'),
+      pageSize,
+      afterId,
+      issuesCol
+    );
+
+    res.json({
+      data: docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      pagination: { limit: pageSize, nextCursor, hasMore },
+    });
   } catch (err) {
     console.error('GET /issues error:', err);
     res.status(500).json({ error: 'Failed to list issues' });

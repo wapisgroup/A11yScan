@@ -1,3 +1,6 @@
+import { WorkspaceLayout } from '@/components/organism/workspace-layout';
+import { PrivateRoute } from '@/utils/private-router';
+
 // Disable static generation for all workspace routes
 // These pages require authentication and dynamic data
 export const dynamic = 'force-dynamic';
@@ -8,5 +11,9 @@ export default function WorkspaceLayoutConfig({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <PrivateRoute>
+      <WorkspaceLayout>{children}</WorkspaceLayout>
+    </PrivateRoute>
+  );
 }

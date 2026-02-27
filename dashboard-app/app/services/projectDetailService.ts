@@ -7,6 +7,11 @@ import {
 } from '@/utils/firestore-read-tracker';
 import type { Project } from "@/types/project";
 
+const toSafeNumber = (value: unknown): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
 /**
  * Loads a single project document by id.
  *
@@ -24,6 +29,16 @@ export async function loadProject(id: string): Promise<Project> {
   }
 
   const data = snap.data() as DocumentData;
+  const stats = (data.projectStats ?? data.stats ?? {}) as Record<string, unknown>;
+  const hasProjectStats =
+    stats.pagesTotal !== undefined ||
+    stats.pagesScanned !== undefined ||
+    stats.pages404 !== undefined ||
+    stats.critical !== undefined ||
+    stats.serious !== undefined ||
+    stats.moderate !== undefined ||
+    stats.minor !== undefined;
+
   return {
     id: snap.id,
     name: (data.name ?? null) as string | null,
@@ -33,6 +48,18 @@ export async function loadProject(id: string): Promise<Project> {
     sitemapUrl: (data.sitemapUrl ?? null) as string | null,
     sitemapTreeUrl: (data.sitemapTreeUrl ?? null) as string | null,
     sitemapGraphUrl: (data.sitemapGraphUrl ?? null) as string | null,
+    projectStats: hasProjectStats
+      ? {
+        pagesTotal: toSafeNumber(stats.pagesTotal),
+        pagesScanned: toSafeNumber(stats.pagesScanned),
+        pages404: toSafeNumber(stats.pages404),
+        critical: toSafeNumber(stats.critical),
+        serious: toSafeNumber(stats.serious),
+        moderate: toSafeNumber(stats.moderate),
+        minor: toSafeNumber(stats.minor),
+        updatedAt: stats.updatedAt ?? null,
+      }
+      : null,
   } as Project;
 }
 

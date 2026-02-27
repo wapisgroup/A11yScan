@@ -18,10 +18,8 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { PrivateRoute } from "@/utils/private-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
-import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PageContainer } from "@/components/molecule/page-container";
 import { DSButton } from "@/components/atom/ds-button";
 import { DSTabs } from "@/components/molecule/ds-tabs";
@@ -38,8 +36,7 @@ import { ReportsTab } from "@/components/tabs/project-detail-tab-reports";
 import { useProjectDetailPageState } from "@/state-services/project-detail-state";
 import { startFullScan, startPageCollection } from "@/services/projectDetailService";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
-import { subscribeProjectPages } from "@/services/projectPagesService";
-import type { PageDoc } from "@/types/page-types";
+import { auth } from "@/utils/firebase";
 
 /**
  * HeaderButtons
@@ -69,16 +66,9 @@ export default function ProjectDetailPage() {
   const id = params?.id;
 
   const [showNoPageModal, setShowNoPageModal] = useState(false);
-  const [pages, setPages] = useState<PageDoc[]>([]);
   const searchParams = useSearchParams();
   const autoScanTriggered = useRef(false);
-
-  // Single pages subscription shared between ProjectDetailStats header and PagesTab.
-  // This avoids two identical subscriptions (140 docs each) when both are mounted.
-  useEffect(() => {
-    if (!id) return;
-    return subscribeProjectPages(id, setPages);
-  }, [id]);
+  const statsBackfillTriggered = useRef(false);
 
   /**
    * State-service hook: loads the project and owns the active tab state.
@@ -90,6 +80,10 @@ export default function ProjectDetailPage() {
   const project = state?.project;
   const tab = state?.tab ?? "overview";
   const tabs = state?.tabs ?? ["overview", "runs", "pages", "pageSets", "reports", "settings"];
+
+  useEffect(() => {
+    statsBackfillTriggered.current = false;
+  }, [id]);
 
   // Auto-trigger scan when arriving with ?action=scan (e.g. from Quick Actions)
   useEffect(() => {
@@ -107,6 +101,30 @@ export default function ProjectDetailPage() {
       })();
     }
   }, [searchParams, project, id]);
+
+  // One-shot backfill for old projects that don't have aggregate stats yet.
+  useEffect(() => {
+    if (!id || !project || project.projectStats || statsBackfillTriggered.current) {
+      return;
+    }
+
+    statsBackfillTriggered.current = true;
+    void (async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
+        await fetch(`/api/projects/${id}/stats/recalculate`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch {
+        // Non-critical. Header pills remain at fallback values until the next successful scan.
+      }
+    })();
+  }, [id, project]);
 
   const handleCollectPages = () => {
     void startPageCollection(id);
@@ -139,13 +157,12 @@ export default function ProjectDetailPage() {
   };
 
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
-        {(!id || !state || !project) ? (
-          <PageContainer title="Project detail">
-            <div className="secondary-text-color">Loading…</div>
-          </PageContainer>
-        ) : (
+    <>
+      {(!id || !state || !project) ? (
+        <PageContainer title="Project detail">
+          <div className="secondary-text-color">Loading…</div>
+        </PageContainer>
+      ) : (
         <PageWrapper title={project?.name || "Project"} breadcrumbs={[{ title: "Projects", href: "/workspace/projects" }, { title: project?.name || "Project" }]}>
           <PageContainer
             excludePadding
@@ -161,7 +178,7 @@ export default function ProjectDetailPage() {
             <div className="w-full">
               <div className="flex flex-col gap-medium">
                 <div className="px-[var(--spacing-m)]">
-                  <ProjectDetailStats pages={pages} />
+                  <ProjectDetailStats stats={project?.projectStats} />
                 </div>
 
                 {/* Tabs */}
@@ -185,7 +202,7 @@ export default function ProjectDetailPage() {
               <div className="bg-[var(--color-bg-light)] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl">
                 {tab === "overview" && <OverviewTab project={project} setTab={state.setTabSafe} />}
                 {tab === "runs" && <RunsTab project={project} />}
-                {tab === "pages" && <PagesTab project={project} externalPages={pages} />}
+                {tab === "pages" && <PagesTab project={project} />}
                 {tab === "pageSets" && <PageSetsTab project={project} />}
                 {tab === "reports" && <ReportsTab projectId={project.id} />}
                 {tab === "settings" && <SettingsTab project={project} />}
@@ -193,15 +210,14 @@ export default function ProjectDetailPage() {
             </div>
           </PageContainer>
 
-        {/* No Pages Modal */}
-        <NoPagesScanModal
-          open={showNoPageModal}
-          onClose={() => setShowNoPageModal(false)}
-          onSubmit={handleNoPageModalSubmit}
-        />
+          {/* No Pages Modal */}
+          <NoPagesScanModal
+            open={showNoPageModal}
+            onClose={() => setShowNoPageModal(false)}
+            onSubmit={handleNoPageModalSubmit}
+          />
         </PageWrapper>
-        )}
-      </WorkspaceLayout>
-    </PrivateRoute>
+      )}
+    </>
   );
 }

@@ -39,8 +39,12 @@ async function scanPageHandler(payload, context) {
     }, { merge: true });
   }
 
+  const organisationId = projectSnap.exists ? (projectSnap.data().organisationId || null) : null;
+
   // Add a run document in the runs subcollection for this project
-  const runRef = await projectRef.collection('runs').add({
+  const runRef = projectRef.collection('runs').doc();
+  const runId = runRef.id;
+  await runRef.set({
     type: 'scan_pages',
     status: 'queued',
     startedAt: nowTimestamp(),
@@ -49,6 +53,10 @@ async function scanPageHandler(payload, context) {
     pagesIds: pagesIds,
     pagesTotal: Array.isArray(pagesIds) ? pagesIds.length : 0,
     pagesScanned: 0,
+    queuedVia: 'firestore',
+    runId,
+    projectId,
+    organisationId,
     stats: {
       critical: 0,
       minor: 0,
@@ -56,7 +64,6 @@ async function scanPageHandler(payload, context) {
       serious: 0,
     },
   });
-  const runId = runRef.id;
 
   // Firestore fallback job document
   const payloadJob = {
@@ -68,7 +75,6 @@ async function scanPageHandler(payload, context) {
     createdBy: context?.auth?.uid || null
   };
   await db.collection('jobs').add(payloadJob);
-  await runRef.update({ status: 'queued', queuedVia: 'firestore' });
 
   return { ok: true, runId, via: 'firestore-fallback' };
 }

@@ -21,7 +21,7 @@ export default function DevelopersClient() {
   return (
     <LoggedOutLayout>
       <LoggedOutHeader />
-
+<main>
       {/* Hero Section */}
       <section className="py-20 md:py-28 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #2d2d6e 0%, #3861ab 55%, #5f3b8f 100%)' }}>
@@ -256,13 +256,14 @@ export default function DevelopersClient() {
 
             <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 md:p-12">
               <div className="flex items-start gap-6">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                <div className="w-12 h-12 rounded-xl items-center justify-center flex-shrink-0 hidden md:flex"
                   style={{ background: '#3861ab' }}>
                   <HiCube className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-2xl font-bold text-white mb-4">Example: Trigger a scan</h3>
-                  <pre className="bg-slate-950 text-slate-200 p-6 rounded-xl overflow-x-auto text-sm">
+                  <div className="overflow-x-auto w-[calc(100vw-100px)] md:w-auto lg:w-auto"> 
+                  <pre className="bg-slate-950 text-slate-200 p-6 rounded-xl overflow-x-auto m-w-100per text-sm">
 {`curl -X POST https://api.ablelytics.com/v1/scan \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -272,6 +273,7 @@ export default function DevelopersClient() {
     "ruleset": "wcag-aa"
   }'`}
                   </pre>
+                  </div>
                   <p className="text-slate-400 mt-4">
                     Run on every deployment or nightly build to keep accessibility in check.
                   </p>
@@ -340,7 +342,7 @@ export default function DevelopersClient() {
           </div>
         </div>
       </section>
-
+</main>
       <LoggedOutFooter />
     </LoggedOutLayout>
   );

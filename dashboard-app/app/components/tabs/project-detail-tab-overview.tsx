@@ -57,7 +57,8 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
     const unsubscribe = subscribeProjectRuns(
       projectId,
       (runs) => setLatestRuns(runs.slice(0, 5)),
-      (error) => console.error("Error loading runs:", error)
+      (error) => console.error("Error loading runs:", error),
+      { limitCount: 5 }
     );
     
     return unsubscribe;

@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { PiCalendar, PiPlus, PiPlayCircle, PiPencilSimple, PiTrash, PiAirplayLight, PiPlayLight, PiPauseLight } from "react-icons/pi";
 
-import { WorkspaceLayout } from "@/components/organism/workspace-layout";
-import { PrivateRoute } from "@/utils/private-router";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { PageContainer } from "@/components/molecule/page-container";
 import { EmptyState } from "@/components/atom/EmptyState";
@@ -57,22 +55,20 @@ export default function SchedulesPage() {
   const scheduledUsage = usageLimits.scheduledScans;
 
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
-        <PageWrapper title="Schedules">
-          <PageContainer
-            title="Scheduled Scans"
-            description="Create recurring scans to keep your accessibility status up to date."
-            buttons={
-              <DSButton
-                leadingIcon={<PiPlus size={18} />}
-                disabled={limitReached}
-                onClick={() => setShowCreateModal(true)}
-              >
-                New schedule
-              </DSButton>
-            }
+    <PageWrapper title="Schedules">
+      <PageContainer
+        title="Scheduled Scans"
+        description="Create recurring scans to keep your accessibility status up to date."
+        buttons={
+          <DSButton
+            leadingIcon={<PiPlus size={18} />}
+            disabled={limitReached}
+            onClick={() => setShowCreateModal(true)}
           >
+            New schedule
+          </DSButton>
+        }
+      >
             <div className="flex flex-col gap-medium w-full">
               <div className="border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)] text-right">
                 <div>
@@ -200,66 +196,64 @@ export default function SchedulesPage() {
                 </div>
               )}
             </div>
-          </PageContainer>
-        </PageWrapper>
+      </PageContainer>
 
-        {showCreateModal && (
-          <ScheduleModal
-            open={showCreateModal}
-            limitReached={limitReached}
-            onClose={() => setShowCreateModal(false)}
-            onSubmit={async (payload) => {
-              if (!user) return;
-              await createSchedule({
-                organizationId: user.organisationId ?? null,
-                projectId: payload.projectId,
-                projectName: payload.projectName,
-                projectDomain: payload.projectDomain ?? null,
-                type: payload.type,
-                cadence: payload.cadence,
-                includePageCollection: payload.includePageCollection,
-                includeReport: payload.includeReport,
-                pageSetId: payload.pageSetId ?? null,
-                pageSetName: payload.pageSetName ?? null,
-                startDate: payload.startDate ? new Date(payload.startDate) : null,
-                createdBy: user.uid,
-              });
-              setShowCreateModal(false);
-            }}
-          />
-        )}
+      {showCreateModal && (
+        <ScheduleModal
+          open={showCreateModal}
+          limitReached={limitReached}
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={async (payload) => {
+            if (!user) return;
+            await createSchedule({
+              organizationId: user.organisationId ?? null,
+              projectId: payload.projectId,
+              projectName: payload.projectName,
+              projectDomain: payload.projectDomain ?? null,
+              type: payload.type,
+              cadence: payload.cadence,
+              includePageCollection: payload.includePageCollection,
+              includeReport: payload.includeReport,
+              pageSetId: payload.pageSetId ?? null,
+              pageSetName: payload.pageSetName ?? null,
+              startDate: payload.startDate ? new Date(payload.startDate) : null,
+              createdBy: user.uid,
+            });
+            setShowCreateModal(false);
+          }}
+        />
+      )}
 
-        {editingSchedule && (
-          <ScheduleModal
-            open={!!editingSchedule}
-            mode="edit"
-            limitReached={false}
-            initial={{
-              projectId: editingSchedule.projectId,
-              type: editingSchedule.type,
-              cadence: editingSchedule.cadence,
-              includePageCollection: editingSchedule.includePageCollection,
-              includeReport: editingSchedule.includeReport,
-              pageSetId: editingSchedule.pageSetId ?? undefined,
-              pageSetName: editingSchedule.pageSetName ?? undefined,
-              startDate: toDateInputValue(editingSchedule.startDate),
-            }}
-            onClose={() => setEditingSchedule(null)}
-            onSubmit={async (payload) => {
-              await updateSchedule(editingSchedule.id, {
-                type: payload.type,
-                cadence: payload.cadence,
-                includePageCollection: payload.includePageCollection,
-                includeReport: payload.includeReport,
-                pageSetId: payload.pageSetId ?? null,
-                pageSetName: payload.pageSetName ?? null,
-                startDate: payload.startDate ? new Date(payload.startDate) : null,
-              });
-              setEditingSchedule(null);
-            }}
-          />
-        )}
-      </WorkspaceLayout>
-    </PrivateRoute>
+      {editingSchedule && (
+        <ScheduleModal
+          open={!!editingSchedule}
+          mode="edit"
+          limitReached={false}
+          initial={{
+            projectId: editingSchedule.projectId,
+            type: editingSchedule.type,
+            cadence: editingSchedule.cadence,
+            includePageCollection: editingSchedule.includePageCollection,
+            includeReport: editingSchedule.includeReport,
+            pageSetId: editingSchedule.pageSetId ?? undefined,
+            pageSetName: editingSchedule.pageSetName ?? undefined,
+            startDate: toDateInputValue(editingSchedule.startDate),
+          }}
+          onClose={() => setEditingSchedule(null)}
+          onSubmit={async (payload) => {
+            await updateSchedule(editingSchedule.id, {
+              type: payload.type,
+              cadence: payload.cadence,
+              includePageCollection: payload.includePageCollection,
+              includeReport: payload.includeReport,
+              pageSetId: payload.pageSetId ?? null,
+              pageSetName: payload.pageSetName ?? null,
+              startDate: payload.startDate ? new Date(payload.startDate) : null,
+            });
+            setEditingSchedule(null);
+          }}
+        />
+      )}
+    </PageWrapper>
   );
 }

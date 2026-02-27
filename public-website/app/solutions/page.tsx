@@ -35,6 +35,7 @@ export default function SolutionsPage() {
   return (
     <LoggedOutLayout>
       <LoggedOutHeader />
+      <main>
 
       {/* Hero */}
       <section className="py-16 md:py-24 lg:py-32 relative overflow-hidden">
@@ -66,7 +67,7 @@ export default function SolutionsPage() {
                 style={{ background: 'rgba(95,59,143,0.1)' }}>
                 <HiShieldCheck className="w-6 h-6" style={{ color: '#5f3b8f' }} />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#5f3b8f] transition-colors">Compliance Teams</h3>
+              <h2 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#5f3b8f] transition-colors">Compliance Teams</h2>
               <p className="text-slate-600 mb-5 text-sm leading-relaxed">Audit-ready reports with WCAG criterion mapping, traceable evidence, and continuous monitoring to stay defensible before an auditor or regulator calls.</p>
               <span className="text-sm font-semibold flex items-center gap-1" style={{ color: '#5f3b8f' }}>
                 Explore compliance <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
@@ -79,7 +80,7 @@ export default function SolutionsPage() {
                 style={{ background: 'rgba(56,97,171,0.1)' }}>
                 <HiBriefcase className="w-6 h-6" style={{ color: '#3861ab' }} />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#3861ab] transition-colors">Agencies</h3>
+              <h2 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#3861ab] transition-colors">Agencies</h2>
               <p className="text-slate-600 mb-5 text-sm leading-relaxed">Manage multiple client sites, deliver white-label branded PDF reports, and automate recurring monitoring - so you spend time consulting, not testing manually.</p>
               <span className="text-sm font-semibold flex items-center gap-1" style={{ color: '#3861ab' }}>
                 Explore agencies <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
@@ -92,9 +93,9 @@ export default function SolutionsPage() {
                 style={{ background: 'rgba(57,176,206,0.1)' }}>
                 <HiCodeBracket className="w-6 h-6" style={{ color: '#39b0ce' }} />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#39b0ce] transition-colors">Developers</h3>
+              <h2 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#39b0ce] transition-colors">Developers</h2>
               <p className="text-slate-600 mb-5 text-sm leading-relaxed">Trigger scans from CI/CD, receive results via webhook, and query violations through the REST API. Shift accessibility left without changing how you ship.</p>
-              <span className="text-sm font-semibold flex items-center gap-1" style={{ color: '#39b0ce' }}>
+              <span className="text-sm font-semibold flex items-center gap-1" style={{ color: 'rgb(71, 104, 162)' }}>
                 Explore developers <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
               </span>
             </Link>
@@ -143,9 +144,9 @@ export default function SolutionsPage() {
               <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
                   style={{ background: 'rgba(57,176,206,0.1)' }}>
-                  <HiGlobeAlt className="w-6 h-6" style={{ color: '#39b0ce' }} />
+                  <HiGlobeAlt className="w-6 h-6" style={{ color: 'rgb(96, 129, 188)' }} />
                 </div>
-                <div className="text-3xl font-black mb-1" style={{ color: '#39b0ce' }}>1 in 4</div>
+                <div className="text-3xl font-black mb-1" style={{ color: 'rgb(96, 129, 188)' }}>1 in 4</div>
                 <div className="text-sm font-semibold text-slate-500 mb-3">Adults have a disability</div>
                 <p className="text-slate-600 text-sm leading-relaxed">
                   That's over 1.3 billion people globally. Inaccessible sites exclude a massive audience - and expose you to risk.
@@ -294,7 +295,7 @@ export default function SolutionsPage() {
             <div className="bg-white border border-slate-200 rounded-2xl p-6">
               <h3 className="text-lg font-bold text-slate-900 mb-2">Engineering</h3>
               <p className="text-slate-600 mb-4 text-sm">CI-friendly scans, issue triage, and dev-focused remediation details.</p>
-              <Link href={URL_FRONTEND_SOLUTIONS_DEVELOPERS} className="text-sm font-semibold" style={{ color: '#39b0ce' }}>View engineering workflows →</Link>
+              <Link href={URL_FRONTEND_SOLUTIONS_DEVELOPERS} className="text-sm font-semibold" style={{ color: 'rgb(71, 104, 162)' }}>View engineering workflows →</Link>
             </div>
           </div>
           <div className="text-center">
@@ -306,7 +307,7 @@ export default function SolutionsPage() {
           </div>
         </div>
       </section>
-
+</main>
       <LoggedOutFooter />
     </LoggedOutLayout>
   );

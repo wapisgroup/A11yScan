@@ -61,6 +61,133 @@ function getAxeTagsFromProfiles(profiles) {
     return Array.from(tags);
 }
 
+function emptyProjectStats() {
+    return {
+        pagesTotal: 0,
+        pagesScanned: 0,
+        pages404: 0,
+        critical: 0,
+        serious: 0,
+        moderate: 0,
+        minor: 0,
+    };
+}
+
+function toSafeNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function parseHttpStatus(value) {
+    if (value == null) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readPageSummary(pageData) {
+    if (!pageData || typeof pageData !== 'object') {
+        return {};
+    }
+
+    const byViolations = pageData.violationsCount;
+    if (byViolations && typeof byViolations === 'object') {
+        return byViolations;
+    }
+
+    const byLastStats = pageData.lastStats;
+    if (byLastStats && typeof byLastStats === 'object') {
+        return byLastStats;
+    }
+
+    const byLastScan = pageData.lastScan && typeof pageData.lastScan === 'object'
+        ? pageData.lastScan.summary
+        : null;
+    if (byLastScan && typeof byLastScan === 'object') {
+        return byLastScan;
+    }
+
+    return {};
+}
+
+function contributionFromPage(pageData) {
+    const stats = emptyProjectStats();
+    const summary = readPageSummary(pageData);
+    const httpStatus = parseHttpStatus(pageData && pageData.httpStatus);
+
+    if (httpStatus == null || (httpStatus >= 200 && httpStatus < 300)) {
+        stats.pagesTotal = 1;
+    } else {
+        stats.pages404 = 1;
+    }
+
+    const hasSummary =
+        summary.critical !== undefined ||
+        summary.serious !== undefined ||
+        summary.moderate !== undefined ||
+        summary.minor !== undefined;
+    if ((pageData && pageData.status === 'scanned') || hasSummary) {
+        stats.pagesScanned = 1;
+    }
+
+    stats.critical = toSafeNumber(summary.critical);
+    stats.serious = toSafeNumber(summary.serious);
+    stats.moderate = toSafeNumber(summary.moderate);
+    stats.minor = toSafeNumber(summary.minor);
+
+    return stats;
+}
+
+function addProjectStats(target, delta) {
+    target.pagesTotal += delta.pagesTotal;
+    target.pagesScanned += delta.pagesScanned;
+    target.pages404 += delta.pages404;
+    target.critical += delta.critical;
+    target.serious += delta.serious;
+    target.moderate += delta.moderate;
+    target.minor += delta.minor;
+    return target;
+}
+
+function diffProjectStats(nextStats, prevStats) {
+    return {
+        pagesTotal: nextStats.pagesTotal - prevStats.pagesTotal,
+        pagesScanned: nextStats.pagesScanned - prevStats.pagesScanned,
+        pages404: nextStats.pages404 - prevStats.pages404,
+        critical: nextStats.critical - prevStats.critical,
+        serious: nextStats.serious - prevStats.serious,
+        moderate: nextStats.moderate - prevStats.moderate,
+        minor: nextStats.minor - prevStats.minor,
+    };
+}
+
+function isZeroProjectStats(stats) {
+    return (
+        stats.pagesTotal === 0 &&
+        stats.pagesScanned === 0 &&
+        stats.pages404 === 0 &&
+        stats.critical === 0 &&
+        stats.serious === 0 &&
+        stats.moderate === 0 &&
+        stats.minor === 0
+    );
+}
+
+function hasPersistedProjectStats(projectData) {
+    const stats = projectData && projectData.projectStats;
+    if (!stats || typeof stats !== 'object') return false;
+
+    return (
+        stats.pagesTotal !== undefined ||
+        stats.pagesScanned !== undefined ||
+        stats.pages404 !== undefined ||
+        stats.critical !== undefined ||
+        stats.serious !== undefined ||
+        stats.moderate !== undefined ||
+        stats.minor !== undefined
+    );
+}
+
 async function removeCookieBanners(pageP, mode) {
     const removed = await pageP.evaluate((bannerMode) => {
         const removedElements = [];
@@ -308,10 +435,12 @@ async function handleScanPages(db, projectId, runId) {
     }
     const runData = runSnap.data() || {};
     let pagesIds = Array.isArray(runData.pagesIds) ? runData.pagesIds : [];
+    let resolvedPagesSnap = null;
 
     // For pipeline jobs (collect pages -> scan), resolve target pages at run start.
     if (pagesIds.length === 0 && Boolean(runData.resolvePagesAtStart)) {
         const pagesSnap = await projectRef.collection('pages').get();
+        resolvedPagesSnap = pagesSnap;
         pagesIds = pagesSnap.docs.map((d) => d.id);
         await runRef.update({
             pagesIds,
@@ -324,6 +453,30 @@ async function handleScanPages(db, projectId, runId) {
         console.log('No pages to scan for run', runId);
         await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp(), pagesScanned: 0 });
         return { ok: true, scanned: 0 };
+    }
+
+    // Project-level aggregate stats are maintained on projects/{id}.projectStats.
+    // If this is the first run for an older project (no projectStats yet), bootstrap once
+    // from current page documents so deltas stay correct.
+    const projectStatsDelta = emptyProjectStats();
+    const projectStatsBaseline = emptyProjectStats();
+    const hasExistingProjectStats = hasPersistedProjectStats(projectData);
+    let baselineLoaded = false;
+
+    if (!hasExistingProjectStats) {
+        try {
+            const allPagesSnap = resolvedPagesSnap || await projectRef.collection('pages').get();
+            allPagesSnap.forEach((pageDoc) => {
+                addProjectStats(projectStatsBaseline, contributionFromPage(pageDoc.data() || {}));
+            });
+            baselineLoaded = true;
+            console.log('[scan] bootstrapped projectStats baseline from pages:', projectStatsBaseline);
+        } catch (err) {
+            console.warn(
+                '[scan] failed to bootstrap projectStats baseline; falling back to incremental from zero',
+                err && err.message ? err.message : err
+            );
+        }
     }
 
     // === Concurrency limiter setup ===
@@ -415,6 +568,7 @@ async function handleScanPages(db, projectId, runId) {
             }
             const page = pageSnap.data();
             const pageUrl = page.url;
+            const previousContribution = contributionFromPage(page || {});
 
             // Skip non-HTML resources (XML sitemaps, PDFs, images, fonts, etc.)
             const NON_HTML_EXT = /\.(xml|pdf|css|js|jpg|jpeg|png|gif|svg|webp|ico|woff2?|ttf|eot|mp4|mp3|zip|gz|json)(\?|#|$)/i;
@@ -1298,6 +1452,20 @@ async function handleScanPages(db, projectId, runId) {
                 'stats.minor': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'minor').length)
             });
 
+            const nextContribution = contributionFromPage({
+                ...page,
+                status: 'scanned',
+                httpStatus: httpStatus || null,
+                lastStats: scanDoc.summary,
+                lastScan: { summary: scanDoc.summary },
+                violationsCount: scanDoc.summary,
+            });
+
+            const previousForDelta = (hasExistingProjectStats || baselineLoaded)
+                ? previousContribution
+                : emptyProjectStats();
+            addProjectStats(projectStatsDelta, diffProjectStats(nextContribution, previousForDelta));
+
         } catch (err) {
             console.error('Error scanning page', pageId, err && err.stack ? err.stack : err);
             const scanFinishedAt = new Date();
@@ -1386,6 +1554,60 @@ async function handleScanPages(db, projectId, runId) {
         'stats.moderate': agg.moderate,
         'stats.minor': agg.minor
     });
+
+    try {
+        if (hasExistingProjectStats) {
+            const baseProjectUpdate = {
+                lastScanAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            };
+
+            if (isZeroProjectStats(projectStatsDelta)) {
+                await projectRef.set(baseProjectUpdate, { merge: true });
+            } else {
+                await projectRef.set({
+                    ...baseProjectUpdate,
+                    projectStats: {
+                        pagesTotal: admin.firestore.FieldValue.increment(projectStatsDelta.pagesTotal),
+                        pagesScanned: admin.firestore.FieldValue.increment(projectStatsDelta.pagesScanned),
+                        pages404: admin.firestore.FieldValue.increment(projectStatsDelta.pages404),
+                        critical: admin.firestore.FieldValue.increment(projectStatsDelta.critical),
+                        serious: admin.firestore.FieldValue.increment(projectStatsDelta.serious),
+                        moderate: admin.firestore.FieldValue.increment(projectStatsDelta.moderate),
+                        minor: admin.firestore.FieldValue.increment(projectStatsDelta.minor),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    },
+                }, { merge: true });
+            }
+        } else {
+            const resolvedProjectStats = emptyProjectStats();
+            if (baselineLoaded) {
+                addProjectStats(resolvedProjectStats, projectStatsBaseline);
+            }
+            addProjectStats(resolvedProjectStats, projectStatsDelta);
+
+            await projectRef.set({
+                projectStats: {
+                    pagesTotal: resolvedProjectStats.pagesTotal,
+                    pagesScanned: resolvedProjectStats.pagesScanned,
+                    pages404: resolvedProjectStats.pages404,
+                    critical: resolvedProjectStats.critical,
+                    serious: resolvedProjectStats.serious,
+                    moderate: resolvedProjectStats.moderate,
+                    minor: resolvedProjectStats.minor,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                },
+                lastScanAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+        }
+    } catch (e) {
+        console.warn(
+            'Failed to update project aggregate stats for',
+            projectId,
+            e && e.message ? e.message : e
+        );
+    }
 
     console.log('ScanPages job finished', projectId, runId, 'scanned:', scannedCount, 'agg:', agg);
 

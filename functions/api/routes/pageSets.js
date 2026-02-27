@@ -1,7 +1,7 @@
 // functions/api/routes/pageSets.js
 const express = require('express');
 const admin = require('firebase-admin');
-const { nowTimestamp } = require('../../utils/helpers');
+const { nowTimestamp, parsePaginationParams, paginate } = require('../../utils/helpers');
 
 const router = express.Router();
 const db = admin.firestore();
@@ -18,15 +18,29 @@ async function getProjectOrFail(req, res) {
 
 /**
  * GET /projects/:id/page-sets — list page sets
+ *
+ * Query params:
+ *   limit  (number, default 50, max 200) — page size
+ *   after  (string)                      — cursor: last document ID from previous page
  */
 router.get('/:id/page-sets', async (req, res) => {
   try {
     const project = await getProjectOrFail(req, res);
     if (!project) return;
 
-    const snap = await project.ref.collection('pageSets').orderBy('createdAt', 'desc').get();
-    const sets = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.json({ data: sets });
+    const { pageSize, afterId } = parsePaginationParams(req.query, 50, 200);
+    const pageSetsCol = project.ref.collection('pageSets');
+    const { docs, hasMore, nextCursor } = await paginate(
+      pageSetsCol.orderBy('createdAt', 'desc'),
+      pageSize,
+      afterId,
+      pageSetsCol
+    );
+
+    res.json({
+      data: docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      pagination: { limit: pageSize, nextCursor, hasMore },
+    });
   } catch (err) {
     console.error('GET /page-sets error:', err);
     res.status(500).json({ error: 'Failed to list page sets' });
@@ -136,7 +150,16 @@ router.delete('/:id/page-sets/:setId', async (req, res) => {
 
 /**
  * GET /projects/:id/page-sets/:setId/pages — list pages in a page set
+ *
+ * Because membership is determined by in-memory filtering (pageIds list or regex),
+ * cursor pagination is not supported. The underlying pages collection read is capped
+ * at PAGE_POOL_CAP to prevent unbounded reads. Use ?limit to control result size.
+ *
+ * Query params:
+ *   limit  (number, default 200, max 1000) — max pages to return after filtering
  */
+const PAGE_POOL_CAP = 1000; // max pages fetched from Firestore before in-memory filter
+
 router.get('/:id/page-sets/:setId/pages', async (req, res) => {
   try {
     const project = await getProjectOrFail(req, res);
@@ -148,28 +171,29 @@ router.get('/:id/page-sets/:setId/pages', async (req, res) => {
       return res.status(404).json({ error: 'Page set not found' });
     }
 
+    const resultLimit = Math.min(
+      Math.max(1, parseInt(req.query.limit, 10) || 200),
+      PAGE_POOL_CAP
+    );
+
     const setData = setSnap.data();
     let pages = [];
 
     if (setData.pageIds && setData.pageIds.length > 0) {
-      // Fetch specific pages by ID
-      const pagesSnap = await project.ref.collection('pages').get();
+      const pageIdSet = new Set(setData.pageIds);
+      const pagesSnap = await project.ref.collection('pages').limit(PAGE_POOL_CAP).get();
       pages = pagesSnap.docs
-        .filter((doc) => setData.pageIds.includes(doc.id))
+        .filter((doc) => pageIdSet.has(doc.id))
         .map((doc) => ({ id: doc.id, ...doc.data() }));
     } else if (setData.filterSpec && setData.filterSpec.regex) {
-      // Filter pages by regex
       const regex = new RegExp(setData.filterSpec.regex);
-      const pagesSnap = await project.ref.collection('pages').get();
+      const pagesSnap = await project.ref.collection('pages').limit(PAGE_POOL_CAP).get();
       pages = pagesSnap.docs
-        .filter((doc) => {
-          const url = doc.data().url || '';
-          return regex.test(url);
-        })
+        .filter((doc) => regex.test(doc.data().url || ''))
         .map((doc) => ({ id: doc.id, ...doc.data() }));
     }
 
-    res.json({ data: pages });
+    res.json({ data: pages.slice(0, resultLimit) });
   } catch (err) {
     console.error('GET /page-sets/:setId/pages error:', err);
     res.status(500).json({ error: 'Failed to list pages in set' });

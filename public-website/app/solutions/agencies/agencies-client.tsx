@@ -20,7 +20,7 @@ export default function AgenciesClient() {
   return (
     <LoggedOutLayout>
       <LoggedOutHeader />
-
+<main>
       {/* Hero Section */}
       <section className="py-20 md:py-28 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #2d2d6e 0%, #3861ab 55%, #39b0ce 100%)' }}>
@@ -278,7 +278,7 @@ export default function AgenciesClient() {
           </div>
         </div>
       </section>
-
+</main>
       <LoggedOutFooter />
     </LoggedOutLayout>
   );

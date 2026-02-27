@@ -29,7 +29,7 @@ export default function PricingPage() {
     return (
         <LoggedOutLayout>
             <LoggedOutHeader />
-
+            <main>
             {/* Hero */}
             <section className="py-16 md:py-24 lg:py-28 relative overflow-hidden">
                 <div className="absolute inset-0 pointer-events-none"
@@ -50,7 +50,7 @@ export default function PricingPage() {
             </section>
 
             {/* Pricing tiers */}
-            <section className="pb-16 md:pb-24">
+            <section className="py-16 md:pb-24">
                 <div className="container mx-auto px-4 md:px-6 lg:px-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-start">
 
@@ -68,7 +68,7 @@ export default function PricingPage() {
                                 {[
                                     "3 active projects",
                                     "50 scans per month",
-                                    "100 pages per scan",
+                                    "25 pages per scan",
                                     "30-day report history",
                                     "Scheduled scans (1 active)",
                                     "PDF reports",
@@ -112,7 +112,7 @@ export default function PricingPage() {
                             <Link href={startTrial}
                                 className="block w-full px-6 py-3 text-white font-semibold rounded-xl transition-all text-center text-sm hover:-translate-y-0.5 shadow-md hover:shadow-lg"
                                 style={{ background: 'linear-gradient(135deg, #5f3b8f, #3861ab)' }}>
-                                Start Free Trial
+                                Subscribe
                             </Link>
                         </div>
 
@@ -140,7 +140,7 @@ export default function PricingPage() {
                             <Link href={startTrial}
                                 className="block w-full px-6 py-3 font-semibold rounded-xl transition-colors text-center text-sm text-white hover:opacity-90"
                                 style={{ background: '#3861ab' }}>
-                                Start Free Trial
+                                Subscribe
                             </Link>
                         </div>
 
@@ -241,7 +241,7 @@ export default function PricingPage() {
                     </Link>
                 </div>
             </section>
-
+</main>
             <LoggedOutFooter />
         </LoggedOutLayout>
     );

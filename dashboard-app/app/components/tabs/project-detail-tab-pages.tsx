@@ -5,7 +5,7 @@
  * Shared component in tabs/project-detail-tab-pages.tsx.
  */
 
-import React, { useCallback, useState, useRef, useEffect, useMemo } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FiPlus } from "react-icons/fi";
 import { PiX, PiPlay, PiTrash, PiWarning, PiFunnelSimple, PiFunnelX, PiFileText } from "react-icons/pi";
@@ -22,12 +22,11 @@ import PageReportDrawer from "../modals/page-report-drawer";
 import type { Project } from "@/types/project";
 import { useProjectPagesPageState } from "@/state-services/project-detail-pages-state";
 import { Pagination } from "../molecule/pagination";
-import type { PageDoc } from "@/state-services/project-detail-states_old";
-import type { PageDoc as PageDocFull } from "@/types/page-types";
+import type { PageDoc } from "@/types/page-types";
 import { removePage, runSelectedPages, removePages, removeNon2xxPages } from "@/services/projectPagesService";
 import { scanSinglePage } from "@/services/projectDetailService";
 import { auth, db } from "@/utils/firebase";
-import { collection, onSnapshot, orderBy, query, limit, type DocumentData, type QuerySnapshot, type Unsubscribe } from "@/utils/firestore-read-tracker";
+import { collection, onSnapshot, query, limit, type DocumentData, type QuerySnapshot, type Unsubscribe } from "@/utils/firestore-read-tracker";
 import { EmptyState } from "../atom/EmptyState";
 
 /**
@@ -42,7 +41,7 @@ type PagesTabProps = {
    * Pages pre-fetched by the parent (shared subscription).
    * When provided this component skips its own Firestore listener.
    */
-  externalPages?: PageDocFull[];
+  externalPages?: PageDoc[];
 };
 
 /**
@@ -101,7 +100,7 @@ const PageListRow = React.memo(function PageListRow({
     <div className="flex items-center gap-large">
       <Checkbox
         checked={checked}
-        onChange={(e) => onToggle(page.id, !!e.target?.checked)}
+        onChange={(e) => onToggle(page.id, Boolean((e.target as HTMLInputElement | null)?.checked))}
       />
 
       <div className="flex-1">
@@ -163,19 +162,37 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
   // Pass externalPages so it reuses the parent's subscription rather than opening a second one.
   const state = useProjectPagesPageState(projectId, 10, externalPages);
 
+  // Local input state for debounced text filter.
+  // Keeps the input snappy while reducing Firestore requests to one per pause.
+  const { setFilterText } = state;
+  const [inputText, setInputText] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setFilterText(inputText), 300);
+    return () => clearTimeout(timer);
+  }, [inputText, setFilterText]);
+
   // Single subscription to recent runs — replaces per-row subscriptions in PageRow.
   // Builds a Map<pageId, RunDoc> so each row can look up its own run in O(1).
   const [activeRunsByPage, setActiveRunsByPage] = useState<Map<string, RunDoc>>(new Map());
   useEffect(() => {
     if (!projectId) return;
     const unsub: Unsubscribe = onSnapshot(
-      query(collection(db, "projects", projectId, "runs"), orderBy("startedAt", "desc"), limit(50)),
+      query(collection(db, "projects", projectId, "runs"), limit(50)),
       (snap: QuerySnapshot<DocumentData>) => {
         const map = new Map<string, RunDoc>();
+        const sorted = [...snap.docs].sort((a, b) => {
+          const aData = a.data() as DocumentData;
+          const bData = b.data() as DocumentData;
+          const aTs = (aData.startedAt ?? aData.createdAt ?? null) as { toMillis?: () => number } | null;
+          const bTs = (bData.startedAt ?? bData.createdAt ?? null) as { toMillis?: () => number } | null;
+          const aMs = typeof aTs?.toMillis === "function" ? aTs.toMillis() : 0;
+          const bMs = typeof bTs?.toMillis === "function" ? bTs.toMillis() : 0;
+          return bMs - aMs;
+        });
         // Iterate newest-first so the most recent run wins per page
-        snap.docs.forEach((d: QuerySnapshot<DocumentData>['docs'][number]) => {
+        sorted.forEach((d: QuerySnapshot<DocumentData>['docs'][number]) => {
           const data = d.data() as DocumentData;
-          const run: RunDoc = { id: d.id, status: data.status ?? null, startedAt: data.startedAt };
+          const run: RunDoc = { id: d.id, status: data.status ?? null, startedAt: data.startedAt ?? data.createdAt ?? null };
           (data.pagesIds as string[] | undefined)?.forEach((pid) => {
             if (!map.has(pid)) map.set(pid, run);
           });
@@ -204,13 +221,27 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
   // until we have a project id and state.
   if (!projectId || !state) return <div>Loading</div>;
 
-  const { pagedItems, allItems, totalCount, setPage, pagination, filterText, setFilterText, selection, onlyWithIssues, setOnlyWithIssues } = state;
+  const {
+    pagedItems,
+    allItems,
+    totalCount,
+    setPage,
+    pagination,
+    selection,
+    onlyWithIssues,
+    setOnlyWithIssues,
+    isClientFilterMode,
+    refresh
+  } = state;
 
   // Filter to show only non-2xx pages when 404 filter is active
   // Pages with no httpStatus yet (manually added, sitemap upload) are excluded — they are unknown, not errors.
   const filtered404Items = allItems.filter(page => {
     const status = page.httpStatus;
-    return status != null && (status < 200 || status >= 300);
+    if (status == null) return false;
+    const normalizedStatus =
+      typeof status === "number" ? status : Number.parseInt(String(status), 10);
+    return Number.isFinite(normalizedStatus) && (normalizedStatus < 200 || normalizedStatus >= 300);
   });
 
   // Paginate filtered items manually
@@ -238,14 +269,9 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
   }, [is404Filtered]);
 
   /**
-  * Pagination metadata derived by the state hook.
-  */
-  const { totalPages, safePage, startIdx } = pagination;
-
-  /**
   * Page selection metadata derived by the state hook.
   */
-  const { selectedPages, selectedCount, clearSelection, togglePage, toggleAllOnPage } = selection;
+  const { selectedPages, selectedCount, clearSelection, togglePage, toggleAllOnPage, getSelectedDocs } = selection;
 
   /**
    * Starts a scan for a single page.
@@ -326,27 +352,28 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
       if (!ok)
         return;
 
-      void removePage(projectId, page);
+      await removePage(projectId, page);
+      await refresh();
 
       // Remove from selection if it was selected
       if (selectedPages.has(page.id)) {
         togglePage(page.id, false);
       }
     })()
-  }, [projectId, confirm, selectedPages, togglePage]
+  }, [projectId, confirm, selectedPages, togglePage, refresh]
   )
   /**
    * Handle select all checkbox toggle
    */
   const handleSelectAll = useCallback(() => {
-    const pageIds = pagedItems.map(p => p.id);
+    const pageIds = displayedItems.map(p => p.id);
     toggleAllOnPage(pageIds);
-  }, [pagedItems, toggleAllOnPage]);
+  }, [displayedItems, toggleAllOnPage]);
 
   /**
    * Check if all visible pages are selected
    */
-  const allVisibleSelected = pagedItems.length > 0 && pagedItems.every(p => selectedPages.has(p.id));
+  const allVisibleSelected = displayedItems.length > 0 && displayedItems.every((p) => selectedPages.has(p.id));
 
   /**
    * Handle delete selected pages
@@ -365,22 +392,35 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
 
       if (!ok) return;
 
-      await removePages(projectId, Array.from(selectedPages));
+      const selectedPageDocs = getSelectedDocs();
+      if (selectedPageDocs.length === 0) {
+        await alert({
+          title: "Nothing to delete",
+          message: "No selected pages are currently loaded. Re-select and try again.",
+        });
+        return;
+      }
+
+      await removePages(projectId, selectedPageDocs);
       clearSelection();
+      await refresh();
 
       await alert({
         title: "Success",
-        message: `${selectedCount} page${selectedCount > 1 ? 's' : ''} deleted successfully.`,
+        message: `${selectedPageDocs.length} page${selectedPageDocs.length > 1 ? 's' : ''} deleted successfully.`,
       });
     })();
-  }, [projectId, selectedPages, selectedCount, clearSelection, confirm, alert]);
+  }, [projectId, selectedCount, clearSelection, confirm, alert, getSelectedDocs, refresh]);
 
   /**
    * Check if there are any non-2xx pages across all pages
    */
   const non2xxCount = allItems.filter(page => {
     const status = page.httpStatus;
-    return status != null && (status < 200 || status >= 300);
+    if (status == null) return false;
+    const normalizedStatus =
+      typeof status === "number" ? status : Number.parseInt(String(status), 10);
+    return Number.isFinite(normalizedStatus) && (normalizedStatus < 200 || normalizedStatus >= 300);
   }).length;
 
   /**
@@ -389,10 +429,11 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
   const handleDeleteNon2xxPages = useCallback(() => {
     void (async () => {
       if (!projectId || non2xxCount === 0) return;
+      const scopeSuffix = isClientFilterMode ? "" : " on this page";
 
       const ok = await confirm({
         title: "Delete non-2xx pages",
-        message: `Delete ${non2xxCount} page${non2xxCount > 1 ? 's' : ''} with non-2xx HTTP status codes (404, 500, etc.)?`,
+        message: `Delete ${non2xxCount} page${non2xxCount > 1 ? 's' : ''} with non-2xx HTTP status codes (404, 500, etc.)${scopeSuffix}?`,
         confirmLabel: "Delete",
         cancelLabel: "Cancel",
         tone: "danger",
@@ -401,6 +442,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
       if (!ok) return;
 
       const deletedCount = await removeNon2xxPages(projectId, allItems);
+      await refresh();
 
       // Clear selection since some selected pages may have been deleted
       clearSelection();
@@ -418,7 +460,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
         message: `${deletedCount} page${deletedCount > 1 ? 's' : ''} deleted successfully.`,
       });
     })();
-  }, [projectId, allItems, non2xxCount, is404Filtered, confirm, alert, clearSelection]);
+  }, [projectId, allItems, non2xxCount, is404Filtered, isClientFilterMode, confirm, alert, clearSelection, refresh]);
   /**
    * Stable wrapper for `runSelectedPages` so child components
    * do not receive a new function identity on every render.
@@ -464,12 +506,13 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
 
     // Close drawer and show success alert
     setAddDrawerOpen(false);
+    await refresh();
 
     await alert({
       title: "Success",
       message: "Page added successfully!",
     });
-  }, [project, projectId, alert]);
+  }, [project, projectId, alert, refresh]);
 
   // Upload sitemap
   const handleUploadSitemap = useCallback(async (file: File) => {
@@ -502,6 +545,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
 
       // Close modal first, then show success alert
       setAddDrawerOpen(false);
+      await refresh();
 
       await alert({
         title: "Success",
@@ -516,7 +560,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
         message: err instanceof Error ? err.message : "Failed to upload sitemap",
       });
     }
-  }, [projectId, alert]);
+  }, [projectId, alert, refresh]);
 
   // Collect from website
   const handleCollectFromWebsite = useCallback(async () => {
@@ -562,7 +606,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
         message: err instanceof Error ? err.message : "Failed to start collection",
       });
     }
-  }, [projectId, project, confirm, alert]);
+  }, [projectId, confirm, alert]);
 
   return (
     <PageContainer inner>
@@ -574,13 +618,12 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
             <Checkbox
               checked={allVisibleSelected}
               onChange={handleSelectAll}
-              title="Select all pages on this page"
             />
 
             {/* Filter input */}
             <input
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
               placeholder="Filter pages by url or title"
               className="input w-80"
             />
@@ -645,7 +688,13 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
                       variant="danger"
                       icon={is404Filtered ? <PiFunnelSimple size={20} /> : <PiWarning size={20} />}
                       onClick={() => setShow404Menu(true)}
-                      label={is404Filtered ? `Filtering ${non2xxCount} non-2xx pages` : `${non2xxCount} non-2xx pages`}
+                      label={
+                        is404Filtered
+                          ? `Filtering ${non2xxCount} non-2xx pages`
+                          : isClientFilterMode
+                            ? `${non2xxCount} non-2xx pages`
+                            : `${non2xxCount} non-2xx pages on this page`
+                      }
                     />
                     <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-[var(--color-error)] text-white text-[10px] font-semibold flex items-center justify-center">
                       {non2xxCount}
@@ -669,7 +718,13 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
                         setIs404Filtered(!is404Filtered);
                         setShow404Menu(false);
                       }}
-                      label={is404Filtered ? 'Clear filter' : `Filter ${non2xxCount} non-2xx pages`}
+                      label={
+                        is404Filtered
+                          ? 'Clear filter'
+                          : isClientFilterMode
+                            ? `Filter ${non2xxCount} non-2xx pages`
+                            : `Filter ${non2xxCount} non-2xx pages on this page`
+                      }
                     />
                     <DSIconButton
                       variant="danger"
@@ -686,7 +741,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
           {/* Page count and Add button */}
           <div className="flex items-center gap-3">
             <div className="as-p2-text secondary-text-color">
-              {is404Filtered ? `${displayedItems.length} of ${totalCount}` : `${totalCount}`} pages
+              {is404Filtered ? `${displayedCount} of ${totalCount}` : `${totalCount}`} pages
               {is404Filtered && <span className="text-red-400 ml-1">(filtered)</span>}
             </div>
 

@@ -109,6 +109,8 @@ async function handlePageCollectionJob(db, projectId, runId) {
     // BFS crawl
     const visited = new Set(); // tracks discovered URLs to avoid re-queuing
     let fetchedCount = 0;      // tracks pages actually fetched and written to Firestore
+    let newPagesTotal = 0;     // newly created page docs with 2xx/unknown status
+    let newPages404 = 0;       // newly created page docs with non-2xx status
     const queue = [];
     const nodes = []; // for graph
     const edges = [];
@@ -149,13 +151,45 @@ async function handlePageCollectionJob(db, projectId, runId) {
                 const urlHash = crypto.createHash('sha256').update(u).digest('hex');
                 const pageId = urlHash;
                 const pageRef = projectRef.collection('pages').doc(pageId);
-                await pageRef.set({
-                    url: u,
-                    title,
-                    status: 'discovered',
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                    httpStatus: pageData.status
-                }, { merge: true });
+                const statusNumber = Number(pageData.status);
+                const hasHttpStatus = Number.isFinite(statusNumber);
+                const is404 = hasHttpStatus ? (statusNumber < 200 || statusNumber >= 300) : false;
+                let created = false;
+
+                try {
+                    await pageRef.create({
+                        url: u,
+                        title,
+                        status: 'discovered',
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        httpStatus: pageData.status,
+                    });
+                    created = true;
+                } catch (err) {
+                    const code = err && (err.code || err.status);
+                    const message = err && err.message ? err.message : String(err);
+                    const alreadyExists =
+                        code === 6 ||
+                        code === 'already-exists' ||
+                        /already exists/i.test(message);
+
+                    if (!alreadyExists) {
+                        throw err;
+                    }
+
+                    // Existing page: refresh light metadata without resetting scan status.
+                    await pageRef.set({
+                        url: u,
+                        title,
+                        httpStatus: pageData.status,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                }
+
+                if (created) {
+                    if (is404) newPages404++;
+                    else newPagesTotal++;
+                }
 
                 fetchedCount++;
                 nodes.push({ id: u, title });
@@ -246,6 +280,17 @@ async function handlePageCollectionJob(db, projectId, runId) {
 
     // Finalize run
     await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp(), pagesTotal: nodes.length });
+
+    if (newPagesTotal !== 0 || newPages404 !== 0) {
+        await projectRef.set({
+            projectStats: {
+                pagesTotal: admin.firestore.FieldValue.increment(newPagesTotal),
+                pages404: admin.firestore.FieldValue.increment(newPages404),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    }
 
     console.log('Sitemap job finished', projectId, runId, 'pages:', nodes.length);
 

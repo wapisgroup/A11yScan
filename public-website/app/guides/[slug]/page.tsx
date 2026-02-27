@@ -294,6 +294,7 @@ export default async function GuidePlaceholderPage({ params }: { params: Promise
   return (
     <LoggedOutLayout>
       <LoggedOutHeader />
+      <main>
       <section className="py-16 md:py-24 lg:py-32">
         <div className="container mx-auto px-4 md:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto">
@@ -334,6 +335,7 @@ export default async function GuidePlaceholderPage({ params }: { params: Promise
           </div>
         </div>
       </section>
+      </main>
       <LoggedOutFooter />
     </LoggedOutLayout>
   );

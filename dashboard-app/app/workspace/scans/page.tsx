@@ -13,8 +13,6 @@ import {
 } from '@/utils/firestore-read-tracker';
 
 import { PageContainer } from "@/components/molecule/page-container";
-import { WorkspaceLayout } from "@/components/organism/workspace-layout";
-import { PrivateRoute } from "@/utils/private-router";
 import { Pagination } from "@/components/molecule/pagination";
 import { useAuth } from "@/utils/firebase";
 import { db } from "@/utils/firebase";
@@ -116,10 +114,9 @@ export default function Scans() {
   }, [rescanningIds, clearRescan, refresh]);
 
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
-        <PageWrapper title="Scans">
-          <PageContainer title="Page Scans" excludePadding description="View and manage all your page scans. Filter by project or severity to find specific results.">
+    <>
+      <PageWrapper title="Scans">
+        <PageContainer title="Page Scans" excludePadding description="View and manage all your page scans. Filter by project or severity to find specific results.">
             {loading ? (
               <PageDataLoading>Loading scans...</PageDataLoading>
             ) : <>
@@ -283,9 +280,8 @@ export default function Scans() {
               )}
             </div>
             </>}
-          </PageContainer>
-        </PageWrapper>
-      </WorkspaceLayout>
+        </PageContainer>
+      </PageWrapper>
 
       <PageReportDrawer
         open={selectedScan !== null}
@@ -297,6 +293,6 @@ export default function Scans() {
         onTabChange={setDrawerTab}
         onScanChange={() => { }}
       />
-    </PrivateRoute>
+    </>
   );
 }

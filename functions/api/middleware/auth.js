@@ -30,9 +30,22 @@ async function apiKeyAuth(req, res, next) {
     const userDoc = usersSnap.docs[0];
     const userData = userDoc.data();
     const uid = userDoc.id;
+    const organisationId = userData.organisationId || null;
+
+    // Resolve org owner's subscription so all org members share the same plan limits
+    let subscriptionUid = uid;
+    if (organisationId) {
+      try {
+        const orgSnap = await db.collection('organizations').doc(organisationId).get();
+        if (orgSnap.exists) {
+          const ownerId = orgSnap.data().ownerId;
+          if (ownerId) subscriptionUid = ownerId;
+        }
+      } catch { /* fall back to uid */ }
+    }
 
     // Load subscription to check apiAccess feature
-    const subSnap = await db.collection('subscriptions').doc(uid).get();
+    const subSnap = await db.collection('subscriptions').doc(subscriptionUid).get();
     if (!subSnap.exists) {
       return res.status(403).json({ error: 'No active subscription' });
     }
@@ -55,7 +68,7 @@ async function apiKeyAuth(req, res, next) {
 
     req.apiUser = {
       uid,
-      organisationId: userData.organisationId || null,
+      organisationId,
       subscription,
     };
 

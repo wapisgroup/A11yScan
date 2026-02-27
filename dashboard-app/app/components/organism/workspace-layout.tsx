@@ -7,7 +7,7 @@
 
 import React, { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import Header from "@/components/molecule/header";
 import {
@@ -26,10 +26,9 @@ import { subscribeToJobsWithToasts } from "@/services/jobsService";
 import { subscribeToUserNotificationsWithToasts } from "@/services/userNotificationsService";
 import { useAuth } from "@/utils/firebase";
 import { URL_APP_PROFILE, URL_APP_ORGANISATION, URL_APP_BILLING, URL_APP_ADMIN } from "@/utils/urls";
-import { useRouter } from "next/navigation";
 import { isPlatformAdminUser } from "@/utils/platform-admin";
 import { useSubscription } from "@/hooks/use-subscription";
-import { useOnboarding } from "@/hooks/use-onboarding";
+// import { useOnboarding } from "@/hooks/use-onboarding";
 import { OnboardingContext } from "@/contexts/onboarding-context";
 import { WelcomeModal } from "@/components/modals/welcome-modal";
 import { OnboardingChecklist } from "@/components/organism/onboarding-checklist";
@@ -44,28 +43,30 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const router = useRouter();
   const isAdmin = isPlatformAdminUser(user as Record<string, any>);
   const { hasFeature, loading: subscriptionLoading } = useSubscription();
+  const pathname = usePathname();
+  const shouldListenToJobs = pathname === "/workspace";
   // Pass null (not undefined) when organisationId is not set so the onboarding hook
   // can distinguish "no org" (null → owner filter) from "not yet resolved" (undefined → skip).
-  const onboarding = useOnboarding(user?.uid, user?.organisationId ?? null);
+  // const onboarding = useOnboarding(user?.uid, user?.organisationId ?? null);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
 
-  // Show welcome modal once when welcomeSeen transitions from false → seen
-  useEffect(() => {
-    if (onboarding.welcomeSeen === false) {
-      setWelcomeOpen(true);
-    }
-  }, [onboarding.welcomeSeen]);
+  // // Show welcome modal once when welcomeSeen transitions from false → seen
+  // useEffect(() => {
+  //   if (onboarding.welcomeSeen === false) {
+  //     setWelcomeOpen(true);
+  //   }
+  // }, [onboarding.welcomeSeen]);
 
-  const handleCloseWelcome = () => {
-    setWelcomeOpen(false);
-    onboarding.markWelcomeSeen();
-  };
+  // const handleCloseWelcome = () => {
+  //   setWelcomeOpen(false);
+  //   onboarding.markWelcomeSeen();
+  // };
 
   useEffect(() => {
-    if (!user?.uid) return;
-    const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user.uid });
+    if (!user?.uid || !shouldListenToJobs) return;
+    const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user.uid, limitCount: 5 });
     return unsubscribe;
-  }, [toast, user?.uid]);
+  }, [toast, user?.uid, shouldListenToJobs]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -93,10 +94,8 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     { href: URL_APP_DESIGN_SYSTEM, label: "Design System", icon: <PiPaletteLight /> },
   ];
 
-  const pathname = usePathname();
-
   return (
-    <OnboardingContext.Provider value={onboarding}>
+    // <OnboardingContext.Provider value={onboarding}>
     <div className="min-h-screen">
       {/* <Header /> */}
 
@@ -239,9 +238,9 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
       </div>
 
       {/* Onboarding */}
-      <WelcomeModal open={welcomeOpen} onClose={handleCloseWelcome} />
-      <OnboardingChecklist onboarding={onboarding} />
+      {/* <WelcomeModal open={welcomeOpen} onClose={handleCloseWelcome} />
+      <OnboardingChecklist onboarding={onboarding} /> */}
     </div>
-    </OnboardingContext.Provider>
+    // </OnboardingContext.Provider>
   );
 }

@@ -483,14 +483,14 @@ export default function CookiesPage() {
                 </p>
 
                 <a
-                  href="mailto:privacy@ablelytics.com"
+                  href="mailto:support@ablelytics.com"
                   className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-semibold text-white shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
                   style={{
                     background: "linear-gradient(135deg, #39b0ce, #3861ab)",
                   }}
                 >
                   <HiEnvelope className="w-4 h-4" />
-                  privacy@ablelytics.com
+                  support@ablelytics.com
                 </a>
               </div>
 

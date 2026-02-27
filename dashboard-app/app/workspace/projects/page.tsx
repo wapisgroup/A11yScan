@@ -23,10 +23,7 @@ import { FiEdit, FiExternalLink, FiFileText, FiPlus, FiSettings, FiSlash, FiUplo
 import { UITooltip } from "@/components/ui/ui-tooltip";
 
 import { PageContainer } from "@/components/molecule/page-container";
-import { WorkspaceLayout } from "@/components/organism/workspace-layout";
-import { PrivateRoute } from "@/utils/private-router";
 import { createProject, deleteProject, startProjectScan, updateProject, type Project } from "@/services/projectsService";
-import { getLastScanDates } from "@/services/projectRunsService";
 import { useSubscription } from "@/hooks/use-subscription";
 
 import dynamic from "next/dynamic";
@@ -172,18 +169,6 @@ export default function ProjectsPage() {
   const { totalPages, safePage, startIdx } = pagination;
 
   /**
-   * Last scan date per project, fetched from the runs subcollection.
-   * Falls back to the denormalized `lastScanAt` on the project doc.
-   */
-  const [lastScanDates, setLastScanDates] = useState<Map<string, Date | null>>(new Map());
-
-  useEffect(() => {
-    if (!pagedItems.length) return;
-    const ids = pagedItems.map((p) => p.id);
-    void getLastScanDates(ids).then(setLastScanDates);
-  }, [pagedItems]);
-
-  /**
    * Handles submission from the ProjectModal.
    *
    * - Creates a new project when modal.mode === "create"
@@ -262,10 +247,8 @@ export default function ProjectsPage() {
 
 
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
-        <PageWrapper title="Projects">
-          <PageContainer title="List of projects" description="Manage your projects, start scans, and view reports." buttons={<AddButton />}>
+    <PageWrapper title="Projects">
+      <PageContainer title="List of projects" description="Manage your projects, start scans, and view reports." buttons={<AddButton />}>
 
             {error && <div style={{ color: 'var(--color-error)' }} className="as-p2-text">{error}</div>}
 
@@ -302,9 +285,7 @@ export default function ProjectsPage() {
                             return "—";
                           }
                         };
-                        // Prefer the date fetched from runs subcollection; fall back to
-                        // the denormalized field on the project doc (set when scan is triggered).
-                        const lastScanDate = lastScanDates.get(p.id) ?? p.lastScanAt ?? null;
+                        const lastScanDate = p.lastScanAt ?? null;
                         const lastScan = toDateString(lastScanDate);
 
                         return (
@@ -373,16 +354,14 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            <ProjectModal
-              open={modal.open}
-              mode={modal.open ? modal.mode : "create"}
-              initial={modal.open ? modal.initial : null}
-              onClose={closeModal}
-              onSubmit={handleModalSubmission}
-            />
-          </PageContainer>
-        </PageWrapper>
-      </WorkspaceLayout>
-    </PrivateRoute>
+        <ProjectModal
+          open={modal.open}
+          mode={modal.open ? modal.mode : "create"}
+          initial={modal.open ? modal.initial : null}
+          onClose={closeModal}
+          onSubmit={handleModalSubmission}
+        />
+      </PageContainer>
+    </PageWrapper>
   );
 }

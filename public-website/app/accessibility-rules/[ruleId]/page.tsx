@@ -81,6 +81,8 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
       <LoggedOutLayout>
         <LoggedOutHeader />
 
+        <main>
+
         {/* Breadcrumb & Back Navigation */}
         <section className="py-8 bg-slate-50 border-b border-slate-200">
           <div className="container mx-auto px-4 md:px-6 lg:px-8">
@@ -429,7 +431,7 @@ export default async function RuleDetailPage({ params }: { params: Promise<{ rul
             </div>
           </div>
         </section>
-
+              </main>
         <LoggedOutFooter />
       </LoggedOutLayout>
     );

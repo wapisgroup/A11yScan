@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { doc, onSnapshot, type DocumentData } from '@/utils/firestore-read-tracker';
+import { doc, onSnapshot, type DocumentData, type DocumentSnapshot } from '@/utils/firestore-read-tracker';
 
 import { db } from "@/utils/firebase";
 import type { Project } from "@/types/project";
@@ -14,6 +14,39 @@ import type { ProjectTabKey } from "@/types/project";
  * Declared at module scope so it has a stable reference across renders.
  */
 const DEFAULT_TABS: ProjectTabKey[] = ["overview", "runs", "pages", "pageSets", "reports", "settings"];
+
+const toSafeNumber = (value: unknown): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeProjectStats = (data: DocumentData): Project["projectStats"] => {
+  const raw = (data.projectStats ?? data.stats ?? {}) as Record<string, unknown>;
+
+  const hasAnyField =
+    raw.pagesTotal !== undefined ||
+    raw.pagesScanned !== undefined ||
+    raw.pages404 !== undefined ||
+    raw.critical !== undefined ||
+    raw.serious !== undefined ||
+    raw.moderate !== undefined ||
+    raw.minor !== undefined;
+
+  if (!hasAnyField) {
+    return null;
+  }
+
+  return {
+    pagesTotal: toSafeNumber(raw.pagesTotal),
+    pagesScanned: toSafeNumber(raw.pagesScanned),
+    pages404: toSafeNumber(raw.pages404),
+    critical: toSafeNumber(raw.critical),
+    serious: toSafeNumber(raw.serious),
+    moderate: toSafeNumber(raw.moderate),
+    minor: toSafeNumber(raw.minor),
+    updatedAt: raw.updatedAt,
+  };
+};
 
 export type ProjectDetailPageState = {
   /** Firestore document id of the project. */
@@ -92,7 +125,7 @@ export const useProjectDetailPageState = (
 
     const unsub = onSnapshot(
       ref,
-      (snap) => {
+      (snap: DocumentSnapshot<DocumentData>) => {
         if (!snap.exists()) {
           setProject(null);
           setError(`Project not found: ${projectId}`);
@@ -107,16 +140,19 @@ export const useProjectDetailPageState = (
           name: (data.name ?? null) as string | null,
           domain: String(data.domain ?? ""),
           owner: (data.owner ?? null) as string | null,
+          organisationId: (data.organisationId ?? null) as string | null,
           createdAt: (data.createdAt ?? null) ?? null,
+          lastScanAt: (data.lastScanAt ?? null) ?? null,
           sitemapUrl: (data.sitemapUrl ?? null) as string | null,
           sitemapTreeUrl: (data.sitemapTreeUrl ?? null) as string | null,
           sitemapGraphUrl: (data.sitemapGraphUrl ?? null) as string | null,
           config: (data.config ?? {}) as Record<string, any>,
+          projectStats: normalizeProjectStats(data),
         } as Project);
 
         setLoading(false);
       },
-      (err) => {
+      (err: Error) => {
         setProject(null);
         setError(err.message || String(err));
         setLoading(false);

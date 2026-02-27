@@ -27,17 +27,29 @@ export async function POST(request: NextRequest) {
       // Firestore batch writes are limited to 500 ops — chunk if needed
       const BATCH_SIZE = 400;
       let added = 0;
+      const normalizedUniqueUrls = Array.from(
+        new Set(
+          urls
+            .filter((value): value is string => typeof value === 'string')
+            .map((value) => value.trim())
+            .filter(Boolean)
+        )
+      );
 
-      for (let i = 0; i < urls.length; i += BATCH_SIZE) {
-        const chunk = urls.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < normalizedUniqueUrls.length; i += BATCH_SIZE) {
+        const chunk = normalizedUniqueUrls.slice(i, i + BATCH_SIZE);
         const batch = adminDB.batch();
+        const refs = chunk.map((url) => {
+          const pageId = crypto.createHash('sha256').update(url).digest('hex');
+          return projectRef.collection('pages').doc(pageId);
+        });
+        const existingSnaps = refs.length ? await adminDB.getAll(...refs) : [];
+        let chunkWrites = 0;
 
-        for (const url of chunk) {
-          if (typeof url !== 'string' || !url.trim()) continue;
-          const normalized = url.trim();
-          // Use deterministic SHA-256 id so duplicate URLs are idempotent
-          const pageId = crypto.createHash('sha256').update(normalized).digest('hex');
-          const pageRef = projectRef.collection('pages').doc(pageId);
+        for (let idx = 0; idx < chunk.length; idx++) {
+          if (existingSnaps[idx]?.exists) continue;
+          const normalized = chunk[idx];
+          const pageRef = refs[idx];
           batch.set(
             pageRef,
             {
@@ -46,12 +58,26 @@ export async function POST(request: NextRequest) {
               createdAt: FieldValue.serverTimestamp(),
               createdBy: user.uid,
             },
-            { merge: true }
+            { merge: false }
           );
+          chunkWrites++;
           added++;
         }
 
-        await batch.commit();
+        if (chunkWrites > 0) {
+          await batch.commit();
+        }
+      }
+
+      if (added > 0) {
+        await projectRef.set({
+          projectStats: {
+            pagesTotal: FieldValue.increment(added),
+            pages404: FieldValue.increment(0),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
       }
 
       return NextResponse.json({ ok: true, added });

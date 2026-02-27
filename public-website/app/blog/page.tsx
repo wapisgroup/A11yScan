@@ -47,6 +47,7 @@ export default async function BlogPage() {
   return (
     <LoggedOutLayout>
       <LoggedOutHeader />
+      <main>
       <div className="min-h-screen py-12 px-4">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -151,6 +152,7 @@ export default async function BlogPage() {
           )}
         </div>
       </div>
+      </main>
       <LoggedOutFooter />
     </LoggedOutLayout>
   )

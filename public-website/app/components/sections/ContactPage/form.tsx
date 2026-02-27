@@ -110,168 +110,168 @@ export function ContactPageForm() {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            {/* honeypot - visually hidden */}
-            <label htmlFor="company_name" className="sr-only">
-                Leave this field empty
-            </label>
-            <input
-                id="company_name"
-                name="company_name"
-                value={honeypot}
-                onChange={(e) => setHoneypot(e.target.value)}
-                className="hidden"
-                autoComplete="off"
-                tabIndex={-1}
-            />
-
-            <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">Contact details</h3>
-                <p className="text-sm text-slate-600 mb-4">Tell us how to reach you.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-medium">
-                <div>
-                    <label
-                        htmlFor="full_name"
-                        className="block primary-text-color as-p3-text mb-1 font-semibold"
-                    >
-                        Full name
-                    </label>
-                    <input
-                        id="full_name"
-                        name="name"
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full input"
-                        placeholder="Jane Doe"
-                        autoComplete="name"
-                        required
-                    />
-                </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* honeypot - visually hidden */}
+                {/* <label htmlFor="company_name" className="sr-only">
+                    Leave this field empty
+                </label>
+                <input
+                    id="company_name"
+                    name="company_name"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                    className="hidden bg-white"
+                    autoComplete="off"
+                    tabIndex={-1}
+                /> */}
 
                 <div>
-                    <label
-                        htmlFor="email"
-                        className="block primary-text-color as-p3-text mb-1 font-semibold"
-                    >
-                        Email
-                    </label>
-                    <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full input"
-                        placeholder="you@company.com"
-                        autoComplete="email"
-                        required
-                    />
-                </div>
-                </div>
-            </div>
-
-            <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">Project details</h3>
-                <p className="text-sm text-slate-600 mb-4">Share a bit about your team and goals.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-medium">
+                    <h3 className="text-lg font-semibold text-slate-900 mb-1">Contact details</h3>
+                    <p className="text-sm text-slate-600 mb-4">Tell us how to reach you.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-medium">
                     <div>
                         <label
-                            htmlFor="company"
+                            htmlFor="full_name"
                             className="block primary-text-color as-p3-text mb-1 font-semibold"
                         >
-                            Company (optional)
+                            Full name
                         </label>
                         <input
-                            id="company"
-                            name="company"
-                            value={company}
-                            onChange={(e) => setCompany(e.target.value)}
-                            className="w-full input"
-                            placeholder="Acme Agency"
-                            autoComplete="organization"
+                            id="full_name"
+                            name="name"
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="w-full input bg-white placeholder:text-slate-400"
+                            placeholder="Jane Doe"
+                            autoComplete="name"
+                            required
                         />
                     </div>
 
                     <div>
                         <label
-                            htmlFor="plan"
+                            htmlFor="email"
                             className="block primary-text-color as-p3-text mb-1 font-semibold"
                         >
-                            Interested plan
+                            Email
                         </label>
-                        <select
-                            id="plan"
-                            name="plan"
-                            value={plan}
-                            onChange={(e) => setPlan(e.target.value as ContactPlan)}
-                            className="w-full input"
-                        >
-                            <option value="Basic">Basic</option>
-                            <option value="Starter">Starter</option>
-                            <option value="Professional">Professional</option>
-                            <option value="Enterprise">Enterprise</option>
-                        </select>
+                        <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full input bg-white placeholder:text-slate-400"
+                            placeholder="you@company.com"
+                            autoComplete="email"
+                            required
+                        />
+                    </div>
                     </div>
                 </div>
-            </div>
 
-            <div>
-                <label
-                    htmlFor="message"
-                    className="block primary-text-color as-p3-text mb-1 font-semibold"
-                >
-                    Message
-                </label>
-                <textarea
-                    id="message"
-                    name="message"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    rows={6}
-                    className="w-full input"
-                    placeholder="Tell us what you'd like to achieve, size of site, private/staging access, or any questions"
-                    required
-                />
-                <p className="text-xs text-slate-500 mt-2">
-                    Include approximate page count and any compliance deadlines if you have them.
-                </p>
-            </div>
+                <div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-1">Project details</h3>
+                    <p className="text-sm text-slate-600 mb-4">Share a bit about your team and goals.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-medium">
+                        <div>
+                            <label
+                                htmlFor="company"
+                                className="block primary-text-color as-p3-text mb-1 font-semibold"
+                            >
+                                Company (optional)
+                            </label>
+                            <input
+                                id="company"
+                                name="company"
+                                value={company}
+                                onChange={(e) => setCompany(e.target.value)}
+                                className="w-full input bg-white placeholder:text-slate-400"
+                                placeholder="Acme Agency"
+                                autoComplete="organization"
+                            />
+                        </div>
 
-            {errorMessage ? (
-                <div className="text-red-400 as-p2-text" role="alert">
-                    {errorMessage}
+                        <div>
+                            <label
+                                htmlFor="plan"
+                                className="block primary-text-color as-p3-text mb-1 font-semibold"
+                            >
+                                Interested plan
+                            </label>
+                            <select
+                                id="plan"
+                                name="plan"
+                                value={plan}
+                                onChange={(e) => setPlan(e.target.value as ContactPlan)}
+                                className="w-full input bg-white "
+                            >
+                                <option value="Basic">Basic</option>
+                                <option value="Starter">Starter</option>
+                                <option value="Professional">Professional</option>
+                                <option value="Enterprise">Enterprise</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-            ) : null}
 
-            {success === true ? (
-                <div className="text-green-300 as-p2-text" role="status">
-                    Thanks - your message was sent. We'll be in touch shortly.
+                <div>
+                    <label
+                        htmlFor="message"
+                        className="block primary-text-color as-p3-text mb-1 font-semibold"
+                    >
+                        Message
+                    </label>
+                    <textarea
+                        id="message"
+                        name="message"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        rows={6}
+                        className="w-full input bg-white placeholder:text-slate-400"
+                        placeholder="Tell us what you'd like to achieve, size of site, private/staging access, or any questions"
+                        required
+                    />
+                    <p className="text-xs text-slate-500 mt-2">
+                        Include approximate page count and any compliance deadlines if you have them.
+                    </p>
                 </div>
-            ) : null}
 
-            {success === false ? (
-                <div className="text-yellow-300 as-p2-text" role="status">
-                    Message could not be sent via the site. Your email client was
-                    opened as fallback.
+                {errorMessage ? (
+                    <div className="text-red-400 as-p2-text" role="alert">
+                        {errorMessage}
+                    </div>
+                ) : null}
+
+                {success === true ? (
+                    <div className="text-green-300 as-p2-text" role="status">
+                        Thanks - your message was sent. We'll be in touch shortly.
+                    </div>
+                ) : null}
+
+                {success === false ? (
+                    <div className="text-yellow-300 as-p2-text" role="status">
+                        Message could not be sent via the site. Your email client was
+                        opened as fallback.
+                    </div>
+                ) : null}
+
+                <div className="flex items-center gap-3">
+                    <Button
+                        formSubmit
+                        variant="primary"
+                        disabled={loading}
+                        title={loading ? "Sending…" : "Send message"}
+                    />
+
+                    <Button
+                        type="button"
+                        variant="neutral"
+                        title="Clear"
+                        onClick={resetForm}
+                    />
                 </div>
-            ) : null}
-
-            <div className="flex items-center gap-3">
-                <Button
-                    formSubmit
-                    variant="primary"
-                    disabled={loading}
-                    title={loading ? "Sending…" : "Send message"}
-                />
-
-                <Button
-                    type="button"
-                    variant="neutral"
-                    title="Clear"
-                    onClick={resetForm}
-                />
-            </div>
-        </form>
+            </form>
     );
 }

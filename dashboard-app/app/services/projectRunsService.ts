@@ -1,9 +1,12 @@
 import {
   collection,
+  getCountFromServer,
   getDocs,
   query,
   type DocumentData,
   type Query,
+  type QueryDocumentSnapshot,
+  type QuerySnapshot,
   onSnapshot,
   deleteDoc,
   doc,
@@ -11,6 +14,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   serverTimestamp,
 } from '@/utils/firestore-read-tracker';
 
@@ -26,6 +30,11 @@ type RunLike = PageDoc & {
   type?: string | null;
   status?: string | null;
   groupedRuns?: RunLike[] | null;
+};
+
+export type LoadProjectRunsPageResult = {
+  runs: PageDoc[];
+  lastDoc: QueryDocumentSnapshot<DocumentData> | null;
 };
 
 const normalizeRunStatus = (value: unknown): string => {
@@ -50,6 +59,19 @@ const sortRunsDesc = (runs: RunLike[]): RunLike[] =>
     const bTime = toMillisSafe((b as any).startedAt) || toMillisSafe((b as any).createdAt);
     return bTime - aTime;
   });
+
+const mapRunDoc = (d: QueryDocumentSnapshot<DocumentData>): PageDoc => {
+  const data = d.data() as DocumentData;
+  const startedAt = (data.startedAt ?? data.createdAt ?? null) as unknown;
+  return {
+    id: d.id,
+    url: (data.url ?? null) as string | null,
+    title: (data.title ?? null) as string | null,
+    artifactUrl: (data.artifactUrl ?? null) as string | null,
+    ...data,
+    startedAt,
+  } as PageDoc;
+};
 
 function groupRunsByPipeline(rawRuns: RunLike[]): RunLike[] {
   const ordered = sortRunsDesc(rawRuns);
@@ -106,11 +128,12 @@ function groupRunsByPipeline(rawRuns: RunLike[]): RunLike[] {
  *
  * Expected schema: projects/{projectId}/pages
  */
-const buildPagesQuery = (projectId: string): Query<DocumentData> => {
-  return query(
-    collection(db, "projects", projectId, "runs")
-    // orderBy("createdAt", "desc") // Temporarily disabled - index may not be ready
-  );
+const buildPagesQuery = (projectId: string, limitCount?: number): Query<DocumentData> => {
+  const runsCollection = collection(db, "projects", projectId, "runs");
+  if (typeof limitCount === "number" && Number.isFinite(limitCount) && limitCount > 0) {
+    return query(runsCollection, limit(Math.floor(limitCount)));
+  }
+  return query(runsCollection);
 };
 
 /**
@@ -120,25 +143,23 @@ const buildPagesQuery = (projectId: string): Query<DocumentData> => {
  * - This is NOT realtime. If you want realtime updates, use `onSnapshot` in a
  *   client-side state hook.
  */
-export async function loadProjectRuns(projectId: string): Promise<PageDoc[]> {
+export async function loadProjectRuns(
+  projectId: string,
+  options?: { limitCount?: number; groupByPipeline?: boolean }
+): Promise<PageDoc[]> {
   if (!projectId) return [];
 
-  const q = buildPagesQuery(projectId);
+  const q = buildPagesQuery(projectId, options?.limitCount);
   const snap = await getDocs(q);
 
   const runs = snap.docs
-    .map((d) => {
-      const data = d.data() as DocumentData;
-      return {
-        id: d.id,
-        url: (data.url ?? null) as string | null,
-        title: (data.title ?? null) as string | null,
-        artifactUrl: (data.artifactUrl ?? null) as string | null,
-        ...data,
-      } as PageDoc;
-    })
+    .map(mapRunDoc)
     // Exclude soft-hidden runs
     .filter((r) => (r as any).hidden !== true) as RunLike[];
+
+  if (options?.groupByPipeline === false) {
+    return sortRunsDesc(runs);
+  }
 
   return groupRunsByPipeline(runs);
 }
@@ -146,35 +167,27 @@ export async function loadProjectRuns(projectId: string): Promise<PageDoc[]> {
 export function subscribeProjectRuns(
   projectId: string,
   onNext: (runs: PageDoc[]) => void,
-  onError?: (err: unknown) => void
+  onError?: (err: unknown) => void,
+  options?: { limitCount?: number }
 ): () => void {
   if (!projectId) {
     onNext([]);
     return () => {};
   }
 
-  const q = buildPagesQuery(projectId);
+  const q = buildPagesQuery(projectId, options?.limitCount);
 
   const unsubscribe = onSnapshot(
     q,
-    (snapshot) => {
+    (snapshot: QuerySnapshot<DocumentData>) => {
       const runs = snapshot.docs
-        .map((d) => {
-          const data = d.data() as DocumentData;
-          return {
-            id: d.id,
-            url: (data.url ?? null) as string | null,
-            title: (data.title ?? null) as string | null,
-            artifactUrl: (data.artifactUrl ?? null) as string | null,
-            ...data,
-          } as PageDoc;
-        })
+        .map(mapRunDoc)
         // Exclude soft-hidden runs
-        .filter((r) => (r as any).hidden !== true) as RunLike[];
+        .filter((r: PageDoc) => (r as any).hidden !== true) as RunLike[];
 
       onNext(groupRunsByPipeline(runs));
     },
-    (error) => {
+    (error: unknown) => {
       if (onError) {
         onError(error instanceof Error ? error.message : error);
       }
@@ -182,6 +195,48 @@ export function subscribeProjectRuns(
   );
 
   return unsubscribe;
+}
+
+export async function loadProjectRunsPage(
+  projectId: string,
+  options?: {
+    pageSize?: number;
+    afterDoc?: QueryDocumentSnapshot<DocumentData> | null;
+    /** Server-side type filter — uses the existing composite index (type ASC + startedAt DESC). */
+    type?: string;
+  }
+): Promise<LoadProjectRunsPageResult> {
+  if (!projectId) return { runs: [], lastDoc: null };
+
+  const pageSize = Math.max(1, Math.floor(options?.pageSize ?? 10));
+  const q = query(
+    collection(db, "projects", projectId, "runs"),
+    ...(options?.type ? [where("type", "==", options.type)] : []),
+    orderBy("startedAt", "desc"),
+    ...(options?.afterDoc ? [startAfter(options.afterDoc)] : []),
+    limit(pageSize)
+  );
+  const snap = await getDocs(q);
+
+  const runs = snap.docs
+    .map(mapRunDoc)
+    .filter((r) => (r as any).hidden !== true) as RunLike[];
+
+  return {
+    runs,
+    lastDoc: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null,
+  };
+}
+
+export async function countProjectRuns(
+  projectId: string,
+  options?: { type?: string }
+): Promise<number> {
+  if (!projectId) return 0;
+  const ref = collection(db, "projects", projectId, "runs");
+  const q = options?.type ? query(ref, where("type", "==", options.type)) : ref;
+  const countSnap = await getCountFromServer(q);
+  return Number(countSnap.data().count || 0);
 }
 
 

@@ -20,6 +20,63 @@ type PrivateRouteProps = {
   requireSubscription?: boolean;
 };
 
+const SUBSCRIPTION_CHECK_TTL_MS = 30_000;
+
+type SubscriptionGuardResult = {
+  hasSubscription: boolean;
+  trialExpired: boolean;
+};
+
+type SubscriptionGuardCacheEntry = SubscriptionGuardResult & {
+  checkedAt: number;
+};
+
+const subscriptionGuardCache = new Map<string, SubscriptionGuardCacheEntry>();
+const subscriptionGuardInflight = new Map<string, Promise<SubscriptionGuardResult>>();
+
+async function getSubscriptionGuardResult(userId: string): Promise<SubscriptionGuardResult> {
+  const now = Date.now();
+  const cached = subscriptionGuardCache.get(userId);
+  if (cached && now - cached.checkedAt < SUBSCRIPTION_CHECK_TTL_MS) {
+    return { hasSubscription: cached.hasSubscription, trialExpired: cached.trialExpired };
+  }
+
+  const inflight = subscriptionGuardInflight.get(userId);
+  if (inflight) return inflight;
+
+  const request = (async (): Promise<SubscriptionGuardResult> => {
+    const subscription = await getUserSubscription(userId);
+    if (!subscription) {
+      return { hasSubscription: false, trialExpired: false };
+    }
+
+    const status = String(subscription.status || '').toLowerCase();
+    const trialField = subscription.trialEnd as any;
+    const trialEndDate = trialField
+      ? (typeof trialField.toDate === 'function' ? trialField.toDate() : new Date(trialField))
+      : null;
+
+    const trialExpired = Boolean(
+      (status === 'trialing' || status === 'trial') &&
+      trialEndDate &&
+      trialEndDate < new Date()
+    );
+
+    return { hasSubscription: true, trialExpired };
+  })();
+
+  subscriptionGuardInflight.set(userId, request);
+
+  return request
+    .then((result) => {
+      subscriptionGuardCache.set(userId, { ...result, checkedAt: Date.now() });
+      return result;
+    })
+    .finally(() => {
+      subscriptionGuardInflight.delete(userId);
+    });
+}
+
 export function PrivateRoute({ 
   children, 
   redirectTo = "/auth/login",
@@ -44,21 +101,14 @@ export function PrivateRoute({
       }
 
       try {
-        const subscription = await getUserSubscription(user.uid);
-        if (!subscription) {
+        const result = await getSubscriptionGuardResult(user.uid);
+        if (!result.hasSubscription) {
           // No subscription, redirect to onboarding
           router.replace('/onboarding');
         } else {
-          // Check for expired trial
-          const status = String(subscription.status || '').toLowerCase();
-          if ((status === 'trialing' || status === 'trial') && subscription.trialEnd) {
-            const trialEndDate = typeof (subscription.trialEnd as any).toDate === 'function'
-              ? (subscription.trialEnd as any).toDate()
-              : new Date(subscription.trialEnd as any);
-            if (trialEndDate < new Date()) {
-              router.replace('/workspace/billing?trial_expired=true');
-              return;
-            }
+          if (result.trialExpired) {
+            router.replace('/workspace/billing?trial_expired=true');
+            return;
           }
           setHasSubscription(true);
         }
