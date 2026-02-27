@@ -60,12 +60,14 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   };
 
   useEffect(() => {
-    const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user?.uid ?? null });
+    if (!user?.uid) return;
+    const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user.uid });
     return unsubscribe;
   }, [toast, user?.uid]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToUserNotificationsWithToasts(toast, user?.uid ?? null);
+    if (!user?.uid) return;
+    const unsubscribe = subscribeToUserNotificationsWithToasts(toast, user.uid);
     return unsubscribe;
   }, [toast, user?.uid]);
 

@@ -1,4 +1,4 @@
-import { collection, query, onSnapshot, orderBy } from '@/utils/firestore-read-tracker';
+import { collection, query, onSnapshot, orderBy, where, limit } from '@/utils/firestore-read-tracker';
 import { db } from "@/utils/firebase";
 import type { ToastOptions } from "@/components/providers/window-provider";
 
@@ -141,7 +141,11 @@ export function subscribeToJobsWithToasts(
     if (Number.isFinite(parsed) && parsed > 0) lastToastTs = parsed;
   }
 
-  const jobsQuery = query(collection(db, "jobs"), orderBy("createdAt", "desc"));
+  // Filter at query level when userId is known — avoids reading every job in the collection.
+  // Requires a composite index: jobs(createdBy ASC, createdAt DESC).
+  const jobsQuery = options?.userId
+    ? query(collection(db, "jobs"), where("createdBy", "==", options.userId), orderBy("createdAt", "desc"), limit(100))
+    : query(collection(db, "jobs"), orderBy("createdAt", "desc"), limit(100));
 
   const unsubscribe = onSnapshot(
     jobsQuery,

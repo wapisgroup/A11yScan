@@ -50,18 +50,17 @@ export function useSubscription(): UseSubscriptionReturn {
     let unsubSnapshot: (() => void) | null = null;
 
     const start = async () => {
-      // Resolve the correct subscription doc: org owner's or own
+      // Resolve the correct subscription doc: org owner's or own.
+      // Use organisationId already loaded in the auth context — avoids a
+      // redundant getDoc(users/{uid}) read on every page load.
       let subscriptionUid = user.uid;
       try {
-        const userSnap = await getDoc(doc(db, 'users', user.uid));
-        if (userSnap.exists()) {
-          const organisationId = userSnap.data().organisationId as string | undefined;
-          if (organisationId) {
-            const orgSnap = await getDoc(doc(db, 'organizations', organisationId));
-            if (orgSnap.exists()) {
-              const ownerId = orgSnap.data()?.ownerId as string | undefined;
-              if (ownerId) subscriptionUid = ownerId;
-            }
+        const organisationId = user.organisationId as string | undefined;
+        if (organisationId) {
+          const orgSnap = await getDoc(doc(db, 'organizations', organisationId));
+          if (orgSnap.exists()) {
+            const ownerId = orgSnap.data()?.ownerId as string | undefined;
+            if (ownerId) subscriptionUid = ownerId;
           }
         }
       } catch { /* fall back to user.uid */ }
@@ -97,7 +96,7 @@ export function useSubscription(): UseSubscriptionReturn {
       cancelled = true;
       if (unsubSnapshot) unsubSnapshot();
     };
-  }, [user?.uid]);
+  }, [user?.uid, user?.organisationId]);
 
   // Kept for API compatibility — real-time listener means manual refetch is a no-op
   const fetchSubscription = async () => {};
