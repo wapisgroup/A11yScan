@@ -22,7 +22,7 @@ import {
 import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight, PiCalendar, PiPaletteLight, PiCode } from "react-icons/pi";
 import { FiUser, FiLogOut, FiSettings, FiCreditCard, FiShield } from "react-icons/fi";
 import { useToast } from "../providers/window-provider";
-import { subscribeToJobsWithToasts } from "@/services/jobsService";
+import { useJobsSse } from "@/hooks/use-jobs-sse";
 import { subscribeToUserNotificationsWithToasts } from "@/services/userNotificationsService";
 import { useAuth } from "@/utils/firebase";
 import { URL_APP_PROFILE, URL_APP_ORGANISATION, URL_APP_BILLING, URL_APP_ADMIN } from "@/utils/urls";
@@ -62,11 +62,8 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   //   onboarding.markWelcomeSeen();
   // };
 
-  useEffect(() => {
-    if (!user?.uid || !shouldListenToJobs) return;
-    const unsubscribe = subscribeToJobsWithToasts(toast, { userId: user.uid, limitCount: 5 });
-    return unsubscribe;
-  }, [toast, user?.uid, shouldListenToJobs]);
+  // Phase 5: SSE hook replaces Firestore subscribeToJobsWithToasts
+  useJobsSse(Boolean(user?.uid && shouldListenToJobs), toast);
 
   useEffect(() => {
     if (!user?.uid) return;

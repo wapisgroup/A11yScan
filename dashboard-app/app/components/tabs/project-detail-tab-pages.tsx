@@ -8,7 +8,7 @@
  * Runs subscription and scan API calls still use Firebase (Phase 5 / Phase 7).
  */
 
-import React, { useCallback, useState, useRef, useEffect } from "react";
+import React, { useCallback, useState, useRef, useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FiPlus } from "react-icons/fi";
 import { PiX, PiPlay, PiTrash, PiWarning, PiFunnelSimple, PiFunnelX, PiFileText } from "react-icons/pi";
@@ -28,16 +28,8 @@ import { Pagination } from "../molecule/pagination";
 import type { PageDoc } from "@/types/page-types";
 import { runSelectedPages } from "@/services/projectPagesService";
 import { scanSinglePage } from "@/services/projectDetailService";
-import { auth, db } from "@/utils/firebase";
-import {
-  collection,
-  onSnapshot,
-  query,
-  limit,
-  type DocumentData,
-  type QuerySnapshot,
-  type Unsubscribe,
-} from "@/utils/firestore-read-tracker";
+import { auth } from "@/utils/firebase";
+import { useRunsSse } from "@/hooks/use-runs-sse";
 import { EmptyState } from "../atom/EmptyState";
 
 // Server actions (PostgreSQL)
@@ -130,43 +122,19 @@ export function PagesTab({ project }: PagesTabProps) {
     return () => clearTimeout(timer);
   }, [inputText, setFilterText]);
 
-  // Firestore runs subscription — provides per-page active run status (Phase 5: replace with SSE)
-  const [activeRunsByPage, setActiveRunsByPage] = useState<Map<string, RunDoc>>(new Map());
-  useEffect(() => {
-    if (!projectId) return;
-    const unsub: Unsubscribe = onSnapshot(
-      query(collection(db, "projects", projectId, "runs"), limit(50)),
-      (snap: QuerySnapshot<DocumentData>) => {
-        const map = new Map<string, RunDoc>();
-        const sorted = [...snap.docs].sort((a, b) => {
-          const aData = a.data() as DocumentData;
-          const bData = b.data() as DocumentData;
-          const aTs = (aData.startedAt ?? aData.createdAt ?? null) as {
-            toMillis?: () => number;
-          } | null;
-          const bTs = (bData.startedAt ?? bData.createdAt ?? null) as {
-            toMillis?: () => number;
-          } | null;
-          const aMs = typeof aTs?.toMillis === "function" ? aTs.toMillis() : 0;
-          const bMs = typeof bTs?.toMillis === "function" ? bTs.toMillis() : 0;
-          return bMs - aMs;
-        });
-        sorted.forEach((d) => {
-          const data = d.data() as DocumentData;
-          const run: RunDoc = {
-            id: d.id,
-            status: data.status ?? null,
-            startedAt: data.startedAt ?? data.createdAt ?? null,
-          };
-          (data.pagesIds as string[] | undefined)?.forEach((pid) => {
-            if (!map.has(pid)) map.set(pid, run);
-          });
-        });
-        setActiveRunsByPage(map);
-      }
-    );
-    return unsub;
-  }, [projectId]);
+  // Phase 5: SSE subscription replaces Firestore onSnapshot for per-page run status
+  const sseRuns = useRunsSse(projectId);
+  const activeRunsByPage = useMemo(() => {
+    const map = new Map<string, RunDoc>();
+    // Runs are already ordered startedAt desc from the server; iterate in order so
+    // the first (most recent) run wins for each page.
+    sseRuns.forEach((run) => {
+      run.pagesIds?.forEach((pid) => {
+        if (!map.has(pid)) map.set(pid, run);
+      });
+    });
+    return map;
+  }, [sseRuns]);
 
   // Close 404 dropdown when clicking outside
   useEffect(() => {

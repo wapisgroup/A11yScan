@@ -5,8 +5,8 @@
  * Shared component in tabs/project-detail-tab-overview.tsx.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
-import { subscribeProjectRuns } from "@/services/projectRunsService";
+import React, { useCallback, useState } from "react";
+import { useRunsSse } from "@/hooks/use-runs-sse";
 import { PiPlay, PiGlobe, PiTreeStructure, PiDownloadSimple, PiArrowRight } from "react-icons/pi";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { SitemapTree, type SitemapNode } from "@/components/organism/sitemap-tree";
@@ -45,24 +45,13 @@ type OverviewTabProps = {
 export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
   const projectId = project?.id;
   const alert = useAlert();
-  const [latestRuns, setLatestRuns] = useState<Run[]>([]);
   const [sitemapDrawerOpen, setSitemapDrawerOpen] = useState(false);
   const [sitemapTree, setSitemapTree] = useState<SitemapNode | null>(null);
   const [sitemapLoading, setSitemapLoading] = useState(false);
 
-  // Subscribe to runs for real-time updates
-  useEffect(() => {
-    if (!projectId) return;
-    
-    const unsubscribe = subscribeProjectRuns(
-      projectId,
-      (runs) => setLatestRuns(runs.slice(0, 5)),
-      (error) => console.error("Error loading runs:", error),
-      { limitCount: 5 }
-    );
-    
-    return unsubscribe;
-  }, [projectId]);
+  // Phase 5: SSE subscription replaces Firestore subscribeProjectRuns
+  const allRuns = useRunsSse(projectId);
+  const latestRuns = allRuns.slice(0, 5);
 
   const handleStartSitemap = async () => {
     const result = await startSitemap(projectId);
