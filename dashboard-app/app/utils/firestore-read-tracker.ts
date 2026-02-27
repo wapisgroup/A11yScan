@@ -37,10 +37,16 @@ import {
 
 // ─── internal state ───────────────────────────────────────────────────────────
 
+interface Op {
+  label: string;
+  docs: number;
+  caller: string;
+}
+
 interface RouteStats {
   reads: number;
   calls: number;
-  ops: { label: string; docs: number }[];
+  ops: Op[];
 }
 
 const stats = new Map<string, RouteStats>();
@@ -58,12 +64,73 @@ function getOrCreate(route: string): RouteStats {
   return stats.get(route)!;
 }
 
-function record(label: string, docCount: number) {
+/**
+ * Walks the call stack and returns a human-readable caller identifier.
+ *
+ * Strategy (in priority order):
+ *  1. If the frame's file URL is a `webpack-internal:///` eval URL (Next.js dev
+ *     with eval source maps), extract the embedded TypeScript path.
+ *  2. Otherwise use the **function name** from the stack frame — it is preserved
+ *     in development builds and is more readable than a compiled chunk filename
+ *     like `app_7bcc3331._.js`.
+ *
+ * Frames belonging to the tracker itself, React internals, and node_modules are
+ * skipped.
+ */
+function getCaller(): string {
+  try {
+    const raw = new Error().stack ?? '';
+    for (const line of raw.split('\n')) {
+      if (!line.includes(' at ')) continue;
+      if (line.includes('firestore-read-tracker')) continue;
+
+      const frame = line.trim();
+
+      // ── 1. Try to get the TypeScript path from a webpack-internal:// eval URL ──
+      // Next.js devtool:'eval-source-map' embeds the original file path:
+      //   at fn (webpack-internal:///(app-client)/./app/services/foo.ts:12:5)
+      const evalMatch = frame.match(/\(webpack-internal:\/\/\/[^/]+\/\.?\/?(.+?\.tsx?):\d+:\d+\)/);
+      if (evalMatch) {
+        // e.g. "app/services/projectPagesService.ts"
+        const tsPath = evalMatch[1].replace(/^\.\//, '');
+        if (!tsPath.includes('node_modules')) {
+          // Extract function name too when available: "at useOnboarding ("
+          const fn = frame.match(/^at\s+([\w$.]+)\s*\(/)?.[1]?.replace(/^(?:Object|Module)\s*\.\s*/, '') ?? '';
+          return fn ? `${fn} (${tsPath.split('/').pop()})` : tsPath.split('/').pop() ?? tsPath;
+        }
+      }
+
+      // ── 2. Fall back to the function name ──
+      // Chrome format: "at functionName (" or "at Object.functionName (" or
+      //                "at async functionName ("
+      const fnMatch = frame.match(/^at\s+(?:async\s+)?(?:new\s+)?([\w$.]+)\s*\(/);
+      let fn = fnMatch?.[1]?.trim() ?? '';
+
+      // Strip common prefixes that don't add context
+      fn = fn.replace(/^(?:Object|Module|Array|Promise|eval)\s*\.\s*/, '');
+
+      if (!fn || fn === 'anonymous' || fn === '<anonymous>') continue;
+
+      // Skip React / Next.js / webpack runtime frames by checking the file portion
+      const fileMatch = frame.match(/\((.+?):\d+:\d+\)/)?.[1] ?? '';
+      if (
+        fileMatch.includes('node_modules') ||
+        fileMatch.includes('/_next/') && !fileMatch.includes('webpack-internal') ||
+        frame.includes('<anonymous>')
+      ) continue;
+
+      return fn;
+    }
+  } catch { /* ignore */ }
+  return '';
+}
+
+function record(label: string, docCount: number, caller: string) {
   const route = currentRoute();
   const s = getOrCreate(route);
   s.reads += docCount;
   s.calls += 1;
-  s.ops.push({ label, docs: docCount });
+  s.ops.push({ label, docs: docCount, caller });
   scheduleFlush(route);
 }
 
@@ -83,6 +150,7 @@ function flush(route: string) {
     header: 'font-weight:bold;color:#0ea5e9',
     total: 'font-weight:bold;color:#f59e0b',
     op: 'color:#94a3b8',
+    caller: 'color:#64748b;font-style:italic',
   };
 
   console.groupCollapsed(
@@ -91,9 +159,14 @@ function flush(route: string) {
     style.total,
     style.op,
   );
-  s.ops.forEach(({ label, docs }) =>
-    console.log(`%c  ${docs.toString().padStart(4)} docs  ${label}`, style.op),
-  );
+  s.ops.forEach(({ label, docs, caller }) => {
+    const callerSuffix = caller ? `  ← ${caller}` : '';
+    console.log(
+      `%c  ${docs.toString().padStart(4)} docs  ${label}%c${callerSuffix}`,
+      style.op,
+      style.caller,
+    );
+  });
   console.groupEnd();
 
   stats.delete(route);
@@ -108,10 +181,11 @@ const isDev = process.env.NODE_ENV === 'development';
 export async function getDocs<T = DocumentData>(
   query: Query<T>,
 ): Promise<QuerySnapshot<T>> {
+  // Capture caller synchronously before the async getDoc call.
+  const caller = isDev ? getCaller() : '';
   const snap = await _getDocs(query);
   if (isDev) {
-    const label = describeQuery(query);
-    record(label, snap.size);
+    record(describeQuery(query), snap.size, caller);
   }
   return snap;
 }
@@ -119,9 +193,11 @@ export async function getDocs<T = DocumentData>(
 export async function getDoc<T = DocumentData>(
   ref: DocumentReference<T>,
 ): Promise<DocumentSnapshot<T>> {
+  // Capture caller synchronously before the async getDoc call.
+  const caller = isDev ? getCaller() : '';
   const snap = await _getDoc(ref);
   if (isDev) {
-    record(`getDoc  ${ref.path}`, 1);
+    record(`getDoc  ${ref.path}`, 1, caller);
   }
   return snap;
 }
@@ -134,32 +210,35 @@ export function onSnapshot<T = DocumentData>(
     return (_onSnapshot as any)(queryOrRef, ...args);
   }
 
+  // Capture caller synchronously — the wrapNext callback runs asynchronously
+  // (when Firestore delivers data) so getCaller() would return the wrong frame there.
+  const caller = getCaller();
+
   // Intercept the observer / callback to count reads on each snapshot
   const [optionsOrObserverOrNext, ...rest] = args;
-
-  const wrapNext = (next: (snap: any) => void, label: string) =>
-    (snap: QuerySnapshot<T> | DocumentSnapshot<T>) => {
-      const docCount =
-        'size' in snap ? snap.size : 1; // QuerySnapshot vs DocumentSnapshot
-      record(`onSnapshot  ${label}`, docCount);
-      next(snap);
-    };
 
   const label =
     'path' in queryOrRef
       ? queryOrRef.path
       : describeQuery(queryOrRef as Query<T>);
 
+  const wrapNext = (next: (snap: any) => void) =>
+    (snap: QuerySnapshot<T> | DocumentSnapshot<T>) => {
+      const docCount = 'size' in snap ? snap.size : 1;
+      record(`onSnapshot  ${label}`, docCount, caller);
+      next(snap);
+    };
+
   if (typeof optionsOrObserverOrNext === 'function') {
     // onSnapshot(ref, next, error?, complete?)
-    return (_onSnapshot as any)(queryOrRef, wrapNext(optionsOrObserverOrNext, label), ...rest);
+    return (_onSnapshot as any)(queryOrRef, wrapNext(optionsOrObserverOrNext), ...rest);
   }
 
   if (typeof optionsOrObserverOrNext === 'object' && 'next' in optionsOrObserverOrNext) {
     // onSnapshot(ref, { next, error, complete })
     return (_onSnapshot as any)(
       queryOrRef,
-      { ...optionsOrObserverOrNext, next: wrapNext(optionsOrObserverOrNext.next, label) },
+      { ...optionsOrObserverOrNext, next: wrapNext(optionsOrObserverOrNext.next) },
       ...rest,
     );
   }
@@ -169,7 +248,7 @@ export function onSnapshot<T = DocumentData>(
   return (_onSnapshot as any)(
     queryOrRef,
     optionsOrObserverOrNext as SnapshotListenOptions,
-    wrapNext(next, label),
+    wrapNext(next),
     ...remaining,
   );
 }
