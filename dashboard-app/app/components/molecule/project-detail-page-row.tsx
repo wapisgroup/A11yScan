@@ -5,99 +5,38 @@
  * Shared component in molecule/project-detail-page-row.tsx.
  */
 
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-  type DocumentData,
-  type Unsubscribe,
-} from '@/utils/firestore-read-tracker';
+import React, { useMemo } from "react";
 
-import { db } from "@/utils/firebase";
 import { PiPlay, PiArrowClockwise, PiFileText, PiTrash, PiHourglassLow } from "react-icons/pi";
 import { DSIconButton } from "../atom/ds-icon-button";
 import { ProjectInfoLine } from "../atom/project-info-line";
-import {  statusFromRun } from "@/ui-helpers/page-helpers";
+import { statusFromRun } from "@/ui-helpers/page-helpers";
 import { PageDoc } from "@/types/page-types";
 import { PageStatsTDO } from "@/types/project";
 import { normalizeStatus, safeNumber } from "@/ui-helpers/default";
-
-
 
 type RunDoc = {
   id: string;
   status?: string | null;
   startedAt?: unknown;
-  // other fields ignored
 };
-
 
 type PageRowProps = {
   projectId: string;
   page: PageDoc;
+  /** Most-recent run referencing this page — supplied by the parent to avoid per-row subscriptions. */
+  activeRun?: RunDoc | null;
   onScan?: () => void;
   onOpen?: () => void;
   onDelete?: () => void;
 };
 
-export function PageRow({ projectId, page, onScan, onOpen, onDelete }: PageRowProps) {
+export function PageRow({ projectId, page, activeRun = null, onScan, onOpen, onDelete }: PageRowProps) {
   const httpStatus = page.httpStatus != null ? Number(page.httpStatus) : null;
   // Treat missing httpStatus as OK — pages added via sitemap upload or manually before
   // a status check have no httpStatus yet; the scan itself will validate them.
   const isHttpOk = httpStatus === null || (httpStatus >= 200 && httpStatus < 300);
-  const [referencingRun, setReferencingRun] = useState<RunDoc | null>(null);
-
-
-  // Subscribe to the most-recent run that references this page
-  useEffect(() => {
-    let unsub: Unsubscribe | null = null;
-
-    if (!projectId || !page?.id) {
-      setReferencingRun(null);
-      return;
-    }
-
-    const runsCol = collection(db, "projects", projectId, "runs");
-    const runsQuery = query(
-      runsCol,
-      where("pagesIds", "array-contains", page.id),
-      orderBy("startedAt", "desc"),
-      limit(1)
-    );
-
-    unsub = onSnapshot(
-      runsQuery,
-      (snap) => {
-        if (!snap.docs.length) {
-          setReferencingRun(null);
-          return;
-        }
-
-        const d = snap.docs[0];
-        const data = d.data() as DocumentData;
-        const runData = { id: d.id, status: data?.status ?? null, startedAt: data?.startedAt };
-        console.log('[PageRow] Run update:', runData);
-        setReferencingRun(runData);
-      },
-      (err) => {
-        // eslint-disable-next-line no-console
-        console.warn("PageRow: runs onSnapshot error", err);
-        setReferencingRun(null);
-      }
-    );
-
-    return () => {
-      try {
-        unsub?.();
-      } catch {
-        // ignore
-      }
-    };
-  }, [projectId, page.id]);
+  const referencingRun = activeRun;
 
   // Use page-level stats when available
   const counts = useMemo(() => {

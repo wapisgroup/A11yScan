@@ -5,7 +5,7 @@
  * Shared component in tabs/project-detail-tab-pages.tsx.
  */
 
-import React, { useCallback, useState, useRef, useEffect } from "react";
+import React, { useCallback, useState, useRef, useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FiPlus } from "react-icons/fi";
 import { PiX, PiPlay, PiTrash, PiWarning, PiFunnelSimple, PiFunnelX, PiFileText } from "react-icons/pi";
@@ -25,7 +25,8 @@ import { Pagination } from "../molecule/pagination";
 import type { PageDoc } from "@/state-services/project-detail-states_old";
 import { removePage, runSelectedPages, removePages, removeNon2xxPages } from "@/services/projectPagesService";
 import { scanSinglePage } from "@/services/projectDetailService";
-import { auth } from "@/utils/firebase";
+import { auth, db } from "@/utils/firebase";
+import { collection, onSnapshot, orderBy, query, limit, type DocumentData, type QuerySnapshot, type Unsubscribe } from "@/utils/firestore-read-tracker";
 import { EmptyState } from "../atom/EmptyState";
 
 /**
@@ -43,6 +44,8 @@ type PagesTabProps = {
  * ----------------
  * Props for a single page row in the list.
  */
+type RunDoc = { id: string; status?: string | null; startedAt?: unknown };
+
 type PageListRowProps = {
   /** Firestore id of the parent project. */
   projectId: string;
@@ -52,6 +55,9 @@ type PageListRowProps = {
 
   /** Whether this page is currently selected. */
   checked: boolean;
+
+  /** Most-recent run referencing this page (from the shared project-level subscription). */
+  activeRun: RunDoc | null;
 
   /** Toggle handler for the checkbox. */
   onToggle: (pageId: string, checked: boolean) => void;
@@ -79,6 +85,7 @@ const PageListRow = React.memo(function PageListRow({
   projectId,
   page,
   checked,
+  activeRun,
   onToggle,
   onScan,
   onOpen,
@@ -95,6 +102,7 @@ const PageListRow = React.memo(function PageListRow({
         <PageRow
           projectId={projectId}
           page={page}
+          activeRun={activeRun}
           onScan={() => onScan(page)}
           onOpen={() => onOpen(page)}
           onDelete={() => onDelete(page)}
@@ -147,6 +155,29 @@ export function PagesTab({ project }: PagesTabProps) {
 
   // State-service hook that owns data + actions for this tab.
   const state = useProjectPagesPageState(projectId);
+
+  // Single subscription to recent runs — replaces per-row subscriptions in PageRow.
+  // Builds a Map<pageId, RunDoc> so each row can look up its own run in O(1).
+  const [activeRunsByPage, setActiveRunsByPage] = useState<Map<string, RunDoc>>(new Map());
+  useEffect(() => {
+    if (!projectId) return;
+    const unsub: Unsubscribe = onSnapshot(
+      query(collection(db, "projects", projectId, "runs"), orderBy("startedAt", "desc"), limit(50)),
+      (snap: QuerySnapshot<DocumentData>) => {
+        const map = new Map<string, RunDoc>();
+        // Iterate newest-first so the most recent run wins per page
+        snap.docs.forEach((d: QuerySnapshot<DocumentData>['docs'][number]) => {
+          const data = d.data() as DocumentData;
+          const run: RunDoc = { id: d.id, status: data.status ?? null, startedAt: data.startedAt };
+          (data.pagesIds as string[] | undefined)?.forEach((pid) => {
+            if (!map.has(pid)) map.set(pid, run);
+          });
+        });
+        setActiveRunsByPage(map);
+      }
+    );
+    return unsub;
+  }, [projectId]);
 
   // Close 404 dropdown when clicking outside
   useEffect(() => {
@@ -669,6 +700,7 @@ export function PagesTab({ project }: PagesTabProps) {
               projectId={projectId}
               page={p}
               checked={selectedPages.has(p.id)}
+              activeRun={activeRunsByPage.get(p.id) ?? null}
               onToggle={togglePage}
               onScan={scanPage}
               onOpen={openReport}
