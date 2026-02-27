@@ -44,7 +44,9 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const router = useRouter();
   const isAdmin = isPlatformAdminUser(user as Record<string, any>);
   const { hasFeature, loading: subscriptionLoading } = useSubscription();
-  const onboarding = useOnboarding(user?.uid, user?.organisationId);
+  // Pass null (not undefined) when organisationId is not set so the onboarding hook
+  // can distinguish "no org" (null → owner filter) from "not yet resolved" (undefined → skip).
+  const onboarding = useOnboarding(user?.uid, user?.organisationId ?? null);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
 
   // Show welcome modal once when welcomeSeen transitions from false → seen

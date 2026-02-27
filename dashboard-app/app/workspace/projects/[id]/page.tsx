@@ -19,7 +19,7 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import { PrivateRoute } from "@/utils/private-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PageContainer } from "@/components/molecule/page-container";
@@ -38,6 +38,8 @@ import { ReportsTab } from "@/components/tabs/project-detail-tab-reports";
 import { useProjectDetailPageState } from "@/state-services/project-detail-state";
 import { startFullScan, startPageCollection } from "@/services/projectDetailService";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
+import { subscribeProjectPages } from "@/services/projectPagesService";
+import type { PageDoc } from "@/types/page-types";
 
 /**
  * HeaderButtons
@@ -67,8 +69,16 @@ export default function ProjectDetailPage() {
   const id = params?.id;
 
   const [showNoPageModal, setShowNoPageModal] = useState(false);
+  const [pages, setPages] = useState<PageDoc[]>([]);
   const searchParams = useSearchParams();
   const autoScanTriggered = useRef(false);
+
+  // Single pages subscription shared between ProjectDetailStats header and PagesTab.
+  // This avoids two identical subscriptions (140 docs each) when both are mounted.
+  useEffect(() => {
+    if (!id) return;
+    return subscribeProjectPages(id, setPages);
+  }, [id]);
 
   /**
    * State-service hook: loads the project and owns the active tab state.
@@ -151,7 +161,7 @@ export default function ProjectDetailPage() {
             <div className="w-full">
               <div className="flex flex-col gap-medium">
                 <div className="px-[var(--spacing-m)]">
-                  <ProjectDetailStats projectId={id} />
+                  <ProjectDetailStats pages={pages} />
                 </div>
 
                 {/* Tabs */}
@@ -175,7 +185,7 @@ export default function ProjectDetailPage() {
               <div className="bg-[var(--color-bg-light)] px-[var(--spacing-m)] py-[var(--spacing-l)] rounded-b-xl">
                 {tab === "overview" && <OverviewTab project={project} setTab={state.setTabSafe} />}
                 {tab === "runs" && <RunsTab project={project} />}
-                {tab === "pages" && <PagesTab project={project} />}
+                {tab === "pages" && <PagesTab project={project} externalPages={pages} />}
                 {tab === "pageSets" && <PageSetsTab project={project} />}
                 {tab === "reports" && <ReportsTab projectId={project.id} />}
                 {tab === "settings" && <SettingsTab project={project} />}

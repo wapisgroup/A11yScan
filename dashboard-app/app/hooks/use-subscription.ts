@@ -57,6 +57,7 @@ export function useSubscription(): UseSubscriptionReturn {
       try {
         const organisationId = user.organisationId as string | undefined;
         if (organisationId) {
+          if (cancelled) return; // guard: Strict Mode may clean up before async getDoc
           const orgSnap = await getDoc(doc(db, 'organizations', organisationId));
           if (orgSnap.exists()) {
             const ownerId = orgSnap.data()?.ownerId as string | undefined;

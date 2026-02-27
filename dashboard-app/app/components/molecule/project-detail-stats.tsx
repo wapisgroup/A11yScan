@@ -6,43 +6,17 @@
  */
 
 import { ProjectStatsTDO } from "@/types/project";
+import type { PageDoc } from "@/types/page-types";
 import { StatPill } from "../atom/stat-pill";
-import React, { useEffect, useState, useMemo } from "react";
-import { subscribeProjectPages } from "@/services/projectPagesService";
+import React, { useMemo } from "react";
 
 type ProjectDetailStatsProps = {
   stats?: ProjectStatsTDO;
-  projectId: string;
+  /** Pages are owned by the parent to avoid a duplicate subscription. */
+  pages: PageDoc[];
 };
 
-type PageDoc = {
-  id: string;
-  httpStatus?: number | string | null;
-  status?: string | null;
-  violationsCount?: {
-    critical?: number;
-    serious?: number;
-    moderate?: number;
-    minor?: number;
-  } | null;
-  [key: string]: unknown;
-};
-
-export function ProjectDetailStats({ projectId }: ProjectDetailStatsProps) {
-  const [pages, setPages] = useState<PageDoc[]>([]);
-
-  // Subscribe to pages for real-time updates
-  useEffect(() => {
-    if (!projectId) return;
-
-    const unsubscribe = subscribeProjectPages(
-      projectId,
-      (pagesData) => setPages(pagesData as PageDoc[]),
-      (error) => console.error("Error loading pages for stats:", error)
-    );
-
-    return unsubscribe;
-  }, [projectId]);
+export function ProjectDetailStats({ pages }: ProjectDetailStatsProps) {
 
   // Calculate stats from pages
   const stats = useMemo(() => {

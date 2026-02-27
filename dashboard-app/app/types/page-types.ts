@@ -14,5 +14,5 @@ export type PageDoc = {
   lastRunId?: string | null;
   lastScan?: unknown;
   lastStats?: PageStatsTDO | null;
-  violationsCount?: number | null;
+  violationsCount?: Partial<ProjectStatsTDO> | null;
 };

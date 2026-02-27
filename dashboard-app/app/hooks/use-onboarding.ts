@@ -11,7 +11,6 @@ import {
   limit,
 } from '@/utils/firestore-read-tracker';
 import { db } from "@/utils/firebase";
-import { subscribeProjects } from "@/services/projectsService";
 
 export type OnboardingStep = {
   id: string;
@@ -55,10 +54,18 @@ export function useOnboarding(uid: string | null | undefined, organisationId?: s
     return unsub;
   }, [uid]);
 
-  // Step 1 — has any project
+  // Step 1 — has any project.
+  // Use a direct limit(1) query instead of subscribeProjects to avoid the slow-path
+  // auto-resolve (which fires twice when organisationId transitions from undefined → value).
+  // Guard on organisationId === undefined so we don't fire before auth finishes loading;
+  // null means "no org" and uses the owner filter.
   useEffect(() => {
     if (!uid) return;
-    const unsub = subscribeProjects((projects) => setHasProject(projects.length > 0), undefined, organisationId);
+    if (organisationId === undefined) return; // auth not fully resolved yet
+    const q = organisationId
+      ? query(collection(db, "projects"), where("organisationId", "==", organisationId), limit(1))
+      : query(collection(db, "projects"), where("owner", "==", uid), limit(1));
+    const unsub = onSnapshot(q, (snap: { empty: boolean }) => setHasProject(!snap.empty));
     return unsub;
   }, [uid, organisationId]);
 

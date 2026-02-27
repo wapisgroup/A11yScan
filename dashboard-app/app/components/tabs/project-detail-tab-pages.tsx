@@ -23,6 +23,7 @@ import type { Project } from "@/types/project";
 import { useProjectPagesPageState } from "@/state-services/project-detail-pages-state";
 import { Pagination } from "../molecule/pagination";
 import type { PageDoc } from "@/state-services/project-detail-states_old";
+import type { PageDoc as PageDocFull } from "@/types/page-types";
 import { removePage, runSelectedPages, removePages, removeNon2xxPages } from "@/services/projectPagesService";
 import { scanSinglePage } from "@/services/projectDetailService";
 import { auth, db } from "@/utils/firebase";
@@ -37,6 +38,11 @@ import { EmptyState } from "../atom/EmptyState";
 type PagesTabProps = {
   /** The parent project document. */
   project: Project;
+  /**
+   * Pages pre-fetched by the parent (shared subscription).
+   * When provided this component skips its own Firestore listener.
+   */
+  externalPages?: PageDocFull[];
 };
 
 /**
@@ -127,7 +133,7 @@ const PageListRow = React.memo(function PageListRow({
  * - This component is intentionally thin
  * - All Firestore subscriptions and mutations live in the state hook
  */
-export function PagesTab({ project }: PagesTabProps) {
+export function PagesTab({ project, externalPages }: PagesTabProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -154,7 +160,8 @@ export function PagesTab({ project }: PagesTabProps) {
   const isPanelOpen = Boolean(panelPageId);
 
   // State-service hook that owns data + actions for this tab.
-  const state = useProjectPagesPageState(projectId);
+  // Pass externalPages so it reuses the parent's subscription rather than opening a second one.
+  const state = useProjectPagesPageState(projectId, 10, externalPages);
 
   // Single subscription to recent runs — replaces per-row subscriptions in PageRow.
   // Builds a Map<pageId, RunDoc> so each row can look up its own run in O(1).

@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 
 import { useItemsPageState, type DefaultPageState } from "./default-list-state";
 import type { PageDoc } from "./project-detail-states_old";
+import type { PageDoc as PageDocFull } from "@/types/page-types";
 import { loadProjectPages, subscribeProjectPages } from "@/services/projectPagesService";
 
 type SelectedPages = {
@@ -25,14 +26,17 @@ export type ProjectDetailPagesTabState = DefaultPageState<PageDoc> & {
 /**
  * useProjectPagesPageState
  * -----------------------
- * Page-list state based on `useItemsPageState`, using a one-time Firestore fetch.
+ * Page-list state based on `useItemsPageState`.
  *
- * NOTE: This does NOT subscribe in realtime. If you want realtime, use `onSnapshot`
- * in a dedicated hook, not in `useItemsPageState`.
+ * When `externalPages` is provided (from a parent-level subscription), this hook
+ * re-emits those pages into the base state rather than opening a second Firestore
+ * listener.  If `externalPages` is undefined (default), the hook subscribes to
+ * Firestore directly (original behaviour).
  */
 export const useProjectPagesPageState = (
   projectId: string,
-  pageSize = 10
+  pageSize = 10,
+  externalPages?: PageDocFull[]
 ): ProjectDetailPagesTabState => {
   const [selectedPages, setSelectedPages] = useState<Set<string>>(() => new Set());
   const [onlyWithIssues, setOnlyWithIssues] = useState(false);
@@ -42,11 +46,20 @@ export const useProjectPagesPageState = (
     return loadProjectPages(projectId);
   }, [projectId]);
 
+  // If externalPages are provided, emit them immediately instead of opening a second
+  // Firestore listener (the parent already holds the authoritative subscription).
   const subscribe = useCallback(
-      (onNext: (items: PageDoc[]) => void, onError: (err: unknown) => void) =>
-        subscribeProjectPages(projectId, onNext, onError),
-      [projectId]
-    );
+    (onNext: (items: PageDoc[]) => void, onError: (err: unknown) => void) => {
+      if (externalPages !== undefined) {
+        // PageDocFull has id: string; PageDoc (old) uses [key: string]: unknown — compatible.
+        onNext(externalPages as unknown as PageDoc[]);
+        return () => {};
+      }
+      return subscribeProjectPages(projectId, onNext, onError);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projectId, externalPages]
+  );
 
   /** Toggle a page id in the selection Set. */
   const togglePage = useCallback((pageId: string, checked: boolean) => {
