@@ -1,6 +1,7 @@
-// Prisma schema for Accessibility Checker — Phase 1 + Phase 2
+// Prisma schema for Accessibility Checker — Phase 1 + Phase 2 + Phase 3
 // Models: User, Account, VerificationToken, Organization, Project,
-//         Page, PageViolationCount, PageSet, PageSetPage, PageSetRule
+//         Page, PageViolationCount, PageSet, PageSetPage, PageSetRule,
+//         Run, RunPage, Scan
 
 datasource db {
   provider = "postgresql"
@@ -102,6 +103,8 @@ model Project {
   organization Organization? @relation(fields: [organizationId], references: [id])
   pages        Page[]
   pageSets     PageSet[]
+  runs         Run[]
+  scans        Scan[]
 
   @@map("projects")
 }
@@ -123,6 +126,8 @@ model Page {
   project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   violationCount PageViolationCount?
   pageSetPages   PageSetPage[]
+  runPages       RunPage[]
+  scans          Scan[]
 
   @@index([projectId])
   @@map("pages")
@@ -187,4 +192,64 @@ model PageSetRule {
 
   @@index([pageSetId])
   @@map("page_set_rules")
+}
+
+// ─── Runs ─────────────────────────────────────────────────────────────────────
+
+model Run {
+  id           String    @id @default(cuid())
+  projectId    String
+  type         String?   // RunType: scan_pages | pages_to_sitemap | page_collection | full_scan | generate_report
+  status       String?
+  startedAt    DateTime?
+  pagesTotal   Int?
+  pagesScanned Int?
+  pipelineId   String?
+  hidden       Boolean   @default(false)
+  cancelledAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  runPages RunPage[]
+  scans    Scan[]
+
+  @@index([projectId])
+  @@index([projectId, type])
+  @@map("runs")
+}
+
+model RunPage {
+  id     String @id @default(cuid())
+  runId  String
+  pageId String
+
+  run  Run  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, pageId])
+  @@map("run_pages")
+}
+
+// ─── Scans ────────────────────────────────────────────────────────────────────
+
+model Scan {
+  id           String   @id @default(cuid())
+  projectId    String
+  pageId       String?
+  runId        String?
+  type         String?
+  artifactPath String?
+  summary      Json?    // { critical, serious, moderate, minor }
+  issues       Json?    // Issue[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  run     Run?     @relation(fields: [runId], references: [id])
+  page    Page?    @relation(fields: [pageId], references: [id])
+
+  @@index([projectId])
+  @@index([pageId])
+  @@map("scans")
 }

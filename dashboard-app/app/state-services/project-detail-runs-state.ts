@@ -1,27 +1,20 @@
 "use client";
 
+/**
+ * project-detail-runs-state.ts
+ * ----------------------------------
+ * Phase 3: Replaced cursor-based Firestore pagination with LIMIT/OFFSET
+ * via the getRuns server action.
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DocumentData, QueryDocumentSnapshot } from "@/utils/firestore-read-tracker";
 import type { DefaultPageState, PagePagination } from "./default-list-state";
-import { countProjectRuns, loadProjectRuns, loadProjectRunsPage } from "@/services/projectRunsService";
+import { getRuns } from "@/actions/runs";
 import { RunDoc } from "@/types/run";
 
 export type ProjectDetailRunsTabState = DefaultPageState<RunDoc>;
 
 const DEFAULT_PAGE_SIZE = 10;
-
-const filterRun = (run: RunDoc, text: string, category: string): boolean => {
-  if (category) {
-    const t = String((run as Record<string, unknown>).type ?? "");
-    if (t !== category) return false;
-  }
-  if (!text) return true;
-  try {
-    return JSON.stringify(run).toLowerCase().includes(text.toLowerCase());
-  } catch {
-    return false;
-  }
-};
 
 export const useProjectRunsPageState = (
   projectId: string,
@@ -36,16 +29,7 @@ export const useProjectRunsPageState = (
   const [filterText, setFilterText] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
 
-  const cursorByPageRef = useRef<Map<number, QueryDocumentSnapshot<DocumentData> | null>>(
-    new Map([[1, null]])
-  );
-  const pageCacheRef = useRef<Map<number, RunDoc[]>>(new Map());
-  const serverTotalCountRef = useRef<number | null>(null);
-  const inFlightKeyRef = useRef<string | null>(null);
-  const completedKeyRef = useRef<string>("");
-
-  // Category is handled server-side (where clause); only free-text triggers a full client-side load.
-  const isClientFilterMode = Boolean(filterText);
+  const abortRef = useRef<AbortController | null>(null);
 
   const setPage = useCallback((p: number) => {
     const next = Number.isFinite(p) ? Math.max(1, Math.floor(p)) : 1;
@@ -55,156 +39,56 @@ export const useProjectRunsPageState = (
   const setError = useCallback((msg: string) => _setError(msg || ""), []);
   const clearError = useCallback(() => _setError(""), []);
 
-  const resetServerPaginationCache = useCallback(() => {
-    cursorByPageRef.current = new Map([[1, null]]);
-    pageCacheRef.current = new Map();
-  }, []);
+  const loadData = useCallback(async () => {
+    if (!projectId) {
+      setItems([]);
+      setTotalCount(0);
+      setLoading(false);
+      clearError();
+      return;
+    }
 
-  const fetchServerPage = useCallback(
-    async (targetPage: number): Promise<RunDoc[]> => {
-      if (!projectId) return [];
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
 
-      const cursorMap = cursorByPageRef.current;
-      const cache = pageCacheRef.current;
+    setLoading(true);
+    clearError();
 
-      if (cache.has(targetPage) && cursorMap.has(targetPage + 1)) {
-        return cache.get(targetPage) ?? [];
-      }
-
-      const knownPages = Array.from(cursorMap.keys())
-        .filter((p) => p <= targetPage)
-        .sort((a, b) => a - b);
-      const startPage = knownPages.length > 0 ? knownPages[knownPages.length - 1] : 1;
-      let cursor = cursorMap.get(startPage) ?? null;
-
-      for (let p = startPage; p <= targetPage; p++) {
-        if (cache.has(p) && cursorMap.has(p + 1)) {
-          cursor = cursorMap.get(p + 1) ?? null;
-          continue;
-        }
-
-        const pageResult = await loadProjectRunsPage(projectId, {
-          pageSize,
-          afterDoc: cursor,
-          type: filterCategory || undefined,
-        });
-
-        const runs = pageResult.runs as RunDoc[];
-        cache.set(p, runs);
-        cursor = pageResult.lastDoc;
-        cursorMap.set(p + 1, cursor);
-      }
-
-      return cache.get(targetPage) ?? [];
-    },
-    [filterCategory, pageSize, projectId]
-  );
-
-  const loadData = useCallback(
-    async (forceRefetch: boolean) => {
-      if (!projectId) {
-        setItems([]);
-        setTotalCount(0);
-        setLoading(false);
-        clearError();
-        return;
-      }
-
-      const requestKey = JSON.stringify({
-        projectId,
+    try {
+      const result = await getRuns(projectId, {
+        type: filterCategory || undefined,
         page,
         pageSize,
-        filterText,
-        filterCategory,
-        isClientFilterMode,
       });
+      setItems(result.runs);
+      setTotalCount(result.total);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [clearError, filterCategory, page, pageSize, projectId, setError]);
 
-      if (!forceRefetch) {
-        if (inFlightKeyRef.current === requestKey || completedKeyRef.current === requestKey) {
-          return;
-        }
-        inFlightKeyRef.current = requestKey;
-      }
-
-      setLoading(true);
-      clearError();
-
-      try {
-        if (isClientFilterMode) {
-          const allRuns = (await loadProjectRuns(projectId, { groupByPipeline: false })) as RunDoc[];
-          const filtered = allRuns.filter((run) => filterRun(run, filterText, filterCategory));
-          setItems(filtered);
-          setTotalCount(filtered.length);
-        } else {
-          if (forceRefetch) {
-            resetServerPaginationCache();
-          }
-
-          if (forceRefetch || serverTotalCountRef.current == null) {
-            serverTotalCountRef.current = await countProjectRuns(projectId, {
-              type: filterCategory || undefined,
-            });
-            setTotalCount(serverTotalCountRef.current);
-          }
-          const total = serverTotalCountRef.current ?? 0;
-          const totalPages = Math.max(1, Math.ceil(total / pageSize));
-          const safePage = Math.min(Math.max(page, 1), totalPages);
-          if (safePage !== page) _setPage(safePage);
-
-          const pageItems = await fetchServerPage(safePage);
-          setItems(pageItems);
-        }
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        if (!forceRefetch) {
-          completedKeyRef.current = requestKey;
-          inFlightKeyRef.current = null;
-        }
-        setLoading(false);
-      }
-    },
-    [
-      clearError,
-      fetchServerPage,
-      filterCategory,
-      filterText,
-      isClientFilterMode,
-      page,
-      pageSize,
-      projectId,
-      resetServerPaginationCache,
-      setError,
-    ]
-  );
-
-  const refresh = useCallback(async () => {
-    await loadData(true);
-  }, [loadData]);
-
-  // Reset server pagination whenever project, page size, category filter, or mode changes.
-  // filterCategory changes invalidate the cursor cache because the ordered result set changes.
+  // Reset to page 1 when project, page size, or category filter changes.
   useEffect(() => {
     _setPage(1);
-    serverTotalCountRef.current = null;
-    inFlightKeyRef.current = null;
-    completedKeyRef.current = "";
-    setTotalCount(0);
-    resetServerPaginationCache();
-  }, [projectId, pageSize, filterCategory, isClientFilterMode, resetServerPaginationCache]);
+  }, [projectId, pageSize, filterCategory]);
 
-  // Reset to page 1 when the text filter changes (client mode toggle is handled above).
+  // Reset to page 1 when text filter changes (client-side display only).
   useEffect(() => {
     _setPage(1);
   }, [filterText]);
 
   useEffect(() => {
-    void loadData(false);
+    void loadData();
+  }, [loadData]);
+
+  const refresh = useCallback(async () => {
+    await loadData();
   }, [loadData]);
 
   const pagination = useMemo<PagePagination>(() => {
-    const count = isClientFilterMode ? items.length : totalCount;
-    const totalPages = Math.max(1, Math.ceil(count / pageSize));
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
     const safePage = Math.min(Math.max(page, 1), totalPages);
     return {
       totalPages,
@@ -212,26 +96,25 @@ export const useProjectRunsPageState = (
       startIdx: (safePage - 1) * pageSize,
       pageSize,
     };
-  }, [isClientFilterMode, items.length, page, pageSize, totalCount]);
+  }, [page, pageSize, totalCount]);
 
-  useEffect(() => {
-    if (page !== pagination.safePage) {
-      _setPage(pagination.safePage);
-    }
-  }, [page, pagination.safePage]);
-
+  // Client-side text filter applied on top of server results
   const pagedItems = useMemo(() => {
-    if (isClientFilterMode) {
-      const start = pagination.startIdx;
-      return items.slice(start, start + pageSize);
-    }
-    return items;
-  }, [isClientFilterMode, items, pagination.startIdx, pageSize]);
+    if (!filterText) return items;
+    const lower = filterText.toLowerCase();
+    return items.filter((run) => {
+      try {
+        return JSON.stringify(run).toLowerCase().includes(lower);
+      } catch {
+        return false;
+      }
+    });
+  }, [filterText, items]);
 
   return {
     pagedItems,
     allItems: items,
-    totalCount: isClientFilterMode ? items.length : totalCount,
+    totalCount,
     loading,
     error,
     editing,

@@ -136,6 +136,21 @@ export async function getAllPages(projectId: string): Promise<PageDoc[]> {
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 /**
+ * Returns a single page by id, or null if not found.
+ */
+export async function getPage(pageId: string): Promise<PageDoc | null> {
+  await getAuthenticatedUser();
+
+  const row = await prisma.page.findUnique({
+    where: { id: pageId },
+    include: { violationCount: true },
+  });
+  if (!row) return null;
+
+  return toPageDoc(row);
+}
+
+/**
  * Adds a single page to a project.
  * Validates that the page URL belongs to the project domain.
  */

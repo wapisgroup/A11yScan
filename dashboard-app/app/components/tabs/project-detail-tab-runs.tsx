@@ -10,10 +10,10 @@ import { RunRow } from "../molecule/project-detail-run-row";
 import { PageContainer } from "../molecule/page-container";
 import { useProjectRunsPageState } from "@/state-services/project-detail-runs-state";
 import { Pagination } from "../molecule/pagination";
-import { Project } from "@/services/projectsService";
+import { Project } from "@/actions/projects";
 import { RunDoc, runTypesList } from "@/types/run";
 
-import { deleteProjectRun, hideProjectRun, cancelProjectRun } from "@/services/projectRunsService";
+import { deleteRun, hideRun, cancelRun } from "@/actions/runs";
 import { useConfirm } from "../providers/window-provider";
 import { RunResultDrawer } from "../modals/run-result-drawer";
 import PageReportDrawer from "../modals/page-report-drawer";
@@ -71,7 +71,7 @@ export function RunsTab({ project }: RunsTabProps) {
           ? (run as any).groupedRuns
           : [run];
         for (const r of runsToDelete) {
-          await deleteProjectRun(projectId, r.id);
+          await deleteRun(projectId, r.id);
         }
         await refresh();
       }
@@ -86,7 +86,7 @@ export function RunsTab({ project }: RunsTabProps) {
         ? (run as any).groupedRuns
         : [run];
       for (const r of runsToHide) {
-        await hideProjectRun(projectId, r.id);
+        await hideRun(projectId, r.id);
       }
       await refresh();
     },
@@ -107,7 +107,7 @@ export function RunsTab({ project }: RunsTabProps) {
           ? (run as any).groupedRuns
           : [run];
         for (const r of runsToCancel) {
-          await cancelProjectRun(projectId, r.id);
+          await cancelRun(projectId, r.id);
         }
         await refresh();
       }

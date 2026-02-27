@@ -1,20 +1,27 @@
 "use client";
 
+/**
+ * page-report-state.ts
+ * ----------------------------------
+ * Phase 3: Replaced Firestore reads with server actions:
+ * - getProject (actions/projects) replaces Firestore getDoc for project
+ * - getPage (actions/pages) replaces Firestore getDoc for page
+ * - getScansForPage (actions/scans) replaces Firestore onSnapshot for scans list
+ * - getScanDetail (actions/scans) replaces Firestore onSnapshot for selected scan
+ *
+ * Firebase Storage artifact URLs and snapshot HTML proxy routes are kept as-is
+ * (they rely on Firebase Storage and will be migrated in a later phase).
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  type DocumentData,
-  type Unsubscribe,
-} from '@/utils/firestore-read-tracker';
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 
-import { db, auth, storage } from "@/utils/firebase";
-import type { TimestampLike } from "@/types/default";
+import { storage, auth } from "@/utils/firebase";
+import { getProject } from "@/actions/projects";
+import { getPage } from "@/actions/pages";
+import { getScansForPage, getScanDetail } from "@/actions/scans";
+import type { Project } from "@/actions/projects";
+import type { PageDoc } from "@/types/page-types";
 
 type ViolationsCount = {
   critical?: number;
@@ -45,37 +52,13 @@ type Issue = {
 export type ScanDoc = {
   id: string;
   pageId?: string;
-  createdAt?: TimestampLike;
+  createdAt?: { toDate: () => Date };
   type?: string;
   runId?: string;
   artifactPath?: string | null;
   summary?: ViolationsCount | null;
   issues?: Issue[];
   [key: string]: unknown;
-};
-
-export type PageDoc = {
-  id: string;
-  url?: string | null;
-  projectName?: string | null;
-  artifactUrl?: string | null;
-  artifactPath?: string | null;
-  lastStats?: ViolationsCount | null;
-  violationsCount?: ViolationsCount | null;
-  lastScan?: ScanDoc | null;
-  [key: string]: unknown;
-};
-
-export type Project = {
-  id: string;
-  name: string | null;
-  domain: string;
-  owner: string | null;
-  createdAt: TimestampLike;
-  sitemapUrl: string | null;
-  sitemapTreeUrl: string | null;
-  sitemapGraphUrl: string | null;
-  config: Record<string, any>;
 };
 
 export type PageReportState = {
@@ -108,12 +91,6 @@ export type PageReportState = {
  * usePageReportState
  * ------------------
  * Consolidated state management for the page report view.
- * 
- * Optimization:
- * - Project: Loaded once (doesn't change often)
- * - Page: Loaded once (could add refresh if needed)
- * - Scans: Real-time subscription (new scans may be added)
- * - Selected scan: Real-time subscription (data may update)
  */
 export const usePageReportState = (
   projectId: string | undefined,
@@ -125,8 +102,6 @@ export const usePageReportState = (
   const [page, setPage] = useState<PageDoc | null>(null);
   const [scans, setScans] = useState<ScanDoc[]>([]);
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
-  // Ref keeps the latest selectedScanId readable inside onSnapshot closures
-  // without needing it in the dependency array (which would re-subscribe on every selection).
   const selectedScanIdRef = useRef<string | null>(null);
   selectedScanIdRef.current = selectedScanId;
   const [selectedScan, setSelectedScan] = useState<ScanDoc | null>(null);
@@ -135,40 +110,30 @@ export const usePageReportState = (
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
-  // Load project and page once (no subscription needed)
+  // Load project and page once
   useEffect(() => {
     async function loadInitialData() {
       if (!projectId || !pageId) return;
-      
+
       try {
         setLoading(true);
         setError("");
 
-        // Load project
-        const projectDoc = await getDoc(doc(db, "projects", projectId));
-        if (projectDoc.exists()) {
-          const data = projectDoc.data() as DocumentData;
-          setProject({
-            id: projectDoc.id,
-            name: (data.name ?? null) as string | null,
-            domain: String(data.domain ?? ""),
-            owner: (data.owner ?? null) as string | null,
-            createdAt: (data.createdAt ?? null) ?? null,
-            sitemapUrl: (data.sitemapUrl ?? null) as string | null,
-            sitemapTreeUrl: (data.sitemapTreeUrl ?? null) as string | null,
-            sitemapGraphUrl: (data.sitemapGraphUrl ?? null) as string | null,
-            config: (data.config ?? {}) as Record<string, any>,
-          });
-        } else {
+        const [proj, pg] = await Promise.all([
+          getProject(projectId),
+          getPage(pageId),
+        ]);
+
+        if (!proj) {
           setError(`Project not found: ${projectId}`);
+        } else {
+          setProject(proj);
         }
 
-        // Load page
-        const pageDoc = await getDoc(doc(db, "projects", projectId, "pages", pageId));
-        if (pageDoc.exists()) {
-          setPage({ id: pageDoc.id, ...(pageDoc.data() as DocumentData) } as PageDoc);
-        } else {
+        if (!pg) {
           setError(`Page not found: ${pageId}`);
+        } else {
+          setPage(pg as unknown as PageDoc);
         }
 
         setLoading(false);
@@ -187,66 +152,56 @@ export const usePageReportState = (
     setScans([]);
   }, [projectId, pageId]);
 
-  // Subscribe to scans for this page
-  useEffect(() => {
-    if (!projectId || !pageId) return;
+  // Load scans for this page (one-time fetch; re-fetch when pageId changes)
+  const loadScans = useCallback(async () => {
+    if (!pageId) return;
 
-    const scansCol = collection(db, "projects", projectId, "scans");
-    const q = query(scansCol, orderBy("createdAt", "desc"));
+    try {
+      const list = await getScansForPage(pageId);
+      setScans(list);
 
-    const unsub: Unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        const list: ScanDoc[] = snap.docs
-          .map((d) => ({ id: d.id, ...(d.data() as DocumentData) } as ScanDoc))
-          .filter((s) => s.pageId === pageId);
-
-        setScans(list);
-
-        // Default to latest scan if nothing is selected yet.
-        // Use ref instead of state to avoid stale closure when pageId changes.
-        if (!selectedScanIdRef.current && list.length) {
-          setSelectedScanId(list[0]!.id);
-        }
-      },
-      (err) => {
-        console.error("Scans snapshot error", err);
+      // Default to the latest scan if nothing is selected yet.
+      if (!selectedScanIdRef.current && list.length) {
+        setSelectedScanId(list[0]!.id);
       }
-    );
+    } catch (err) {
+      console.error("Failed to load scans", err);
+    }
+  }, [pageId]);
 
-    return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, pageId]);
-
-  // Subscribe to selected scan
   useEffect(() => {
-    if (!projectId || !selectedScanId) {
+    void loadScans();
+  }, [loadScans]);
+
+  // Load selected scan detail whenever selectedScanId changes
+  useEffect(() => {
+    if (!selectedScanId) {
       setSelectedScan(null);
       return;
     }
 
-    const unsub: Unsubscribe = onSnapshot(
-      doc(db, "projects", projectId, "scans", selectedScanId),
-      (snap) => {
-        setSelectedScan(snap.exists() ? ({ id: snap.id, ...(snap.data() as DocumentData) } as ScanDoc) : null);
-      },
-      (err) => {
-        console.error("Selected scan snapshot error", err);
+    async function fetchScan() {
+      if (!selectedScanId) return;
+      try {
+        const scan = await getScanDetail(selectedScanId);
+        setSelectedScan(scan);
+      } catch (err) {
+        console.error("Failed to load scan detail", err);
+        setSelectedScan(null);
       }
-    );
+    }
 
-    return () => unsub();
-  }, [projectId, selectedScanId]);
+    void fetchScan();
+  }, [selectedScanId]);
 
-  // Load download URL for artifact
+  // Load download URL for artifact (Firebase Storage — kept for Phase 7)
   useEffect(() => {
     async function fetchUrl() {
       setDownloadUrl(null);
 
       const artifactPath =
         (selectedScan?.artifactPath as string | null | undefined) ||
-        (page?.artifactUrl as string | null | undefined) ||
-        (page?.artifactPath as string | null | undefined);
+        (page?.artifactUrl as string | null | undefined);
 
       if (!artifactPath || !storage) return;
 
@@ -263,7 +218,7 @@ export const usePageReportState = (
     void fetchUrl();
   }, [selectedScan, page]);
 
-  // Load snapshot HTML for the preview tab
+  // Load snapshot HTML for the preview tab (proxy route — kept for Phase 7)
   useEffect(() => {
     async function loadSnapshot() {
       setSnapshotHtml(null);
@@ -272,14 +227,14 @@ export const usePageReportState = (
       const scan = selectedScan as Record<string, unknown>;
       const pageInfo = scan.pageInfo as Record<string, unknown> | null | undefined;
 
-      // 1. Inline HTML stored directly in Firestore (no Storage fetch needed)
+      // 1. Inline HTML stored directly in scan record
       const inlineHtml =
         (pageInfo?.pageSnapshot as string | null | undefined) ??
         (scan.pageSnapshot as string | null | undefined) ??
         null;
       if (inlineHtml) { setSnapshotHtml(inlineHtml); return; }
 
-      // 2. Fetch via server-side proxy route to avoid CORS issues with Firebase Storage
+      // 2. Fetch via server-side proxy route (Firebase Storage proxy)
       const runId = (scan.runId as string | null | undefined) ?? null;
       const scanPageId = ((scan.pageId as string | null | undefined) ?? pageId) ?? null;
       const storedUrl = (scan.pageSnapshotUrl as string | null | undefined) ?? null;
@@ -304,14 +259,15 @@ export const usePageReportState = (
   const summary = useMemo<Required<ViolationsCount>>(() => {
     const base =
       selectedScan?.summary ||
-      page?.lastStats ||
-      page?.violationsCount || { critical: 0, serious: 0, moderate: 0, minor: 0 };
+      (page as Record<string, unknown> | null)?.lastStats ||
+      (page as Record<string, unknown> | null)?.violationsCount ||
+      { critical: 0, serious: 0, moderate: 0, minor: 0 };
 
     return {
-      critical: Number(base.critical || 0),
-      serious: Number(base.serious || 0),
-      moderate: Number(base.moderate || 0),
-      minor: Number(base.minor || 0),
+      critical: Number((base as ViolationsCount).critical || 0),
+      serious: Number((base as ViolationsCount).serious || 0),
+      moderate: Number((base as ViolationsCount).moderate || 0),
+      minor: Number((base as ViolationsCount).minor || 0),
     };
   }, [selectedScan, page]);
 
@@ -328,7 +284,7 @@ export const usePageReportState = (
       if (!map[key]) {
         map[key] = [];
       }
-      map[key].push(issue);
+      map[key]!.push(issue);
     });
 
     return map;
