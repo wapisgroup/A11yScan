@@ -3,6 +3,9 @@
 /**
  * Project Detail Tab Pages
  * Shared component in tabs/project-detail-tab-pages.tsx.
+ *
+ * Phase 2: Pages CRUD uses PostgreSQL server actions.
+ * Runs subscription and scan API calls still use Firebase (Phase 5 / Phase 7).
  */
 
 import React, { useCallback, useState, useRef, useEffect } from "react";
@@ -23,69 +26,42 @@ import type { Project } from "@/types/project";
 import { useProjectPagesPageState } from "@/state-services/project-detail-pages-state";
 import { Pagination } from "../molecule/pagination";
 import type { PageDoc } from "@/types/page-types";
-import { removePage, runSelectedPages, removePages, removeNon2xxPages } from "@/services/projectPagesService";
+import { runSelectedPages } from "@/services/projectPagesService";
 import { scanSinglePage } from "@/services/projectDetailService";
 import { auth, db } from "@/utils/firebase";
-import { collection, onSnapshot, query, limit, type DocumentData, type QuerySnapshot, type Unsubscribe } from "@/utils/firestore-read-tracker";
+import {
+  collection,
+  onSnapshot,
+  query,
+  limit,
+  type DocumentData,
+  type QuerySnapshot,
+  type Unsubscribe,
+} from "@/utils/firestore-read-tracker";
 import { EmptyState } from "../atom/EmptyState";
 
-/**
- * PagesTabProps
- * -------------
- * Props for the Project Detail "Pages" tab.
- */
+// Server actions (PostgreSQL)
+import { createPage, deletePage, deletePages, deleteNon2xxPages } from "@/actions/pages";
+
 type PagesTabProps = {
-  /** The parent project document. */
   project: Project;
-  /**
-   * Pages pre-fetched by the parent (shared subscription).
-   * When provided this component skips its own Firestore listener.
-   */
+  /** @deprecated externalPages no longer used — server-side filtering replaces client-filter mode */
   externalPages?: PageDoc[];
 };
 
-/**
- * PageListRowProps
- * ----------------
- * Props for a single page row in the list.
- */
 type RunDoc = { id: string; status?: string | null; startedAt?: unknown };
 
 type PageListRowProps = {
-  /** Firestore id of the parent project. */
   projectId: string;
-
-  /** Page document to render. */
   page: PageDoc;
-
-  /** Whether this page is currently selected. */
   checked: boolean;
-
-  /** Most-recent run referencing this page (from the shared project-level subscription). */
   activeRun: RunDoc | null;
-
-  /** Toggle handler for the checkbox. */
   onToggle: (pageId: string, checked: boolean) => void;
-
-  /** Starts a scan for a single page. */
   onScan: (page: PageDoc) => void;
-
-  /** Opens the report for a page. */
   onOpen: (page: PageDoc) => void;
-
-  /** Delete the page. */
   onDelete: (page: PageDoc) => void;
 };
 
-/**
- * PageListRow
- * -----------
- * Pure presentational row for a single page entry.
- *
- * Wrapped in `React.memo` to avoid unnecessary re-renders when:
- * - selection state for other rows changes
- * - parent re-renders due to filter text updates
- */
 const PageListRow = React.memo(function PageListRow({
   projectId,
   page,
@@ -94,15 +70,16 @@ const PageListRow = React.memo(function PageListRow({
   onToggle,
   onScan,
   onOpen,
-  onDelete
+  onDelete,
 }: PageListRowProps) {
   return (
     <div className="flex items-center gap-large">
       <Checkbox
         checked={checked}
-        onChange={(e) => onToggle(page.id, Boolean((e.target as HTMLInputElement | null)?.checked))}
+        onChange={(e) =>
+          onToggle(page.id, Boolean((e.target as HTMLInputElement | null)?.checked))
+        }
       />
-
       <div className="flex-1">
         <PageRow
           projectId={projectId}
@@ -117,22 +94,7 @@ const PageListRow = React.memo(function PageListRow({
   );
 });
 
-/**
- * PagesTab
- * --------
- * UI component for the Project Detail "Pages" tab.
- *
- * Responsibilities:
- * - Renders filter input, selection controls, and page list
- * - Delegates all data loading and business logic to
- *   `useProjectDetailPagesTabState`
- * - Bridges navigation and alerting into the state-service hook
- *
- * Design notes:
- * - This component is intentionally thin
- * - All Firestore subscriptions and mutations live in the state hook
- */
-export function PagesTab({ project, externalPages }: PagesTabProps) {
+export function PagesTab({ project }: PagesTabProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -141,7 +103,6 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
 
   const projectId = project?.id;
 
-  // Add pages drawer
   const [addDrawerOpen, setAddDrawerOpen] = useState(false);
 
   // 404 pages menu state
@@ -149,21 +110,19 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
   const [is404Filtered, setIs404Filtered] = useState(false);
   const menu404Ref = useRef<HTMLDivElement>(null);
 
-  // Manual pagination for filtered items
   const [filtered404Page, setFiltered404Page] = useState(1);
   const FILTERED_PAGE_SIZE = 10;
 
   const panelPageId = searchParams.get("reportPageId");
   const panelScanId = searchParams.get("reportScanId");
-  const panelTab = (searchParams.get("reportPanelTab") === "preview" ? "preview" : "report") as "report" | "preview";
+  const panelTab = (
+    searchParams.get("reportPanelTab") === "preview" ? "preview" : "report"
+  ) as "report" | "preview";
   const isPanelOpen = Boolean(panelPageId);
 
-  // State-service hook that owns data + actions for this tab.
-  // Pass externalPages so it reuses the parent's subscription rather than opening a second one.
-  const state = useProjectPagesPageState(projectId, 10, externalPages);
+  const state = useProjectPagesPageState(projectId, 10);
 
-  // Local input state for debounced text filter.
-  // Keeps the input snappy while reducing Firestore requests to one per pause.
+  // Local input state for debounced text filter
   const { setFilterText } = state;
   const [inputText, setInputText] = useState("");
   useEffect(() => {
@@ -171,8 +130,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
     return () => clearTimeout(timer);
   }, [inputText, setFilterText]);
 
-  // Single subscription to recent runs — replaces per-row subscriptions in PageRow.
-  // Builds a Map<pageId, RunDoc> so each row can look up its own run in O(1).
+  // Firestore runs subscription — provides per-page active run status (Phase 5: replace with SSE)
   const [activeRunsByPage, setActiveRunsByPage] = useState<Map<string, RunDoc>>(new Map());
   useEffect(() => {
     if (!projectId) return;
@@ -183,16 +141,23 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
         const sorted = [...snap.docs].sort((a, b) => {
           const aData = a.data() as DocumentData;
           const bData = b.data() as DocumentData;
-          const aTs = (aData.startedAt ?? aData.createdAt ?? null) as { toMillis?: () => number } | null;
-          const bTs = (bData.startedAt ?? bData.createdAt ?? null) as { toMillis?: () => number } | null;
+          const aTs = (aData.startedAt ?? aData.createdAt ?? null) as {
+            toMillis?: () => number;
+          } | null;
+          const bTs = (bData.startedAt ?? bData.createdAt ?? null) as {
+            toMillis?: () => number;
+          } | null;
           const aMs = typeof aTs?.toMillis === "function" ? aTs.toMillis() : 0;
           const bMs = typeof bTs?.toMillis === "function" ? bTs.toMillis() : 0;
           return bMs - aMs;
         });
-        // Iterate newest-first so the most recent run wins per page
-        sorted.forEach((d: QuerySnapshot<DocumentData>['docs'][number]) => {
+        sorted.forEach((d) => {
           const data = d.data() as DocumentData;
-          const run: RunDoc = { id: d.id, status: data.status ?? null, startedAt: data.startedAt ?? data.createdAt ?? null };
+          const run: RunDoc = {
+            id: d.id,
+            status: data.status ?? null,
+            startedAt: data.startedAt ?? data.createdAt ?? null,
+          };
           (data.pagesIds as string[] | undefined)?.forEach((pid) => {
             if (!map.has(pid)) map.set(pid, run);
           });
@@ -206,19 +171,19 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
   // Close 404 dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menu404Ref.current && !menu404Ref.current.contains(event.target as Node)) {
+      if (
+        menu404Ref.current &&
+        !menu404Ref.current.contains(event.target as Node)
+      ) {
         setShow404Menu(false);
       }
     };
-
     if (show404Menu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [show404Menu]);
 
-  // Preserve original behavior: show a lightweight loading placeholder
-  // until we have a project id and state.
   if (!projectId || !state) return <div>Loading</div>;
 
   const {
@@ -230,52 +195,46 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
     selection,
     onlyWithIssues,
     setOnlyWithIssues,
-    isClientFilterMode,
-    refresh
+    refresh,
   } = state;
 
-  // Filter to show only non-2xx pages when 404 filter is active
-  // Pages with no httpStatus yet (manually added, sitemap upload) are excluded — they are unknown, not errors.
-  const filtered404Items = allItems.filter(page => {
+  // Non-2xx items from current page
+  const filtered404Items = allItems.filter((page) => {
     const status = page.httpStatus;
     if (status == null) return false;
-    const normalizedStatus =
+    const n =
       typeof status === "number" ? status : Number.parseInt(String(status), 10);
-    return Number.isFinite(normalizedStatus) && (normalizedStatus < 200 || normalizedStatus >= 300);
+    return Number.isFinite(n) && (n < 200 || n >= 300);
   });
 
-  // Paginate filtered items manually
-  const filtered404TotalPages = Math.max(1, Math.ceil(filtered404Items.length / FILTERED_PAGE_SIZE));
-  const filtered404SafePage = Math.min(Math.max(filtered404Page, 1), filtered404TotalPages);
+  const filtered404TotalPages = Math.max(
+    1,
+    Math.ceil(filtered404Items.length / FILTERED_PAGE_SIZE)
+  );
+  const filtered404SafePage = Math.min(
+    Math.max(filtered404Page, 1),
+    filtered404TotalPages
+  );
   const filtered404StartIdx = (filtered404SafePage - 1) * FILTERED_PAGE_SIZE;
   const paginatedFiltered404Items = filtered404Items.slice(
     filtered404StartIdx,
     filtered404StartIdx + FILTERED_PAGE_SIZE
   );
 
-  // Use filtered items when 404 filter is active
   const displayedItems = is404Filtered ? paginatedFiltered404Items : pagedItems;
-
-  // Calculate displayed count and pagination for current view
   const displayedCount = is404Filtered ? filtered404Items.length : totalCount;
-  const displayedTotalPages = is404Filtered ? filtered404TotalPages : pagination.totalPages;
+  const displayedTotalPages = is404Filtered
+    ? filtered404TotalPages
+    : pagination.totalPages;
   const displayedPage = is404Filtered ? filtered404SafePage : pagination.safePage;
 
-  // Reset filtered page when filter is toggled
   useEffect(() => {
-    if (is404Filtered) {
-      setFiltered404Page(1);
-    }
+    if (is404Filtered) setFiltered404Page(1);
   }, [is404Filtered]);
 
-  /**
-  * Page selection metadata derived by the state hook.
-  */
-  const { selectedPages, selectedCount, clearSelection, togglePage, toggleAllOnPage, getSelectedDocs } = selection;
+  const { selectedPages, selectedCount, clearSelection, togglePage, toggleAllOnPage, getSelectedDocs } =
+    selection;
 
-  /**
-   * Starts a scan for a single page.
-   */
   const scanPage = useCallback(
     (page: PageDoc) => {
       if (!projectId) return;
@@ -293,17 +252,23 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
       }>
     ) => {
       const params = new URLSearchParams(searchParams.toString());
-
-      const nextPageId = patch.reportPageId === undefined ? params.get("reportPageId") : patch.reportPageId;
-      const nextScanId = patch.reportScanId === undefined ? params.get("reportScanId") : patch.reportScanId;
-      const nextPanelTab = patch.reportPanelTab === undefined ? params.get("reportPanelTab") : patch.reportPanelTab;
+      const nextPageId =
+        patch.reportPageId === undefined
+          ? params.get("reportPageId")
+          : patch.reportPageId;
+      const nextScanId =
+        patch.reportScanId === undefined
+          ? params.get("reportScanId")
+          : patch.reportScanId;
+      const nextPanelTab =
+        patch.reportPanelTab === undefined
+          ? params.get("reportPanelTab")
+          : patch.reportPanelTab;
 
       if (nextPageId) params.set("reportPageId", nextPageId);
       else params.delete("reportPageId");
-
       if (nextScanId) params.set("reportScanId", nextScanId);
       else params.delete("reportScanId");
-
       if (nextPanelTab) params.set("reportPanelTab", nextPanelTab);
       else params.delete("reportPanelTab");
 
@@ -315,15 +280,9 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
     [pathname, router, searchParams]
   );
 
-  /**
-   * Opens the report for a page.
-   * - If an `artifactUrl` exists, open it in a new tab.
-   * - Otherwise navigate to the internal report route.
-   */
   const openReport = useCallback(
     (page: PageDoc) => {
       if (!projectId) return;
-
       if (page?.artifactUrl) {
         window.open(page.artifactUrl, "_blank", "noopener,noreferrer");
         return;
@@ -331,65 +290,51 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
       updatePanelQuery({
         reportPageId: page.id,
         reportScanId: null,
-        reportPanelTab: "report"
+        reportPanelTab: "report",
       });
     },
     [projectId, updatePanelQuery]
   );
 
-  const deletePage = useCallback((page: PageDoc) => {
-    void (async () => {
-      if (!projectId) return;
+  const handleDeletePage = useCallback(
+    (page: PageDoc) => {
+      void (async () => {
+        if (!projectId) return;
+        const ok = await confirm({
+          title: "Delete page",
+          message: `Delete page ${page.url}?`,
+          confirmLabel: "Delete",
+          cancelLabel: "Cancel",
+          tone: "danger",
+        });
+        if (!ok) return;
 
-      const ok = await confirm({
-        title: "Delete page",
-        message: `Delete page ${page.url}?`,
-        confirmLabel: "Delete",
-        cancelLabel: "Cancel",
-        tone: "danger",
-      });
+        await deletePage(page.id);
+        if (selectedPages.has(page.id)) togglePage(page.id, false);
+        await refresh();
+      })();
+    },
+    [projectId, confirm, selectedPages, togglePage, refresh]
+  );
 
-      if (!ok)
-        return;
-
-      await removePage(projectId, page);
-      await refresh();
-
-      // Remove from selection if it was selected
-      if (selectedPages.has(page.id)) {
-        togglePage(page.id, false);
-      }
-    })()
-  }, [projectId, confirm, selectedPages, togglePage, refresh]
-  )
-  /**
-   * Handle select all checkbox toggle
-   */
   const handleSelectAll = useCallback(() => {
-    const pageIds = displayedItems.map(p => p.id);
+    const pageIds = displayedItems.map((p) => p.id);
     toggleAllOnPage(pageIds);
   }, [displayedItems, toggleAllOnPage]);
 
-  /**
-   * Check if all visible pages are selected
-   */
-  const allVisibleSelected = displayedItems.length > 0 && displayedItems.every((p) => selectedPages.has(p.id));
+  const allVisibleSelected =
+    displayedItems.length > 0 && displayedItems.every((p) => selectedPages.has(p.id));
 
-  /**
-   * Handle delete selected pages
-   */
   const handleDeleteSelected = useCallback(() => {
     void (async () => {
       if (!projectId || selectedCount === 0) return;
-
       const ok = await confirm({
         title: "Delete selected pages",
-        message: `Delete ${selectedCount} selected page${selectedCount > 1 ? 's' : ''}?`,
+        message: `Delete ${selectedCount} selected page${selectedCount > 1 ? "s" : ""}?`,
         confirmLabel: "Delete",
         cancelLabel: "Cancel",
         tone: "danger",
       });
-
       if (!ok) return;
 
       const selectedPageDocs = getSelectedDocs();
@@ -401,70 +346,50 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
         return;
       }
 
-      await removePages(projectId, selectedPageDocs);
+      await deletePages(selectedPageDocs.map((p) => p.id));
       clearSelection();
       await refresh();
 
       await alert({
         title: "Success",
-        message: `${selectedPageDocs.length} page${selectedPageDocs.length > 1 ? 's' : ''} deleted successfully.`,
+        message: `${selectedPageDocs.length} page${selectedPageDocs.length > 1 ? "s" : ""} deleted successfully.`,
       });
     })();
   }, [projectId, selectedCount, clearSelection, confirm, alert, getSelectedDocs, refresh]);
 
-  /**
-   * Check if there are any non-2xx pages across all pages
-   */
-  const non2xxCount = allItems.filter(page => {
+  const non2xxCount = allItems.filter((page) => {
     const status = page.httpStatus;
     if (status == null) return false;
-    const normalizedStatus =
+    const n =
       typeof status === "number" ? status : Number.parseInt(String(status), 10);
-    return Number.isFinite(normalizedStatus) && (normalizedStatus < 200 || normalizedStatus >= 300);
+    return Number.isFinite(n) && (n < 200 || n >= 300);
   }).length;
 
-  /**
-   * Handle delete non-2xx pages
-   */
   const handleDeleteNon2xxPages = useCallback(() => {
     void (async () => {
       if (!projectId || non2xxCount === 0) return;
-      const scopeSuffix = isClientFilterMode ? "" : " on this page";
-
       const ok = await confirm({
         title: "Delete non-2xx pages",
-        message: `Delete ${non2xxCount} page${non2xxCount > 1 ? 's' : ''} with non-2xx HTTP status codes (404, 500, etc.)${scopeSuffix}?`,
+        message: `Delete ${non2xxCount} page${non2xxCount > 1 ? "s" : ""} with non-2xx HTTP status codes (404, 500, etc.) on this page?`,
         confirmLabel: "Delete",
         cancelLabel: "Cancel",
         tone: "danger",
       });
-
       if (!ok) return;
 
-      const deletedCount = await removeNon2xxPages(projectId, allItems);
+      const deletedCount = await deleteNon2xxPages(projectId);
       await refresh();
-
-      // Clear selection since some selected pages may have been deleted
       clearSelection();
-
-      // Clear 404 filter if it was active
-      if (is404Filtered) {
-        setIs404Filtered(false);
-      }
-
-      // Close the menu
+      if (is404Filtered) setIs404Filtered(false);
       setShow404Menu(false);
 
       await alert({
         title: "Success",
-        message: `${deletedCount} page${deletedCount > 1 ? 's' : ''} deleted successfully.`,
+        message: `${deletedCount} page${deletedCount > 1 ? "s" : ""} deleted successfully.`,
       });
     })();
-  }, [projectId, allItems, non2xxCount, is404Filtered, isClientFilterMode, confirm, alert, clearSelection, refresh]);
-  /**
-   * Stable wrapper for `runSelectedPages` so child components
-   * do not receive a new function identity on every render.
-   */
+  }, [projectId, non2xxCount, is404Filtered, confirm, alert, clearSelection, refresh]);
+
   const handleRunSelected = useCallback(() => {
     void (async () => {
       const result = await runSelectedPages(projectId, selectedPages);
@@ -472,138 +397,117 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
     })();
   }, [alert, projectId, selectedPages]);
 
-  // Add page manually
-  const handleAddPage = useCallback(async (url: string) => {
-    const projectDomain = project.domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
-    let fullUrl = url;
+  // Add page manually via server action (writes to PostgreSQL)
+  const handleAddPage = useCallback(
+    async (url: string) => {
+      const projectDomain = project.domain
+        .replace(/^https?:\/\//, "")
+        .replace(/\/$/, "");
+      let fullUrl = url;
 
-    // Handle relative URL
-    if (!fullUrl.startsWith("http://") && !fullUrl.startsWith("https://")) {
-      // Ensure domain doesn't end with slash to avoid double slashes
-      const domainWithoutTrailingSlash = project.domain.replace(/\/$/, "");
-      fullUrl = `${domainWithoutTrailingSlash}${fullUrl.startsWith("/") ? "" : "/"}${fullUrl}`;
-    }
-
-    // Validate domain matches
-    const urlDomain = fullUrl.replace(/^https?:\/\//, "").split("/")[0];
-    if (urlDomain !== projectDomain) {
-      throw new Error(`URL domain must match project domain: ${projectDomain}`);
-    }
-
-    // Add page via Next.js API route
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error("User not authenticated");
-    const token = await currentUser.getIdToken();
-    const response = await fetch("/api/pages/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-      body: JSON.stringify({ projectId, url: fullUrl }),
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error((err as any).error || `Server returned ${response.status}`);
-    }
-
-    // Close drawer and show success alert
-    setAddDrawerOpen(false);
-    await refresh();
-
-    await alert({
-      title: "Success",
-      message: "Page added successfully!",
-    });
-  }, [project, projectId, alert, refresh]);
-
-  // Upload sitemap
-  const handleUploadSitemap = useCallback(async (file: File) => {
-    try {
-      const text = await file.text();
-
-      // Parse URLs from sitemap XML
-      const urlMatches = text.match(/<loc>(.*?)<\/loc>/g);
-      if (!urlMatches) {
-        setAddDrawerOpen(false);
-        await alert({ title: "Error", message: "No URLs found in sitemap" });
-        return;
+      if (!fullUrl.startsWith("http://") && !fullUrl.startsWith("https://")) {
+        const domainWithoutTrailingSlash = project.domain.replace(/\/$/, "");
+        fullUrl = `${domainWithoutTrailingSlash}${fullUrl.startsWith("/") ? "" : "/"}${fullUrl}`;
       }
 
-      const urls = urlMatches.map(match => match.replace(/<\/?loc>/g, ""));
-
-      // Add pages via Next.js API route
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error("User not authenticated");
-      const token = await currentUser.getIdToken();
-      const response = await fetch("/api/pages/upload-sitemap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ projectId, urls }),
-      });
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error((err as any).error || `Server returned ${response.status}`);
+      const urlDomain = fullUrl.replace(/^https?:\/\//, "").split("/")[0];
+      if (urlDomain !== projectDomain) {
+        throw new Error(`URL domain must match project domain: ${projectDomain}`);
       }
 
-      // Close modal first, then show success alert
+      await createPage(projectId, fullUrl);
       setAddDrawerOpen(false);
       await refresh();
 
       await alert({
         title: "Success",
-        message: `${urls.length} pages added from sitemap!`,
+        message: "Page added successfully!",
       });
-    } catch (err) {
-      // Close modal first, then show error alert
-      setAddDrawerOpen(false);
+    },
+    [project, projectId, alert, refresh]
+  );
 
-      await alert({
-        title: "Error",
-        message: err instanceof Error ? err.message : "Failed to upload sitemap",
-      });
-    }
-  }, [projectId, alert, refresh]);
+  // Upload sitemap — adds pages via server action
+  const handleUploadSitemap = useCallback(
+    async (file: File) => {
+      try {
+        const text = await file.text();
+        const urlMatches = text.match(/<loc>(.*?)<\/loc>/g);
+        if (!urlMatches) {
+          setAddDrawerOpen(false);
+          await alert({ title: "Error", message: "No URLs found in sitemap" });
+          return;
+        }
 
-  // Collect from website
+        const urls = urlMatches.map((match) => match.replace(/<\/?loc>/g, ""));
+        let added = 0;
+        for (const url of urls) {
+          try {
+            await createPage(projectId, url);
+            added++;
+          } catch {
+            // Skip duplicates / invalid URLs
+          }
+        }
+
+        setAddDrawerOpen(false);
+        await refresh();
+        await alert({
+          title: "Success",
+          message: `${added} pages added from sitemap!`,
+        });
+      } catch (err) {
+        setAddDrawerOpen(false);
+        await alert({
+          title: "Error",
+          message: err instanceof Error ? err.message : "Failed to upload sitemap",
+        });
+      }
+    },
+    [projectId, alert, refresh]
+  );
+
+  // Collect from website — still uses Firebase API route (worker integration, Phase 7)
   const handleCollectFromWebsite = useCallback(async () => {
     const ok = await confirm({
       title: "Collect from website",
-      message: "The website will be browsed and all URLs will be populated. This may take a few minutes.",
+      message:
+        "The website will be browsed and all URLs will be populated. This may take a few minutes.",
       confirmLabel: "Start Collection",
       cancelLabel: "Cancel",
     });
-
     if (!ok) return;
 
     try {
       const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
-
+      if (!currentUser) throw new Error("User not authenticated");
       const token = await currentUser.getIdToken();
 
-      const response = await fetch('/api/page-collection/start', {
-        method: 'POST',
+      const response = await fetch("/api/page-collection/start", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ projectId }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to start page collection');
+        throw new Error(error.message || "Failed to start page collection");
       }
 
       setAddDrawerOpen(false);
       await alert({
         title: "Collection Started",
-        message: "Website collection has started. Pages will be populated automatically.",
+        message:
+          "Website collection has started. Pages will be populated automatically.",
       });
     } catch (err) {
       await alert({
         title: "Error",
-        message: err instanceof Error ? err.message : "Failed to start collection",
+        message:
+          err instanceof Error ? err.message : "Failed to start collection",
       });
     }
   }, [projectId, confirm, alert]);
@@ -615,10 +519,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
         <div className="flex items-center justify-between border-b border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)]">
           <div className="flex gap-small items-center">
             {/* Select all checkbox */}
-            <Checkbox
-              checked={allVisibleSelected}
-              onChange={handleSelectAll}
-            />
+            <Checkbox checked={allVisibleSelected} onChange={handleSelectAll} />
 
             {/* Filter input */}
             <input
@@ -632,14 +533,20 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
             <button
               type="button"
               onClick={() => setOnlyWithIssues(!onlyWithIssues)}
-              title={onlyWithIssues ? "Show all pages" : "Show only pages with issues"}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg as-p3-text border transition-colors ${onlyWithIssues ? "bg-red-50 border-red-300 text-red-700" : "bg-white border-[var(--color-border-light)] secondary-text-color hover:bg-[var(--color-bg-light)]"}`}
+              title={
+                onlyWithIssues ? "Show all pages" : "Show only pages with issues"
+              }
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg as-p3-text border transition-colors ${
+                onlyWithIssues
+                  ? "bg-red-50 border-red-300 text-red-700"
+                  : "bg-white border-[var(--color-border-light)] secondary-text-color hover:bg-[var(--color-bg-light)]"
+              }`}
             >
               <PiWarning size={16} />
               With issues
             </button>
 
-            {/* Clear selection — only visible when pages are selected */}
+            {/* Clear selection */}
             {selectedCount > 0 && (
               <DSIconButton
                 variant="neutral"
@@ -654,7 +561,11 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
               <DSIconButton
                 variant="brand"
                 icon={<PiPlay size={20} />}
-                label={selectedCount > 0 ? `Scan selected (${selectedCount})` : 'Scan all'}
+                label={
+                  selectedCount > 0
+                    ? `Scan selected (${selectedCount})`
+                    : "Scan all"
+                }
                 onClick={handleRunSelected}
               />
               {selectedCount > 0 && (
@@ -679,21 +590,25 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
               </div>
             )}
 
-            {/* Delete 404 pages - Expandable menu */}
+            {/* Delete non-2xx pages */}
             {non2xxCount > 0 && (
               <div className="relative" ref={menu404Ref}>
                 {!show404Menu ? (
                   <div className="relative">
                     <DSIconButton
                       variant="danger"
-                      icon={is404Filtered ? <PiFunnelSimple size={20} /> : <PiWarning size={20} />}
+                      icon={
+                        is404Filtered ? (
+                          <PiFunnelSimple size={20} />
+                        ) : (
+                          <PiWarning size={20} />
+                        )
+                      }
                       onClick={() => setShow404Menu(true)}
                       label={
                         is404Filtered
                           ? `Filtering ${non2xxCount} non-2xx pages`
-                          : isClientFilterMode
-                            ? `${non2xxCount} non-2xx pages`
-                            : `${non2xxCount} non-2xx pages on this page`
+                          : `${non2xxCount} non-2xx pages on this page`
                       }
                     />
                     <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-[var(--color-error)] text-white text-[10px] font-semibold flex items-center justify-center">
@@ -713,24 +628,28 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
                     />
                     <DSIconButton
                       variant="neutral"
-                      icon={is404Filtered ? <PiFunnelX size={18} /> : <PiFunnelSimple size={18} />}
+                      icon={
+                        is404Filtered ? (
+                          <PiFunnelX size={18} />
+                        ) : (
+                          <PiFunnelSimple size={18} />
+                        )
+                      }
                       onClick={() => {
                         setIs404Filtered(!is404Filtered);
                         setShow404Menu(false);
                       }}
                       label={
                         is404Filtered
-                          ? 'Clear filter'
-                          : isClientFilterMode
-                            ? `Filter ${non2xxCount} non-2xx pages`
-                            : `Filter ${non2xxCount} non-2xx pages on this page`
+                          ? "Clear filter"
+                          : `Filter ${non2xxCount} non-2xx pages`
                       }
                     />
                     <DSIconButton
                       variant="danger"
                       icon={<PiTrash size={18} />}
                       onClick={handleDeleteNon2xxPages}
-                      label={`Delete ${non2xxCount} non-2xx page${non2xxCount > 1 ? 's' : ''}`}
+                      label={`Delete ${non2xxCount} non-2xx page${non2xxCount > 1 ? "s" : ""}`}
                     />
                   </div>
                 )}
@@ -741,11 +660,14 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
           {/* Page count and Add button */}
           <div className="flex items-center gap-3">
             <div className="as-p2-text secondary-text-color">
-              {is404Filtered ? `${displayedCount} of ${totalCount}` : `${totalCount}`} pages
-              {is404Filtered && <span className="text-red-400 ml-1">(filtered)</span>}
+              {is404Filtered
+                ? `${displayedCount} of ${totalCount}`
+                : `${totalCount}`}{" "}
+              pages
+              {is404Filtered && (
+                <span className="text-red-400 ml-1">(filtered)</span>
+              )}
             </div>
-
-            {/* Add Pages */}
             <DSIconButton
               label="Add pages"
               icon={<FiPlus size={18} />}
@@ -766,7 +688,7 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
               onToggle={togglePage}
               onScan={scanPage}
               onOpen={openReport}
-              onDelete={deletePage}
+              onDelete={handleDeletePage}
             />
           ))}
 
@@ -774,19 +696,24 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
             <Pagination
               page={displayedPage}
               totalPages={displayedTotalPages}
-              onChange={(next) => is404Filtered ? setFiltered404Page(next) : setPage(next)}
+              onChange={(next) =>
+                is404Filtered ? setFiltered404Page(next) : setPage(next)
+              }
             />
           </div>
 
-          {/* Empty state */}
           {displayedItems.length === 0 && (
             <EmptyState
               icon={<PiFileText />}
-              title={is404Filtered ? 'No non-2xx pages on this page' : 'No pages found'}
-              description={is404Filtered ? 'No non-2xx pages found on this page.' : 'Define your first page set to start generating comprehensive accessibility reports and track issues effectively.'}
-
+              title={
+                is404Filtered ? "No non-2xx pages on this page" : "No pages found"
+              }
+              description={
+                is404Filtered
+                  ? "No non-2xx pages found on this page."
+                  : "Define your first page set to start generating comprehensive accessibility reports and track issues effectively."
+              }
             />
-
           )}
         </div>
       </div>
@@ -794,7 +721,9 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
       {/* Add Pages Drawer */}
       <AddPagesDrawer
         open={addDrawerOpen}
-        projectDomain={project.domain.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+        projectDomain={project.domain
+          .replace(/^https?:\/\//, "")
+          .replace(/\/$/, "")}
         onClose={() => setAddDrawerOpen(false)}
         onAddPage={handleAddPage}
         onUploadSitemap={handleUploadSitemap}
@@ -811,18 +740,12 @@ export function PagesTab({ project, externalPages }: PagesTabProps) {
           updatePanelQuery({
             reportPageId: null,
             reportScanId: null,
-            reportPanelTab: null
+            reportPanelTab: null,
           })
         }
-        onTabChange={(nextTab) =>
-          updatePanelQuery({
-            reportPanelTab: nextTab
-          })
-        }
+        onTabChange={(nextTab) => updatePanelQuery({ reportPanelTab: nextTab })}
         onScanChange={(nextScanId) =>
-          updatePanelQuery({
-            reportScanId: nextScanId
-          })
+          updatePanelQuery({ reportScanId: nextScanId })
         }
       />
     </PageContainer>

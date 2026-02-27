@@ -1,22 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/utils/firebase";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 import { URL_AUTH_LOGIN } from "@/utils/urls";
 import { FaGoogle, FaCheck, FaTimes } from "react-icons/fa";
 import { AuthLayout } from "@/components/auth/auth-layout";
-import { doc, setDoc, serverTimestamp } from '@/utils/firestore-read-tracker';
-import { db } from "@/utils/firebase";
+import { registerUser, setupOrganization } from "@/actions/auth";
 
 type RegistrationStep = "auth" | "company";
 
-export default function RegisterPage() {
-  const { loginWithGoogle, user } = useAuth();
+function RegisterPageContent() {
   const router = useRouter();
-  const [step, setStep] = useState<RegistrationStep>("auth");
-  const [tempUserId, setTempUserId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const { update } = useSession();
+
+  // Allow direct entry into company step via ?step=company (e.g. after Google OAuth)
+  const initialStep = searchParams.get("step") === "company" ? "company" : "auth";
+  const [step, setStep] = useState<RegistrationStep>(initialStep);
+
   const [loading, setLoading] = useState(false);
 
   // Step 1: Auth fields
@@ -60,24 +63,25 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const { createUserWithEmailAndPassword } = await import("firebase/auth");
-      const { auth } = await import("@/utils/firebase");
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-      setTempUserId(result.user.uid);
+      // Create user in PostgreSQL
+      await registerUser({ email, password });
+
+      // Sign in with the new credentials
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Account created but sign-in failed. Please go to the login page.");
+        return;
+      }
+
       setStep("company");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("auth/email-already-in-use")) {
-        setError("This email is already registered. Please sign in instead.");
-      } else if (msg.includes("auth/invalid-email")) {
-        setError("Please enter a valid email address.");
-      } else if (msg.includes("auth/weak-password")) {
-        setError("Password is too weak. Please choose a stronger password.");
-      } else if (msg.includes("auth/too-many-requests")) {
-        setError("Too many attempts. Please wait a moment and try again.");
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -86,16 +90,17 @@ export default function RegisterPage() {
   const handleGoogleRegister = async () => {
     setError("");
     setLoading(true);
-
     try {
-      await loginWithGoogle();
-      setTimeout(() => {
-        setStep("company");
-        setLoading(false);
-      }, 500);
+      // After Google OAuth, redirect back here with ?step=company
+      await signIn("google", {
+        callbackUrl: "/auth/register?step=company",
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("auth/popup-closed-by-user") || msg.includes("auth/cancelled-popup-request")) {
+      if (
+        msg.includes("popup-closed-by-user") ||
+        msg.includes("cancelled-popup-request")
+      ) {
         setError("Sign-in was cancelled. Please try again.");
       } else {
         setError("Something went wrong. Please try again.");
@@ -110,34 +115,16 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const userId = user?.uid || tempUserId;
-      if (!userId) throw new Error("User not authenticated");
-
-      // Create organisation document
-      const orgRef = doc(db, "organisations", `org_${Date.now()}`);
-      await setDoc(orgRef, {
-        name: organisationName.trim(),
-        language: "en",
-        createdAt: serverTimestamp(),
-        owner: userId,
+      await setupOrganization({
+        name: organisationName,
+        firstName,
+        lastName,
+        phone,
       });
 
-      // Update user document
-      const userRef = doc(db, "users", userId);
-      await setDoc(
-        userRef,
-        {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          phone: phone.trim(),
-          organisationId: orgRef.id,
-          email: user?.email || email,
-          createdAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      // Refresh the JWT so the new organizationId is included in the session
+      await update();
 
-      // Redirect to onboarding
       router.push("/onboarding");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -420,7 +407,14 @@ export default function RegisterPage() {
   );
 }
 
-// Password Requirement Component
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageContent />
+    </Suspense>
+  );
+}
+
 function PasswordRequirement({ met, children }: { met: boolean; children: React.ReactNode }) {
   return (
     <div className={`flex items-center gap-2 text-xs ${met ? "text-green-600" : "text-slate-500"}`}>

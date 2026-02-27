@@ -1,0 +1,190 @@
+// Prisma schema for Accessibility Checker — Phase 1 + Phase 2
+// Models: User, Account, VerificationToken, Organization, Project,
+//         Page, PageViolationCount, PageSet, PageSetPage, PageSetRule
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Auth.js required models ─────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+
+  // Custom profile fields
+  firstName      String?
+  lastName       String?
+  password       String?   // bcrypt hash (null for OAuth-only users)
+  phone          String?
+  organizationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts     Account[]
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  projects     Project[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Application models ───────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  projects Project[]
+
+  @@map("organizations")
+}
+
+model Project {
+  id             String    @id @default(cuid())
+  name           String?
+  domain         String
+  ownerId        String
+  organizationId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastScanAt     DateTime?
+
+  // Extra metadata (populated by worker / API)
+  sitemapUrl      String?
+  sitemapTreeUrl  String?
+  sitemapGraphUrl String?
+  config          Json?
+  projectStats    Json?
+
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  pages        Page[]
+  pageSets     PageSet[]
+
+  @@map("projects")
+}
+
+// ─── Pages ────────────────────────────────────────────────────────────────────
+
+model Page {
+  id          String   @id @default(cuid())
+  projectId   String
+  url         String
+  title       String?
+  status      String?
+  httpStatus  Int?
+  lastRunId   String?
+  artifactUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  violationCount PageViolationCount?
+  pageSetPages   PageSetPage[]
+
+  @@index([projectId])
+  @@map("pages")
+}
+
+model PageViolationCount {
+  id        String   @id @default(cuid())
+  pageId    String   @unique
+  critical  Int      @default(0)
+  serious   Int      @default(0)
+  moderate  Int      @default(0)
+  minor     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("page_violation_counts")
+}
+
+// ─── Page Sets ────────────────────────────────────────────────────────────────
+
+model PageSet {
+  id         String   @id @default(cuid())
+  projectId  String
+  name       String
+  filterText String?
+  regex      String?
+  owner      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pageSetPages PageSetPage[]
+  pageSetRules PageSetRule[]
+
+  @@index([projectId])
+  @@map("page_sets")
+}
+
+model PageSetPage {
+  id        String @id @default(cuid())
+  pageSetId String
+  pageId    String
+
+  pageSet PageSet @relation(fields: [pageSetId], references: [id], onDelete: Cascade)
+  page    Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageSetId, pageId])
+  @@map("page_set_pages")
+}
+
+model PageSetRule {
+  id        String @id @default(cuid())
+  pageSetId String
+  ruleId    String  // original client-side rule id
+  mode      String  // "include" | "exclude"
+  matcher   String  // "contains" | "regex" | "wildcard" | "page"
+  value     String
+  label     String?
+
+  pageSet PageSet @relation(fields: [pageSetId], references: [id], onDelete: Cascade)
+
+  @@index([pageSetId])
+  @@map("page_set_rules")
+}

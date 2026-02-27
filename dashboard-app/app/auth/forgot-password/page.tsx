@@ -2,13 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/utils/firebase";
 import { URL_AUTH_LOGIN } from "@/utils/urls";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { PiCheckCircle } from "react-icons/pi";
+import { resetPassword } from "@/actions/auth";
 
 export default function ForgotPasswordPage() {
-  const { resetPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -22,21 +21,9 @@ export default function ForgotPasswordPage() {
     try {
       await resetPassword(email.trim());
       setSent(true);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        if (err.message.includes("auth/user-not-found")) {
-          // Don't reveal whether the email exists — just show success
-          setSent(true);
-        } else if (err.message.includes("auth/invalid-email")) {
-          setError("Please enter a valid email address.");
-        } else if (err.message.includes("auth/too-many-requests")) {
-          setError("Too many requests. Please wait a moment and try again.");
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError(String(err));
-      }
+    } catch {
+      // Never reveal whether an email exists — always show success
+      setSent(true);
     } finally {
       setLoading(false);
     }
@@ -60,8 +47,8 @@ export default function ForgotPasswordPage() {
           <div>
             <h2 className="text-lg font-semibold text-slate-800 mb-2">Check your inbox</h2>
             <p className="text-sm text-slate-600">
-              If an account exists for <strong>{email}</strong>, you'll receive a
-              password reset link shortly. Check your spam folder if you don't see it.
+              If an account exists for <strong>{email}</strong>, you&apos;ll receive a
+              password reset link shortly. Check your spam folder if you don&apos;t see it.
             </p>
           </div>
           <Link

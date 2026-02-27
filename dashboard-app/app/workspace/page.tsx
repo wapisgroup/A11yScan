@@ -493,8 +493,7 @@ export default function Dashboard() {
     getRegistryEntry(id)?.label ?? id;
 
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
+    
         <PageContainer title="Dashboard" coloredBg>
           {configLoading ? <PageDataLoading>Loading dashboard...</PageDataLoading> : <div className="max-w-7xl mx-auto space-y-6">
             {/* Customize bar */}
@@ -547,7 +546,6 @@ export default function Dashboard() {
             </DndContext>
           </div>}
         </PageContainer>
-      </WorkspaceLayout>
-    </PrivateRoute>
+
   );
 }

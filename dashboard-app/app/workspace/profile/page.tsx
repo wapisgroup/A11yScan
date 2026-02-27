@@ -129,8 +129,6 @@ export default function ProfilePage() {
   };
 
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
         <PageWrapper title="My Account">
            <div className="mb-6 border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
@@ -473,7 +471,6 @@ export default function ProfilePage() {
           </PageContainer>
           )}
         </PageWrapper>
-      </WorkspaceLayout>
-    </PrivateRoute>
+
   );
 }

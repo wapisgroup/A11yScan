@@ -640,12 +640,10 @@ function BillingPageContent() {
 
 export default function BillingPage() {
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
+
         <PageWrapper title="Billing & Subscription">
         <BillingPageContent />
         </PageWrapper>
-      </WorkspaceLayout>
-    </PrivateRoute>
+
   );
 }

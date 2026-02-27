@@ -3,6 +3,9 @@
 /**
  * Project Detail Tab Page Sets
  * Shared component in tabs/project-detail-tab-page-sets.tsx.
+ *
+ * Phase 2: Page set CRUD and all-pages load use PostgreSQL server actions.
+ * Scan (runSelectedPages) still uses Firebase API route (Phase 7).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,14 +19,22 @@ import PageSetBuilderDrawer from "@/components/modals/page-set-builder-drawer";
 
 import type { Project } from "@/types/project";
 import type { PageSetTDO } from "@/types/page-types-set";
-import { createPageSet, deletePageSet, updatePageSet } from "@/services/projectSetsService";
 import { ProjectDetailPageSetsTabState } from "@/state-services/project-detail-pagesets-state";
-import { subscribeProjectPages, runSelectedPages } from "@/services/projectPagesService";
+import { runSelectedPages } from "@/services/projectPagesService";
 import { isLikelyScanned, resolvePageSetPages } from "@/services/pageSetResolver";
 import { createReport } from "@/services/reportService";
 import { auth } from "@/utils/firebase";
 import { EmptyState } from "../atom/EmptyState";
 import { PiFileText, PiPlus } from "react-icons/pi";
+
+// Server actions (PostgreSQL)
+import { getAllPages } from "@/actions/pages";
+import {
+  createPageSet,
+  updatePageSet,
+  deletePageSet,
+} from "@/actions/pageSets";
+import type { PageDoc } from "@/types/page-types";
 
 type PageSetsTabProps = {
   project: Project;
@@ -34,19 +45,15 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
   const alert = useAlert();
   const confirm = useConfirm();
 
-  const [allPages, setAllPages] = useState<any[]>([]);
+  const [allPages, setAllPages] = useState<PageDoc[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PageSetTDO | null>(null);
   const [filterText, setFilterText] = useState("");
 
+  // Load all pages from PostgreSQL for rule resolution
   useEffect(() => {
     if (!projectId) return;
-    const unsubscribe = subscribeProjectPages(
-      projectId,
-      (pages) => setAllPages(pages),
-      (error) => console.error("Error loading pages:", error)
-    );
-    return unsubscribe;
+    void getAllPages(projectId).then(setAllPages).catch(console.error);
   }, [projectId]);
 
   const state = ProjectDetailPageSetsTabState(projectId);
@@ -78,14 +85,18 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
     setEditing(null);
   };
 
-  const handleSave = async (payload: { name: string; rules: any[]; resolvedPageIds: string[] }) => {
+  const handleSave = async (payload: {
+    name: string;
+    rules: PageSetTDO["rules"];
+    resolvedPageIds: string[];
+  }) => {
     if (editing?.id) {
       await updatePageSet(projectId, String(editing.id), {
         name: payload.name,
         rules: payload.rules,
         pageIds: payload.resolvedPageIds,
         filterText: "",
-        regex: ""
+        regex: "",
       });
     } else {
       await createPageSet({
@@ -94,7 +105,7 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
         rules: payload.rules,
         pageIds: payload.resolvedPageIds,
         filterText: "",
-        regex: ""
+        regex: "",
       });
     }
     closeDrawer();
@@ -117,23 +128,37 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
   const runPageSet = async (setDoc: PageSetTDO) => {
     const resolved = resolvePageSetPages(allPages, setDoc);
     if (!resolved.length) {
-      await alert({ title: "Information", message: "This page set currently resolves to 0 pages." });
+      await alert({
+        title: "Information",
+        message: "This page set currently resolves to 0 pages.",
+      });
       return;
     }
-    const result = await runSelectedPages(projectId, resolved.map((p) => String(p.id)));
+    const result = await runSelectedPages(
+      projectId,
+      resolved.map((p) => String(p.id))
+    );
     if (result) await alert(result);
   };
 
   const createPageSetReport = async (setDoc: PageSetTDO) => {
     const userId = auth.currentUser?.uid || null;
     if (!userId) {
-      await alert({ title: "System exception", message: "You need to be signed in to generate report." });
+      await alert({
+        title: "System exception",
+        message: "You need to be signed in to generate report.",
+      });
       return;
     }
 
-    const resolved = resolvePageSetPages(allPages, setDoc).filter((p) => isLikelyScanned(p));
+    const resolved = resolvePageSetPages(allPages, setDoc).filter((p) =>
+      isLikelyScanned(p)
+    );
     if (!resolved.length) {
-      await alert({ title: "Information", message: "No scanned pages currently match this set." });
+      await alert({
+        title: "Information",
+        message: "No scanned pages currently match this set.",
+      });
       return;
     }
 
@@ -143,17 +168,19 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
       title: `${setDoc.name} - Accessibility Report`,
       pageSetId: String(setDoc.id || ""),
       pageIds: resolved.map((p) => String(p.id)),
-      createdBy: userId
+      createdBy: userId,
     });
 
     await alert({
       title: response.success ? "Information" : "System exception",
-      message: response.message
+      message: response.message,
     });
   };
 
-  const filteredItems = pagedItems.filter((s) =>
-    !filterText.trim() || s.name.toLowerCase().includes(filterText.toLowerCase())
+  const filteredItems = pagedItems.filter(
+    (s) =>
+      !filterText.trim() ||
+      s.name.toLowerCase().includes(filterText.toLowerCase())
   );
 
   return (
@@ -190,17 +217,19 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
             </div>
           )}
 
-          {!loading && !error && filteredItems.map((setDoc) => (
-            <PageSetRow
-              key={setDoc.id}
-              setDoc={setDoc}
-              pageCount={resolvedCounts.get(String(setDoc.id || ""))}
-              onRun={(doc) => void runPageSet(doc)}
-              onReport={(doc) => void createPageSetReport(doc)}
-              onEdit={(doc) => openEdit(doc)}
-              onDelete={(doc) => void handleDelete(doc)}
-            />
-          ))}
+          {!loading &&
+            !error &&
+            filteredItems.map((setDoc) => (
+              <PageSetRow
+                key={setDoc.id}
+                setDoc={setDoc}
+                pageCount={resolvedCounts.get(String(setDoc.id || ""))}
+                onRun={(doc) => void runPageSet(doc)}
+                onReport={(doc) => void createPageSetReport(doc)}
+                onEdit={(doc) => openEdit(doc)}
+                onDelete={(doc) => void handleDelete(doc)}
+              />
+            ))}
 
           {!loading && !error && pagedItems.length === 0 && (
             <EmptyState
@@ -208,9 +237,7 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
               title="No page sets yet"
               description="Define your first page set to start generating comprehensive accessibility reports and track issues effectively."
               action={
-                <DSButton onClick={openCreate}>
-                  Create a new page set
-                </DSButton>
+                <DSButton onClick={openCreate}>Create a new page set</DSButton>
               }
             />
           )}
@@ -226,7 +253,15 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
       <PageSetBuilderDrawer
         open={drawerOpen}
         mode={editing ? "edit" : "create"}
-        initial={editing ? { id: String(editing.id || ""), name: editing.name, rules: editing.rules || [] } : null}
+        initial={
+          editing
+            ? {
+                id: String(editing.id || ""),
+                name: editing.name,
+                rules: editing.rules || [],
+              }
+            : null
+        }
         pages={allPages}
         onClose={closeDrawer}
         onSave={handleSave}

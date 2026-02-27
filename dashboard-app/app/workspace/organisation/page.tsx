@@ -226,8 +226,7 @@ export default function OrganisationPage() {
   };
 
   return (
-    <PrivateRoute>
-      <WorkspaceLayout>
+
         <PageWrapper title="Organisation Settings">
           {loading ? (
             <PageContainer title="">
@@ -306,7 +305,5 @@ export default function OrganisationPage() {
             )}
           </>}
         </PageWrapper>
-      </WorkspaceLayout>
-    </PrivateRoute>
   );
 }

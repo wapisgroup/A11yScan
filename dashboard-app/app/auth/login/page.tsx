@@ -2,37 +2,33 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/utils/firebase";
-import { URL_APP_DASHBOARD, URL_APP_WORKSPACE, URL_AUTH_REGISTER } from "@/utils/urls";
+import { URL_APP_WORKSPACE, URL_AUTH_REGISTER } from "@/utils/urls";
 import { FaGoogle } from "react-icons/fa";
 import { AuthLayout } from "@/components/auth/auth-layout";
 
 function friendlyAuthError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  if (msg.includes("auth/invalid-login-credentials") ||
-      msg.includes("auth/invalid-credential") ||
-      msg.includes("auth/wrong-password") ||
-      msg.includes("auth/user-not-found")) {
+  if (
+    msg.includes("CredentialsSignin") ||
+    msg.includes("invalid-login-credentials") ||
+    msg.includes("invalid-credential") ||
+    msg.includes("wrong-password") ||
+    msg.includes("user-not-found")
+  ) {
     return "Incorrect email or password. Please try again.";
   }
-  if (msg.includes("auth/too-many-requests")) {
+  if (msg.includes("too-many-requests")) {
     return "Too many failed attempts. Please wait a moment and try again.";
   }
-  if (msg.includes("auth/user-disabled")) {
-    return "This account has been disabled. Please contact support.";
-  }
-  if (msg.includes("auth/network-request-failed")) {
-    return "Network error. Please check your connection and try again.";
-  }
-  if (msg.includes("auth/popup-closed-by-user") || msg.includes("auth/cancelled-popup-request")) {
+  if (msg.includes("popup-closed-by-user") || msg.includes("cancelled-popup-request")) {
     return "Sign-in was cancelled. Please try again.";
   }
   return "Something went wrong. Please try again.";
 }
 
 export default function LoginPage() {
-  const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,8 +41,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      router.replace(URL_APP_DASHBOARD);
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError(friendlyAuthError(result.error));
+      } else {
+        router.replace(URL_APP_WORKSPACE);
+      }
     } catch (err: unknown) {
       setError(friendlyAuthError(err));
     } finally {
@@ -57,13 +62,10 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
-
     try {
-      await loginWithGoogle();
-      router.replace(URL_APP_WORKSPACE);
+      await signIn("google", { callbackUrl: URL_APP_WORKSPACE });
     } catch (err: unknown) {
       setError(friendlyAuthError(err));
-    } finally {
       setLoading(false);
     }
   };
@@ -167,7 +169,7 @@ export default function LoginPage() {
         {/* Sign Up Link */}
         <div className="text-center">
           <p className="text-sm text-slate-600">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href={URL_AUTH_REGISTER}
               className="text-purple-600 hover:text-purple-700 font-semibold"

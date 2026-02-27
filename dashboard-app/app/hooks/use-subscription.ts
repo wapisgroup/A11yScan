@@ -2,7 +2,8 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { onSnapshot, doc, getDoc } from '@/utils/firestore-read-tracker';
-import { useAuth, db, type AuthUser } from '../utils/firebase';
+import { useAuth, db } from '../utils/firebase';
+import type { AuthUser } from '../hooks/use-auth';
 import {
   getPackageConfig,
   hasFeature as checkHasFeature,
