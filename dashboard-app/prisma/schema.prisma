@@ -1,4 +1,4 @@
-// Prisma schema for Accessibility Checker — Phase 1–6
+// Prisma schema for Accessibility Checker — Phase 1–7
 // Models: User, Account, VerificationToken, Organization, Project,
 //         Page, PageViolationCount, PageSet, PageSetPage, PageSetRule,
 //         Run, RunPage, Scan, Schedule, Job, Report
@@ -27,6 +27,7 @@ model User {
   password       String?   // bcrypt hash (null for OAuth-only users)
   phone          String?
   organizationId String?
+  apiToken       String?   @unique  // worker API token (Bearer auth)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -124,12 +125,15 @@ model Page {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  activeRunId    String?   // currently-running run (set by worker)
+
   project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   violationCount PageViolationCount?
   pageSetPages   PageSetPage[]
   runPages       RunPage[]
   scans          Scan[]
 
+  @@unique([projectId, url])
   @@index([projectId])
   @@map("pages")
 }
@@ -198,18 +202,21 @@ model PageSetRule {
 // ─── Runs ─────────────────────────────────────────────────────────────────────
 
 model Run {
-  id           String    @id @default(cuid())
-  projectId    String
-  type         String?   // RunType: scan_pages | pages_to_sitemap | page_collection | full_scan | generate_report
-  status       String?
-  startedAt    DateTime?
-  pagesTotal   Int?
-  pagesScanned Int?
-  pipelineId   String?
-  hidden       Boolean   @default(false)
-  cancelledAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  projectId           String
+  type                String?   // RunType: scan_pages | pages_to_sitemap | page_collection | full_scan | generate_report
+  status              String?
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  pagesTotal          Int?
+  pagesScanned        Int?
+  pipelineId          String?
+  hidden              Boolean   @default(false)
+  cancelledAt         DateTime?
+  resolvePagesAtStart Boolean   @default(false) // worker resolves pages at job start
+  stats               Json?     // { critical, serious, moderate, minor }
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   runPages RunPage[]
@@ -235,16 +242,20 @@ model RunPage {
 // ─── Scans ────────────────────────────────────────────────────────────────────
 
 model Scan {
-  id           String   @id @default(cuid())
-  projectId    String
-  pageId       String?
-  runId        String?
-  type         String?
-  artifactPath String?
-  summary      Json?    // { critical, serious, moderate, minor }
-  issues       Json?    // Issue[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  projectId         String
+  pageId            String?
+  runId             String?
+  type              String?
+  artifactPath      String?
+  summary           Json?    // { critical, serious, moderate, minor }
+  issues            Json?    // Issue[]
+  httpStatus        Int?
+  pageSnapshotUrl   String?  // GCS/Storage URL for HTML snapshot
+  pageScreenshotUrl String?  // GCS/Storage URL for screenshot
+  nodeInfo          Json?    // node bounding rects for issue highlighting
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   run     Run?     @relation(fields: [runId], references: [id])
