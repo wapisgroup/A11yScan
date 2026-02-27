@@ -9,10 +9,10 @@ import { EmptyState } from "@/components/atom/EmptyState";
 import { DSButton } from "@/components/atom/ds-button";
 import { DSIconButton } from "@/components/atom/ds-icon-button";
 import ScheduleModal from "@/components/modals/ScheduleModal";
-import { useAuth } from "@/utils/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useSchedulesPageState } from "@/state-services/schedules-state";
-import { createSchedule, updateSchedule, deleteSchedule } from "@/services/schedulesService";
+import { createSchedule, updateSchedule, deleteSchedule } from "@/actions/schedules";
 import { useConfirm } from "@/components/providers/window-provider";
 import type { ScheduleDoc } from "@/types/schedule";
 import { PageDataLoading } from "@/components/molecule/page-data-loading";
@@ -29,7 +29,7 @@ const toDateInputValue = (value?: ScheduleDoc["startDate"]) => {
 export default function SchedulesPage() {
   const { user } = useAuth();
   const { subscription, usageLimits, canPerformAction } = useSubscription();
-  const { schedules, loading, error } = useSchedulesPageState(user?.organisationId);
+  const { schedules, loading, error, refresh } = useSchedulesPageState();
 
   const confirm = useConfirm();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -49,6 +49,7 @@ export default function SchedulesPage() {
     });
     if (!ok) return;
     await deleteSchedule(schedule.id);
+    await refresh();
   };
 
   const limitReached = !canPerformAction("scheduledScans");
@@ -177,6 +178,7 @@ export default function SchedulesPage() {
                                   await updateSchedule(schedule.id, {
                                     status: schedule.status === "active" ? "paused" : "active",
                                   });
+                                  await refresh();
                                 }}
                               />
                                 
@@ -206,7 +208,7 @@ export default function SchedulesPage() {
           onSubmit={async (payload) => {
             if (!user) return;
             await createSchedule({
-              organizationId: user.organisationId ?? null,
+              organizationId: user.organizationId ?? null,
               projectId: payload.projectId,
               projectName: payload.projectName,
               projectDomain: payload.projectDomain ?? null,
@@ -217,9 +219,9 @@ export default function SchedulesPage() {
               pageSetId: payload.pageSetId ?? null,
               pageSetName: payload.pageSetName ?? null,
               startDate: payload.startDate ? new Date(payload.startDate) : null,
-              createdBy: user.uid,
             });
             setShowCreateModal(false);
+            await refresh();
           }}
         />
       )}
@@ -251,6 +253,7 @@ export default function SchedulesPage() {
               startDate: payload.startDate ? new Date(payload.startDate) : null,
             });
             setEditingSchedule(null);
+            await refresh();
           }}
         />
       )}

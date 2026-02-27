@@ -1,7 +1,7 @@
-// Prisma schema for Accessibility Checker — Phase 1 + Phase 2 + Phase 3
+// Prisma schema for Accessibility Checker — Phase 1–4
 // Models: User, Account, VerificationToken, Organization, Project,
 //         Page, PageViolationCount, PageSet, PageSetPage, PageSetRule,
-//         Run, RunPage, Scan
+//         Run, RunPage, Scan, Schedule, Job
 
 datasource db {
   provider = "postgresql"
@@ -252,4 +252,50 @@ model Scan {
   @@index([projectId])
   @@index([pageId])
   @@map("scans")
+}
+
+// ─── Schedules ────────────────────────────────────────────────────────────────
+
+model Schedule {
+  id                    String    @id @default(cuid())
+  organizationId        String?
+  projectId             String
+  projectName           String
+  projectDomain         String?
+  type                  String    // "full_scan" | "page_set"
+  cadence               String    // "weekly" | "monthly"
+  includePageCollection Boolean   @default(false)
+  includeReport         Boolean   @default(false)
+  pageSetId             String?
+  pageSetName           String?
+  startDate             DateTime?
+  status                String    @default("active") // "active" | "paused"
+  createdBy             String?   // user id
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([createdBy])
+  @@map("schedules")
+}
+
+// ─── Jobs ─────────────────────────────────────────────────────────────────────
+
+model Job {
+  id             String    @id @default(cuid())
+  projectId      String?
+  runId          String?
+  organizationId String?
+  createdBy      String?   // user id
+  action         String?   // e.g. "scan" | "collect" | "report"
+  status         String    @default("queued") // "queued" | "processing" | "completed" | "failed" | "cancelled"
+  startedAt      DateTime?
+  doneAt         DateTime?
+  error          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([createdBy])
+  @@index([projectId])
+  @@map("jobs")
 }
