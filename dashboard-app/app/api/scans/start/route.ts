@@ -30,8 +30,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
       }
 
-      // Check scans-per-month subscription limit
-      const limitError = await checkSubscriptionLimit(user.uid, 'scansThisMonth');
+      // Resolve organisationId for org-level limit checks
+      let organisationId: string | null = null;
+      try {
+        const userSnap = await adminDB.collection('users').doc(user.uid).get();
+        if (userSnap.exists) {
+          organisationId = (userSnap.data()?.organisationId as string | undefined) ?? null;
+        }
+      } catch { /* non-critical */ }
+
+      // Check scans-per-month subscription limit against the org's plan
+      const limitError = await checkSubscriptionLimit(user.uid, 'scansThisMonth', organisationId);
       if (limitError) return limitError;
 
       // Ensure project exists
@@ -45,8 +54,8 @@ export async function POST(request: NextRequest) {
         }, { merge: true });
       }
 
-      // Fetch pagesPerScan cap once for both code paths
-      const pagesPerScanCap = await getPagesPerScanLimit(user.uid);
+      // Fetch pagesPerScan cap from the org's plan
+      const pagesPerScanCap = await getPagesPerScanLimit(user.uid, organisationId);
 
       if (includePageCollection) {
         // ---------------------------------------------------------------
@@ -54,7 +63,10 @@ export async function POST(request: NextRequest) {
         // ---------------------------------------------------------------
 
         // 1. Page collection run + job
-        const pcRunRef = await projectRef.collection('runs').add({
+        // Pre-generate ID so we can set pipelineId + runId in the initial write
+        const pcRunRef = projectRef.collection('runs').doc();
+        const pipelineId = pcRunRef.id;
+        await pcRunRef.set({
           type: 'page_collection',
           status: 'queued',
           startedAt: FieldValue.serverTimestamp(),
@@ -62,6 +74,10 @@ export async function POST(request: NextRequest) {
           pagesTotal: 0,
           pagesScanned: 0,
           queuedVia: 'firestore',
+          pipelineId,
+          runId: pcRunRef.id,
+          projectId,
+          organisationId: organisationId ?? null,
           stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
         });
 
@@ -76,15 +92,10 @@ export async function POST(request: NextRequest) {
           createdBy: user.uid,
         });
 
-        // Use the page_collection run ID as the shared pipelineId
-        const pipelineId = pcRunRef.id;
-
-        // Tag the page_collection run with pipelineId
-        await pcRunRef.update({ pipelineId });
-
         // 2. Full scan run (blocked until page_collection completes)
         // Pass pagesPerScanCap so the worker applies it when resolving pages
-        const scanRunRef = await projectRef.collection('runs').add({
+        const scanRunRef = projectRef.collection('runs').doc();
+        await scanRunRef.set({
           type,
           status: 'blocked',
           startedAt: FieldValue.serverTimestamp(),
@@ -97,6 +108,9 @@ export async function POST(request: NextRequest) {
           ...(pagesPerScanCap !== null ? { pagesPerScanCap } : {}),
           pipelineId,
           dependsOnRunId: pcRunRef.id,
+          runId: scanRunRef.id,
+          projectId,
+          organisationId: organisationId ?? null,
           stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
         });
 
@@ -116,7 +130,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Increment scans usage
-        await incrementSubscriptionUsage(user.uid, 'scansThisMonth', 1);
+        await incrementSubscriptionUsage(user.uid, 'scansThisMonth', 1, organisationId);
 
         return NextResponse.json({
           ok: true,
@@ -154,7 +168,8 @@ export async function POST(request: NextRequest) {
         pagesPerScanCap !== null ? pageIds.slice(0, pagesPerScanCap) : pageIds;
       const wasCapped = cappedPageIds.length < pageIds.length;
 
-      const runRef = await projectRef.collection('runs').add({
+      const runRef = projectRef.collection('runs').doc();
+      await runRef.set({
         type,
         status: 'queued',
         startedAt: FieldValue.serverTimestamp(),
@@ -165,6 +180,9 @@ export async function POST(request: NextRequest) {
         queuedVia: 'firestore',
         resolvePagesAtStart: false,
         ...(pagesPerScanCap !== null ? { pagesPerScanCap } : {}),
+        runId: runRef.id,
+        projectId,
+        organisationId: organisationId ?? null,
         stats: { critical: 0, serious: 0, moderate: 0, minor: 0 },
       });
 
@@ -182,7 +200,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Increment scans usage
-      await incrementSubscriptionUsage(user.uid, 'scansThisMonth', 1);
+      await incrementSubscriptionUsage(user.uid, 'scansThisMonth', 1, organisationId);
 
       return NextResponse.json({
         ok: true,

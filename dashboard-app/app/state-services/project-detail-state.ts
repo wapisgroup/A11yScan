@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { doc, onSnapshot, type DocumentData } from "firebase/firestore";
+import { doc, onSnapshot, type DocumentData } from '@/utils/firestore-read-tracker';
 
 import { db } from "@/utils/firebase";
 import type { Project } from "@/types/project";

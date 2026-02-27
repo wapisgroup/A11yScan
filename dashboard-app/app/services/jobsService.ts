@@ -1,4 +1,4 @@
-import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy } from '@/utils/firestore-read-tracker';
 import { db } from "@/utils/firebase";
 import type { ToastOptions } from "@/components/providers/window-provider";
 

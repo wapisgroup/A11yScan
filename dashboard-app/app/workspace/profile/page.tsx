@@ -5,7 +5,7 @@ import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
 import { useAuth, db, auth } from "@/utils/firebase";
 import { PageContainer } from "@/components/molecule/page-container";
-import { doc, updateDoc, Timestamp } from "firebase/firestore";
+import { doc, updateDoc, Timestamp } from '@/utils/firestore-read-tracker';
 import { DSButton } from "@/components/atom/ds-button";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -442,6 +442,7 @@ export default function ProfilePage() {
                       </p>
                       <DSButton
                         disabled={generatingToken}
+                        leadingIcon={<PiKey className="mr-1" />}  
                         onClick={async () => {
                           if (!user) return;
                           setGeneratingToken(true);
@@ -462,7 +463,6 @@ export default function ProfilePage() {
                           }
                         }}
                       >
-                        <PiKey className="mr-1" />
                         {generatingToken ? 'Generating...' : 'Generate API Token'}
                       </DSButton>
                     </div>

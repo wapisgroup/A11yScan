@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDB } from '@/utils/firebase-admin';
 import { withAuth } from '@/utils/api-auth';
 import { FieldValue } from 'firebase-admin/firestore';
-import { checkSubscriptionLimit, incrementSubscriptionUsage } from '@/utils/subscription-guard';
+import { getActiveProjectsLimit, incrementSubscriptionUsage } from '@/utils/subscription-guard';
 
 /**
  * Validates a URL string (server-side mirror of client validateUrl).
@@ -70,11 +70,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check subscription limit before doing any work
-      const limitError = await checkSubscriptionLimit(user.uid, 'activeProjects');
-      if (limitError) return limitError;
-
-      // Get organisationId from user doc (needed for both uniqueness check and payload)
+      // Get organisationId from user doc (needed for limit check, uniqueness check, and payload)
       let organisationId: string | null = null;
       try {
         const userSnap = await adminDB.collection('users').doc(user.uid).get();
@@ -85,12 +81,29 @@ export async function POST(request: NextRequest) {
         // Non-critical — proceed without organisationId
       }
 
-      // Check URL uniqueness within the same org (or for this user if solo)
+      // Fetch all org projects once — used for both the limit check and the uniqueness check.
+      // Counting actual docs is more reliable than a potentially stale usage counter.
       const existingSnap = await adminDB
         .collection('projects')
         .where(organisationId ? 'organisationId' : 'owner', '==', organisationId ?? user.uid)
         .get();
 
+      // Check active-projects limit against the org's plan using the real count
+      const activeProjectsLimit = await getActiveProjectsLimit(user.uid, organisationId);
+      if (activeProjectsLimit !== null && existingSnap.size >= activeProjectsLimit) {
+        return NextResponse.json(
+          {
+            error: 'LIMIT_REACHED',
+            limitType: 'activeProjects',
+            limit: activeProjectsLimit,
+            current: existingSnap.size,
+            upgradeUrl: '/workspace/billing',
+          },
+          { status: 429 }
+        );
+      }
+
+      // Check URL uniqueness within the same org (or for this user if solo)
       const normalizedDomain = domain.toLowerCase().trim();
       const duplicate = existingSnap.docs.some(
         (d) => String(d.data().domain ?? '').toLowerCase().trim() === normalizedDomain
@@ -116,8 +129,8 @@ export async function POST(request: NextRequest) {
 
       const ref = await adminDB.collection('projects').add(payload);
 
-      // Increment usage counter server-side (atomic, safe for concurrent requests)
-      await incrementSubscriptionUsage(user.uid, 'activeProjects', 1);
+      // Increment org-level usage counter server-side (atomic, safe for concurrent requests)
+      await incrementSubscriptionUsage(user.uid, 'activeProjects', 1, organisationId);
 
       return NextResponse.json({
         id: ref.id,

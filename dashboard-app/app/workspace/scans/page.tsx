@@ -10,7 +10,7 @@ import {
 import {
   collection, query, where, orderBy, limit, onSnapshot,
   type Unsubscribe
-} from "firebase/firestore";
+} from '@/utils/firestore-read-tracker';
 
 import { PageContainer } from "@/components/molecule/page-container";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";

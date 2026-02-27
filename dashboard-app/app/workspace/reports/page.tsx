@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteDoc, doc } from "firebase/firestore";
+import { deleteDoc, doc } from '@/utils/firestore-read-tracker';
 import { PiFilePdf, PiDownload, PiTrash, PiCalendar, PiGlobe, PiWarning, PiCheckCircle, PiPlus } from "react-icons/pi";
 
 import { PageContainer } from "@/components/molecule/page-container";

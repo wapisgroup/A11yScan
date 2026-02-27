@@ -10,7 +10,7 @@ import {
   query,
   type DocumentData,
   type Unsubscribe,
-} from "firebase/firestore";
+} from '@/utils/firestore-read-tracker';
 
 import { db } from "@/utils/firebase";
 

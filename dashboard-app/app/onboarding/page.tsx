@@ -8,7 +8,7 @@ import { db, useAuth } from "@/utils/firebase";
 import { PlanSelection } from "@/components/subscription/plan-selection";
 import { getUserSubscription } from "@/services/subscriptionService";
 import { FaCheck } from "react-icons/fa";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from '@/utils/firestore-read-tracker';
 
 export default function OnboardingPage() {
   const { user } = useAuth();

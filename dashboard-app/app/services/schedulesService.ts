@@ -11,7 +11,7 @@ import {
   type Unsubscribe,
   type Timestamp,
   collection,
-} from "firebase/firestore";
+} from "@/utils/firestore-read-tracker";
 import type { ScheduleCreateInput, ScheduleDoc, ScheduleUpdateInput } from "@/types/schedule";
 
 const schedulesCollection = () => collection(db, "schedules");

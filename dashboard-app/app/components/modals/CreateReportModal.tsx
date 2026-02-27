@@ -11,7 +11,7 @@ import { DSButton } from "@/components/atom/ds-button";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { createReport, getScannedPages, getPageSetPages } from "@/services/reportService";
 import { loadProjects, type Project } from "@/services/projectsService";
-import { collection, query, getDocs } from "firebase/firestore";
+import { collection, query, getDocs } from '@/utils/firestore-read-tracker';
 import { db } from "@/utils/firebase";
 
 type ReportType = 'full' | 'pageset';

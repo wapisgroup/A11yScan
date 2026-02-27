@@ -15,7 +15,7 @@ import {
   where,
   type DocumentData,
   type Unsubscribe,
-} from "firebase/firestore";
+} from '@/utils/firestore-read-tracker';
 
 import { db } from "@/utils/firebase";
 import { PiPlay, PiArrowClockwise, PiFileText, PiTrash, PiHourglassLow } from "react-icons/pi";

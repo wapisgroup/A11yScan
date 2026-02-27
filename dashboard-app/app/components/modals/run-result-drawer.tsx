@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs } from '@/utils/firestore-read-tracker';
 import { db, auth } from "@/utils/firebase";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { SitemapTree, type SitemapNode } from "@/components/organism/sitemap-tree";

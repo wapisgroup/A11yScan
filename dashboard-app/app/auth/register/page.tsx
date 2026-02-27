@@ -7,7 +7,7 @@ import { useAuth } from "@/utils/firebase";
 import { URL_AUTH_LOGIN } from "@/utils/urls";
 import { FaGoogle, FaCheck, FaTimes } from "react-icons/fa";
 import { AuthLayout } from "@/components/auth/auth-layout";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from '@/utils/firestore-read-tracker';
 import { db } from "@/utils/firebase";
 
 type RegistrationStep = "auth" | "company";

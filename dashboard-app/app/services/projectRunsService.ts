@@ -12,7 +12,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-} from "firebase/firestore";
+} from '@/utils/firestore-read-tracker';
 
 import { db } from "@/utils/firebase";
 import type { PageDoc } from "@/types/page-types";
@@ -281,11 +281,12 @@ const tsToDate = (ts: unknown): Date | null => {
 /**
  * getLastScanDates
  * ----------------
- * For each project ID, finds the most recent `scan_pages` or `full_scan` run
- * and returns its `startedAt` timestamp.
+ * For each project ID, fetches the single most recent scan run
+ * (type: scan_pages or full_scan) ordered by startedAt desc.
  *
- * Queries all runs per project client-side to avoid needing a composite index.
- * Suitable for the projects list where N is small (typical user has <50 projects).
+ * Requires a composite index on the `runs` subcollection:
+ *   type (Ascending) + startedAt (Descending)
+ * Add to firestore.indexes.json or create via the Firebase console.
  */
 export async function getLastScanDates(
   projectIds: string[]
@@ -296,21 +297,21 @@ export async function getLastScanDates(
   await Promise.all(
     projectIds.map(async (projectId) => {
       try {
-        const snap = await getDocs(collection(db, "projects", projectId, "runs"));
-        let latestMs = 0;
+        const snap = await getDocs(
+          query(
+            collection(db, "projects", projectId, "runs"),
+            where("type", "in", Array.from(SCAN_RUN_TYPES)),
+            orderBy("startedAt", "desc"),
+            limit(1)
+          )
+        );
 
-        for (const d of snap.docs) {
-          const data = d.data() as DocumentData;
-          if (!SCAN_RUN_TYPES.has(String(data.type ?? ""))) continue;
+        const doc = snap.docs[0];
+        const date = doc
+          ? (tsToDate(doc.data().startedAt) ?? tsToDate(doc.data().createdAt))
+          : null;
 
-          const date = tsToDate(data.startedAt) ?? tsToDate(data.createdAt);
-          if (date) {
-            const ms = date.getTime();
-            if (ms > latestMs) latestMs = ms;
-          }
-        }
-
-        result.set(projectId, latestMs > 0 ? new Date(latestMs) : null);
+        result.set(projectId, date);
       } catch {
         result.set(projectId, null);
       }

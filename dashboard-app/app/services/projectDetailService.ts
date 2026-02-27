@@ -4,7 +4,7 @@ import {
   getDoc,
   type DocumentData,
   type Timestamp,
-} from "firebase/firestore";
+} from '@/utils/firestore-read-tracker';
 import type { Project } from "@/types/project";
 
 /**

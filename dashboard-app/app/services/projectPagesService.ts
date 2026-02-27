@@ -6,9 +6,9 @@ import {
   type DocumentData,
   type Query,
   writeBatch,
-} from "firebase/firestore";
+} from '@/utils/firestore-read-tracker';
 
-import { deleteDoc, doc } from "firebase/firestore";
+import { deleteDoc, doc } from '@/utils/firestore-read-tracker';
 import { db, auth } from "@/utils/firebase";
 import type { PageDoc } from "@/types/page-types";
 

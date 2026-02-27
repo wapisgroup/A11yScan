@@ -1,4 +1,4 @@
-import type { Timestamp } from "firebase/firestore";
+import type { Timestamp } from '@/utils/firestore-read-tracker';
 
 export type ScheduleCadence = "weekly" | "monthly";
 export type ScheduleType = "full_scan" | "page_set";

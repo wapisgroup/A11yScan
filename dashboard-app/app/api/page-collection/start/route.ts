@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       // Ensure the project document exists
       const projectRef = adminDB.collection('projects').doc(projectId);
       const projectSnap = await projectRef.get();
-      
+
       if (!projectSnap.exists) {
         // Create minimal project document
         await projectRef.set({
@@ -32,23 +32,29 @@ export async function POST(request: NextRequest) {
         }, { merge: true });
       }
 
+      const organisationId = (projectSnap.exists ? projectSnap.data()?.organisationId as string | undefined : undefined) ?? null;
+
       // Create run document in projects/{projectId}/runs subcollection
-      const runRef = await projectRef.collection('runs').add({
+      const runRef = projectRef.collection('runs').doc();
+      const runId = runRef.id;
+      await runRef.set({
         type: 'page_collection',
         status: 'queued',
         startedAt: FieldValue.serverTimestamp(),
         creatorId: user.uid,
         pagesTotal: 0,
         pagesScanned: 0,
-        stats: { 
-          critical: 0, 
-          serious: 0, 
-          moderate: 0, 
-          minor: 0 
+        queuedVia: 'api',
+        runId,
+        projectId,
+        organisationId,
+        stats: {
+          critical: 0,
+          serious: 0,
+          moderate: 0,
+          minor: 0
         }
       });
-
-      const runId = runRef.id;
 
       // Create job document for worker to process
       await adminDB.collection('jobs').add({
@@ -58,12 +64,6 @@ export async function POST(request: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
         status: 'queued',
         createdBy: user.uid
-      });
-
-      // Update run status
-      await runRef.update({ 
-        status: 'queued', 
-        queuedVia: 'api' 
       });
 
       return NextResponse.json({

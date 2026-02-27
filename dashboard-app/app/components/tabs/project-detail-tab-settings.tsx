@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc } from '@/utils/firestore-read-tracker';
 import { db } from "@/utils/firebase";
 import { PiCheckCircle, PiWarningCircle, PiInfo } from "react-icons/pi";
 import { PageContainer } from "../molecule/page-container";

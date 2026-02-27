@@ -5,7 +5,7 @@ import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
 import { useAuth, db } from "@/utils/firebase";
 import { PageContainer } from "@/components/molecule/page-container";
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from '@/utils/firestore-read-tracker';
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { DSTabs } from "@/components/molecule/ds-tabs";
 import { OrganisationSettingsTab } from "@/components/tabs/organisation-settings-tab";

@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FiExternalLink, FiFileText, FiPlus, FiSettings, FiSlash, FiUpload } from "react-icons/fi";
+import { FiEdit, FiExternalLink, FiFileText, FiPlus, FiSettings, FiSlash, FiUpload } from "react-icons/fi";
 import { UITooltip } from "@/components/ui/ui-tooltip";
 
 import { PageContainer } from "@/components/molecule/page-container";
@@ -27,6 +27,7 @@ import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
 import { createProject, deleteProject, startProjectScan, updateProject, type Project } from "@/services/projectsService";
 import { getLastScanDates } from "@/services/projectRunsService";
+import { useSubscription } from "@/hooks/use-subscription";
 
 import dynamic from "next/dynamic";
 import { useConfirm } from "@/components/providers/window-provider";
@@ -35,6 +36,7 @@ import { useProjectsPageState } from "@/state-services/projects-page-states";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { DSButton } from "@/components/atom/ds-button";
 import { DSIconButton } from "@/components/atom/ds-icon-button";
+import { PiProjectorScreenBold, PiProjectorScreenChartLight } from "react-icons/pi";
 
 
 /**
@@ -124,22 +126,6 @@ export default function ProjectsPage() {
 
   const confirm = useConfirm();
 
-  /**
- * Renders the "Add Project" call-to-action button
- * displayed in the PageContainer header.
- */
-  const AddButton = () => {
-    return (
-      <DSButton
-        onClick={openCreate}
-        aria-label="Add project"
-        leadingIcon={<FiPlus size={16} />}
-      >
-        Add Project
-      </DSButton>
-      
-    );
-  };
 
   /**
    * Projects page state and actions.
@@ -148,7 +134,37 @@ export default function ProjectsPage() {
    * - pagination: derived pagination metadata
    * - start/remove: mutation helpers
    */
-  const { pagedItems, loading, error, setError, setPage, pagination } = useProjectsPageState();
+  const { pagedItems, totalCount, loading, error, setError, setPage, pagination } = useProjectsPageState();
+  const { usageLimits } = useSubscription();
+
+  /**
+ * Renders the "Add Project" call-to-action button.
+ * Disabled when the org has reached its active-projects plan limit.
+ */
+  const projectLimit = usageLimits?.activeProjects.limit;
+  const atProjectLimit =
+    typeof projectLimit === 'number' && projectLimit > 0 && totalCount >= projectLimit;
+
+  const AddButton = () => {
+    const btn = (
+      <DSButton
+        onClick={openCreate}
+        aria-label="Add project"
+        leadingIcon={<FiPlus size={16} />}
+        disabled={atProjectLimit}
+      >
+        Add Project
+      </DSButton>
+    );
+    if (!atProjectLimit) return btn;
+    return (
+      <UITooltip text={`Plan limit of ${projectLimit} projects reached. Upgrade to add more.`}>
+        {btn}
+      </UITooltip>
+    );
+  };
+
+
 
   /**
    * Pagination metadata derived by the state hook.
@@ -307,10 +323,9 @@ export default function ProjectsPage() {
                             <td className="text-right">
                               <div className="flex justify-end gap-small">
                                 <DSIconButton
-                                  variant="brand"
-                                  icon={<FiUpload />}
-                                  label="Start scan"
-                                  onClick={() => void start(p)}
+                                  label={`Details for ${projectName}`}
+                                  icon={<PiProjectorScreenBold />}
+                                  onClick={() => window.open(`/workspace/projects/${encodeURIComponent(p.id)}`,"_self")}
                                 />
 
                                 <UITooltip text="View reports">

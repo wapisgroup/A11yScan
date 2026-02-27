@@ -27,8 +27,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'cadence is required' }, { status: 400 });
       }
 
+      // Resolve organisationId for org-level limit checks
+      let organisationId: string | null = null;
+      try {
+        const userSnap = await adminDB.collection('users').doc(user.uid).get();
+        if (userSnap.exists) {
+          organisationId = (userSnap.data()?.organisationId as string | undefined) ?? null;
+        }
+      } catch { /* non-critical */ }
+
       // Check subscription limit before creating
-      const limitError = await checkSubscriptionLimit(user.uid, 'scheduledScans');
+      const limitError = await checkSubscriptionLimit(user.uid, 'scheduledScans', organisationId);
       if (limitError) return limitError;
 
       const payload = {
@@ -51,7 +60,7 @@ export async function POST(request: NextRequest) {
       const ref = await adminDB.collection('schedules').add(payload);
 
       // Increment usage counter server-side
-      await incrementSubscriptionUsage(user.uid, 'scheduledScans', 1);
+      await incrementSubscriptionUsage(user.uid, 'scheduledScans', 1, organisationId);
 
       return NextResponse.json({
         id: ref.id,

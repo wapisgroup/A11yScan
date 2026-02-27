@@ -5,7 +5,7 @@ import {
   updateDoc,
   Timestamp,
   increment,
-} from 'firebase/firestore';
+} from '@/utils/firestore-read-tracker';
 import { 
   Subscription, 
   PackageConfig,
@@ -133,16 +133,8 @@ export function hasFeature(
 
   const packageId = subscription?.packageId;
   const packageConfig = getPackageConfig(packageId || '');
-  
-  if (!packageConfig) {
-    console.warn('Package config not found for packageId:', packageId);
-    return false;
-  }
-  
-  if (!packageConfig?.features) {
-    console.warn('No features found in packageConfig');
-    return false;
-  }
+
+  if (!packageConfig?.features) return false;
 
   return packageConfig.features[featureKey] || false;
 }
@@ -157,17 +149,10 @@ export function canPerformAction(
 ): boolean {
   if (!subscription) return false;
 
-  console.log(`Checking if user can perform action: ${action}`);
-  console.log('Current usage:', subscription.currentUsage);
-  console.log('Limits:', subscription);
-  
   const packageId = subscription.packageId;
   const packageConfig = getPackageConfig(packageId);
-  
-  if (!packageConfig) {
-    console.warn('Package config not found for packageId:', packageId);
-    return false;
-  }
+
+  if (!packageConfig) return false;
   const limit = packageConfig.limits[action];
   const usage = subscription.currentUsage[action] || 0;
   
@@ -188,7 +173,6 @@ export function getUsageLimits(subscription: Subscription | null, limits: any): 
   scheduledScans: { used: number; limit: number | 'unlimited' | null };
 } {
   if (!subscription) {
-    console.log('No subscription found when getting usage limits.');
     return {
       activeProjects: { used: 0, limit: 0 },
       scansThisMonth: { used: 0, limit: 0 },

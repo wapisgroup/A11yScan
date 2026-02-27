@@ -50,3 +50,6 @@ export function getStripePriceId(
   if (!priceMap) return null;
   return priceMap[billingCycle];
 }
+
+
+console.log('process.env:', process.env);

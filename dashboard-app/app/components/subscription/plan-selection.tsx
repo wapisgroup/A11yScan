@@ -13,7 +13,7 @@ import { StartTrialButton } from './start-trial-button';
 import { CheckoutModal } from './checkout-modal';
 import { Elements } from '@stripe/react-stripe-js';
 import { getStripe } from '../../services/stripeService';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@/utils/firestore-read-tracker';
 
 export function PlanSelection() {
     const { user } = useAuth();

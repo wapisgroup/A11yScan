@@ -11,7 +11,7 @@ import { DSEmptyState } from "@/components/molecule/ds-empty-state";
 import { Pagination } from "@/components/molecule/pagination";
 import { PiCode, PiArrowsClockwise } from "react-icons/pi";
 import { loadApiLogs, ApiLogEntry } from "@/services/apiLogsService";
-import { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { QueryDocumentSnapshot, DocumentData } from '@/utils/firestore-read-tracker';
 
 const PAGE_SIZE = 25;
 

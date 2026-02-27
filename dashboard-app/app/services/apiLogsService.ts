@@ -10,7 +10,7 @@ import {
   getCountFromServer,
   QueryDocumentSnapshot,
   DocumentData,
-} from 'firebase/firestore';
+} from '@/utils/firestore-read-tracker';
 
 export interface ApiLogEntry {
   id: string;

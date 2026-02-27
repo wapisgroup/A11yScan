@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       // Ensure project exists
       const projectRef = adminDB.collection('projects').doc(projectId);
       const projectSnap = await projectRef.get();
-      
+
       if (!projectSnap.exists) {
         await projectRef.set({
           createdAt: FieldValue.serverTimestamp(),
@@ -38,8 +38,12 @@ export async function POST(request: NextRequest) {
         }, { merge: true });
       }
 
+      const organisationId = (projectSnap.exists ? projectSnap.data()?.organisationId as string | undefined : undefined) ?? null;
+
       // Create run document
-      const runRef = await projectRef.collection('runs').add({
+      const runRef = projectRef.collection('runs').doc();
+      const runId = runRef.id;
+      await runRef.set({
         type: 'scan_pages',
         status: 'queued',
         startedAt: FieldValue.serverTimestamp(),
@@ -48,6 +52,10 @@ export async function POST(request: NextRequest) {
         pagesIds: pagesIds,
         pagesTotal: pagesIds.length,
         pagesScanned: 0,
+        queuedVia: 'api',
+        runId,
+        projectId,
+        organisationId,
         stats: {
           critical: 0,
           minor: 0,
@@ -55,8 +63,6 @@ export async function POST(request: NextRequest) {
           serious: 0,
         },
       });
-
-      const runId = runRef.id;
 
       // Create job for worker
       await adminDB.collection('jobs').add({
@@ -66,12 +72,6 @@ export async function POST(request: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
         status: 'queued',
         createdBy: user.uid
-      });
-
-      // Update run status
-      await runRef.update({ 
-        status: 'queued', 
-        queuedVia: 'api' 
       });
 
       return NextResponse.json({

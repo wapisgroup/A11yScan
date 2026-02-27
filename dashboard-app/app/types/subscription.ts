@@ -1,5 +1,5 @@
 // Subscription Types & Interfaces
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from '@/utils/firestore-read-tracker';
 
 export type PackageId = 'basic' | 'starter' | 'professional' | 'enterprise';
 export type BillingCycle = 'monthly' | 'annual';

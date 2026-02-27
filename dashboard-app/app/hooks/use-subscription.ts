@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { onSnapshot, doc } from 'firebase/firestore';
+import { onSnapshot, doc, getDoc } from '@/utils/firestore-read-tracker';
 import { useAuth, db } from '../utils/firebase';
 import {
   getPackageConfig,
@@ -46,29 +46,57 @@ export function useSubscription(): UseSubscriptionReturn {
     setLoading(true);
     setError(null);
 
-    const unsubscribe = onSnapshot(
-      doc(db, 'subscriptions', user.uid),
-      (snap) => {
-        if (!snap.exists()) {
-          setSubscription(null);
-          setPackageConfig(null);
-        } else {
-          const sub = snap.data() as Subscription;
-          setSubscription(sub);
-          // packageName is not in the type but may exist on the doc; fall back to packageId
-          const config = getPackageConfig((sub as any).packageName || sub.packageId);
-          setPackageConfig(config);
-        }
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error fetching subscription:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load subscription');
-        setLoading(false);
-      }
-    );
+    let cancelled = false;
+    let unsubSnapshot: (() => void) | null = null;
 
-    return unsubscribe;
+    const start = async () => {
+      // Resolve the correct subscription doc: org owner's or own
+      let subscriptionUid = user.uid;
+      try {
+        const userSnap = await getDoc(doc(db, 'users', user.uid));
+        if (userSnap.exists()) {
+          const organisationId = userSnap.data().organisationId as string | undefined;
+          if (organisationId) {
+            const orgSnap = await getDoc(doc(db, 'organizations', organisationId));
+            if (orgSnap.exists()) {
+              const ownerId = orgSnap.data()?.ownerId as string | undefined;
+              if (ownerId) subscriptionUid = ownerId;
+            }
+          }
+        }
+      } catch { /* fall back to user.uid */ }
+
+      if (cancelled) return;
+
+      unsubSnapshot = onSnapshot(
+        doc(db, 'subscriptions', subscriptionUid),
+        (snap) => {
+          if (!snap.exists()) {
+            setSubscription(null);
+            setPackageConfig(null);
+          } else {
+            const sub = snap.data() as Subscription;
+            setSubscription(sub);
+            // packageName is not in the type but may exist on the doc; fall back to packageId
+            const config = getPackageConfig((sub as any).packageName || sub.packageId);
+            setPackageConfig(config);
+          }
+          setLoading(false);
+        },
+        (err) => {
+          console.error('Error fetching subscription:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load subscription');
+          setLoading(false);
+        }
+      );
+    };
+
+    void start();
+
+    return () => {
+      cancelled = true;
+      if (unsubSnapshot) unsubSnapshot();
+    };
   }, [user?.uid]);
 
   // Kept for API compatibility — real-time listener means manual refetch is a no-op

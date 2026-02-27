@@ -23,7 +23,7 @@ export const SUBSCRIPTION_PACKAGES: Record<string, PackageConfig> = {
     limits: {
       activeProjects: 3,
       scansPerMonth: 50,
-      pagesPerScan: 100,
+      pagesPerScan: 15,
       reportHistoryDays: 30,
       teamMembers: 1,
       apiCallsPerDay: null,

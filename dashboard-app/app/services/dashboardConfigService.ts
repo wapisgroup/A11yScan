@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from '@/utils/firestore-read-tracker';
 import { db } from "@/utils/firebase";
 import type { DashboardConfig } from "@/config/dashboard-widgets";
 

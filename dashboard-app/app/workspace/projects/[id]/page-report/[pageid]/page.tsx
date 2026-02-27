@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc } from '@/utils/firestore-read-tracker';
 import {
   PiArrowLeft,
   PiFilePdf,

@@ -4,7 +4,7 @@ import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PrivateRoute } from "@/utils/private-router";
 import { useSubscription } from '../../hooks/use-subscription';
 import { useAuth, db } from '../../utils/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from '@/utils/firestore-read-tracker';
 import { UpdateSubscriptionButton } from '../../components/subscription/update-subscription-button';
 import { PaymentMethods } from '../../components/subscription/payment-methods';
 import { ScheduledChangeBanner } from '../../components/subscription/scheduled-change-banner';
@@ -15,7 +15,7 @@ import { CheckoutModal } from '../../components/subscription/checkout-modal';
 import { Elements } from '@stripe/react-stripe-js';
 import { getStripe } from '../../services/stripeService';
 import { useState, useEffect } from 'react';
-import { getUserSubscription, getUsageLimits, getTrialDaysRemaining, getStatusMessage } from '../../services/subscriptionService';
+import { getUserSubscription, getOrganizationSubscription, getUsageLimits, getTrialDaysRemaining, getStatusMessage } from '../../services/subscriptionService';
 import { getAllPackages, SUBSCRIPTION_PACKAGES } from '../../config/subscriptions';
 import { getInvoices, cancelSubscription } from '../../services/stripeService';
 import { PriceCol } from "@/components/atom/price-col";
@@ -103,8 +103,9 @@ function BillingPageContent() {
           return;
         }
 
-        // Fetch subscription
-        const sub = await getUserSubscription(user.uid);
+        // Fetch org owner's subscription (covers all org members' usage)
+        const sub = await getOrganizationSubscription(organizationId)
+          ?? await getUserSubscription(user.uid);
         setSubscription(sub);
 
         // Fetch organization data to get stripeCustomerId
@@ -115,9 +116,18 @@ function BillingPageContent() {
 
         if (sub) {
           const packageLimits = getAllPackages().find(p => p.id === sub.packageId)?.limits;
-          const limits = await getUsageLimits(sub, packageLimits);
-          console.log('Usage Limits:', limits);
-          setUsageLimits(limits);
+          const limits = getUsageLimits(sub, packageLimits);
+
+          // Count actual org projects — more reliable than the denormalized counter
+          const projectsSnap = await getDocs(
+            query(collection(db, 'projects'), where('organisationId', '==', organizationId))
+          );
+          const actualProjectCount = projectsSnap.size;
+
+          setUsageLimits({
+            ...limits,
+            activeProjects: { ...limits.activeProjects, used: actualProjectCount },
+          });
         }
       } catch (error) {
         console.error('Error loading subscription:', error);

@@ -9,7 +9,7 @@ import {
   query,
   where,
   limit,
-} from "firebase/firestore";
+} from '@/utils/firestore-read-tracker';
 import { db } from "@/utils/firebase";
 import { subscribeProjects } from "@/services/projectsService";
 

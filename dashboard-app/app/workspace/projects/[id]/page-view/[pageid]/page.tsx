@@ -15,7 +15,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { doc, onSnapshot, type DocumentData, type Unsubscribe } from "firebase/firestore";
+import { doc, onSnapshot, type DocumentData, type Unsubscribe } from '@/utils/firestore-read-tracker';
 import { useParams } from "next/navigation";
 
 import { db } from "@/utils/firebase";

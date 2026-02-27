@@ -10,7 +10,7 @@ import {
   updateDoc,
   type DocumentData,
   type Query,
-} from "firebase/firestore";
+} from '@/utils/firestore-read-tracker';
 
 import type { PageSetRule, PageSetTDO } from "@/types/page-types-set";
 import { normalizePageSetRules } from "@/services/pageSetResolver";
