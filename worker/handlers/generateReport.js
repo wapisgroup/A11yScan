@@ -1,25 +1,30 @@
 /**
  * handleGenerateReport
  * --------------------
- * Generates a PDF accessibility report from scan results.
+ * Phase 8: Replaced Firebase/Firestore reads and writes with REST API calls.
+ * PDF generation logic (pdfmake, groupViolations, etc.) is unchanged.
  *
- * Behavior:
- * - Fetches scan results for all pages in run.pagesIds
- * - Groups violations by type and code snippet
- * - Generates a professional multi-page PDF report
- * - Uploads PDF to Cloud Storage
- * - Updates run and job documents with reportFileURL
- * - Sends email notification to the user with secure download link
+ * Org branding customisation (colours / logo) is not available in Phase 8
+ * as there is no branding API endpoint yet — report uses default branding.
+ * Email notifications (previously via Firestore mail extension) are omitted.
  */
 
-const admin = require('firebase-admin');
-const { notifyReportGenerated, getSlackConfigFromOrg } = require('../helpers/slack');
+const { notifyReportGenerated } = require('../helpers/slack');
 const PdfPrinter = require('pdfmake');
 const { AccessibilityRulesService } = require('@wapisgroup/accessibility-rules');
-const { Storage } = require('@google-cloud/storage');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const {
+    getProject,
+    getPages,
+    getRun,
+    updateRun,
+    getScans,
+    getReports,
+    updateReport,
+} = require('../helpers/api-client');
+const { uploadAndGetSignedUrl } = require('../helpers/storage');
 
 const DEFAULT_COMPLIANCE_PROFILES = ['ada_title_ii_wcag21'];
 const COMPLIANCE_PROFILE_LABELS = {
@@ -277,25 +282,54 @@ function buildScIssueIndex(allScans) {
     return index;
 }
 
-// Initialize Storage client based on emulator mode
-let storage = null;
-if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
-    const host = process.env.FIREBASE_STORAGE_EMULATOR_HOST.replace(/^https?:\/\//, '');
-    const apiEndpoint = `http://${host}`;
-    storage = new Storage({
-        apiEndpoint,
-        projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
+/**
+ * Normalise an SVG string for pdfmake's renderer.
+ * pdfmake processes SVG linearly, so <defs> must appear before any element
+ * that references them.
+ */
+function normalizeSvgForPdfmake(svgString) {
+    const defs = [];
+    const withoutDefs = svgString.replace(/<defs[\s\S]*?<\/defs>/gi, (match) => {
+        defs.push(match);
+        return '';
     });
-    console.log('[Storage] Using emulator at', apiEndpoint);
-} else {
-    const storageOpts = {
-        projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
-    };
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        storageOpts.credentials = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    }
-    storage = new Storage(storageOpts);
-    console.log('[Storage] Using production GCS');
+    if (!defs.length) return svgString;
+    return withoutDefs.replace(/(<svg[^>]*>)/, `$1${defs.join('')}`);
+}
+
+/**
+ * Fetch a URL following up to `maxRedirects` redirects.
+ * Returns { buffer, contentType } or null on failure.
+ */
+function fetchUrl(url, maxRedirects = 5) {
+    return new Promise((resolve) => {
+        const attempt = (currentUrl, remaining) => {
+            const lib = currentUrl.startsWith('https') ? require('https') : require('http');
+            lib.get(currentUrl, (res) => {
+                if ((res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) && res.headers.location && remaining > 0) {
+                    res.resume();
+                    attempt(res.headers.location, remaining - 1);
+                    return;
+                }
+                if (res.statusCode !== 200) { res.resume(); resolve(null); return; }
+                const contentType = res.headers['content-type'] || 'image/png';
+                const chunks = [];
+                res.on('data', c => chunks.push(c));
+                res.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType }));
+                res.on('error', () => resolve(null));
+            }).on('error', () => resolve(null));
+        };
+        attempt(url, maxRedirects);
+    });
+}
+
+/**
+ * Org branding — returns defaults since there is no branding API endpoint in Phase 8.
+ * Custom logo / colours will be available once a GET /api/v2/organisations/:id endpoint
+ * is added in a future phase.
+ */
+async function loadOrgBranding() {
+    return { primaryColor: null, secondaryColor: null, logoDataUrl: null, logoSvg: null };
 }
 
 /**
@@ -327,7 +361,6 @@ function groupViolations(allScans, inScopeScIds) {
             const description = issue.description || '';
             const engine = issue.engine || null;
 
-            // Create a key based on ruleId and message
             const key = `${ruleId}|||${message}`;
 
             if (!grouped[impact][key]) {
@@ -364,103 +397,6 @@ function groupViolations(allScans, inScopeScIds) {
     });
 
     return grouped;
-}
-
-/**
- * Normalise an SVG string for pdfmake's renderer.
- * pdfmake processes SVG linearly, so <defs> must appear before any element
- * that references them. Some tools (Figma exports, CMS-generated SVGs) emit
- * <defs> at the end of the file, which causes clip-path / gradient forward
- * references to silently fail and the whole group to render empty.
- */
-function normalizeSvgForPdfmake(svgString) {
-    const defs = [];
-    const withoutDefs = svgString.replace(/<defs[\s\S]*?<\/defs>/gi, (match) => {
-        defs.push(match);
-        return '';
-    });
-    if (!defs.length) return svgString;
-    // Re-insert all defs immediately after the opening <svg ...> tag
-    return withoutDefs.replace(/(<svg[^>]*>)/, `$1${defs.join('')}`);
-}
-
-/**
- * Fetch a URL following up to `maxRedirects` redirects.
- * Returns { buffer, contentType } or null on failure.
- */
-function fetchUrl(url, maxRedirects = 5) {
-    return new Promise((resolve) => {
-        const attempt = (currentUrl, remaining) => {
-            const lib = currentUrl.startsWith('https') ? require('https') : require('http');
-            lib.get(currentUrl, (res) => {
-                if ((res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) && res.headers.location && remaining > 0) {
-                    res.resume();
-                    attempt(res.headers.location, remaining - 1);
-                    return;
-                }
-                if (res.statusCode !== 200) { res.resume(); resolve(null); return; }
-                const contentType = res.headers['content-type'] || 'image/png';
-                const chunks = [];
-                res.on('data', c => chunks.push(c));
-                res.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType }));
-                res.on('error', () => resolve(null));
-            }).on('error', () => resolve(null));
-        };
-        attempt(url, maxRedirects);
-    });
-}
-
-/**
- * Fetch org branding from Firestore.
- * Returns { primaryColor, secondaryColor, logoDataUrl } or defaults on failure.
- */
-async function loadOrgBranding(db, organisationId) {
-    const defaults = { primaryColor: null, secondaryColor: null, logoDataUrl: null, logoSvg: null };
-    if (!organisationId) return defaults;
-
-    try {
-        const orgSnap = await db.collection('organisations').doc(organisationId).get();
-        if (!orgSnap.exists) return defaults;
-        const data = orgSnap.data() || {};
-
-        let logoDataUrl = null;
-        let logoSvg = null;
-        const logoUrl = data.customLogo && typeof data.customLogo === 'string' ? data.customLogo.trim() : null;
-        if (logoUrl && (logoUrl.startsWith('https://') || logoUrl.startsWith('http://'))) {
-            try {
-                const result = await fetchUrl(logoUrl);
-                if (result) {
-                    const mime = result.contentType.split(';')[0].trim().toLowerCase();
-                    // Detect SVG by MIME type OR by content (some servers serve SVGs as text/plain etc.)
-                    const isSvgMime = mime === 'image/svg+xml' || mime === 'image/svg';
-                    const contentStart = result.buffer.slice(0, 100).toString('utf8').trimStart();
-                    const isSvgContent = contentStart.startsWith('<svg') || contentStart.startsWith('<?xml');
-                    if (isSvgMime || isSvgContent) {
-                        // pdfmake renders SVGs via the `svg` property, not `image`
-                        // Normalise defs ordering so forward references resolve correctly
-                        logoSvg = normalizeSvgForPdfmake(result.buffer.toString('utf8'));
-                    } else {
-                        // Normalise MIME to one pdfmake supports (png or jpeg)
-                        const pdfMime = mime === 'image/jpeg' || mime === 'image/jpg' ? 'image/jpeg' : 'image/png';
-                        logoDataUrl = `data:${pdfMime};base64,${result.buffer.toString('base64')}`;
-                    }
-                }
-            } catch {
-                logoDataUrl = null;
-                logoSvg = null;
-            }
-        }
-
-        return {
-            primaryColor: data.primaryColor || null,
-            secondaryColor: data.secondaryColor || null,
-            logoDataUrl,
-            logoSvg,
-        };
-    } catch (err) {
-        console.warn('Failed to load org branding:', err && err.message ? err.message : err);
-        return defaults;
-    }
 }
 
 /**
@@ -682,7 +618,6 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                         paddingBottom: () => 4
                     }
                 });
-                // content.push({ text: '', pageBreak: 'after' });
             }
 
             impactOrder.forEach((impact) => {
@@ -704,7 +639,6 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                     const trimmedDomain = publicWebsiteDomain.replace(/\/$/, '');
                     const ruleUrl = issue.ruleId && trimmedDomain ? `${trimmedDomain}/accessibility-rules/${issue.ruleId}` : null;
 
-
                     const stack = [
                         { text: `${index + 1}. ${issue.message}`, style: 'bodyBold', margin: [0, 0, 0, 4] }
                     ];
@@ -718,24 +652,9 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                         stack.push({ text: `${engineLabel}: ${issue.engines.join(', ')}`, style: 'smallMuted' });
                     }
 
-                   
                     const ruleDetails = issue.ruleId ? ruleDataById?.get(issue.ruleId) : null;
-                    const descriptionText = ruleDetails?.fullMarkdown || ruleDetails?.description || issue.description;
                     const whyItMatters = ruleDetails?.whyItMatters || null;
                     const ruleDescription = ruleDetails?.ruleDescription || null;
-                    // if (descriptionText) {
-                    //     const blocks = markdownToPdfBlocks(descriptionText, {
-                    //         paragraphStyle: 'small',
-                    //         listStyle: 'small',
-                    //         codeStyle: 'code',
-                    //         h2Style: 'h2',
-                    //         h3Style: 'h3',
-                    //         h4Style: 'h4'
-                    //     });
-                    //     stack.push(...blocks);
-                    // }
-
-                   
 
                     if (ruleDescription) {
                         stack.push({ text: 'Rule description:', style: 'smallMuted', margin: [0, 6, 0, 0] });
@@ -750,7 +669,7 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                         stack.push(...blocks);
                     }
 
-                     if (whyItMatters) {
+                    if (whyItMatters) {
                         stack.push({ text: 'Why it matters:', style: 'smallMuted', margin: [0, 6, 0, 0] });
                         const blocks = markdownToPdfBlocks(whyItMatters, {
                             paragraphStyle: 'small',
@@ -763,7 +682,7 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
                         stack.push(...blocks);
                     }
 
-                     if (ruleUrl) {
+                    if (ruleUrl) {
                         stack.push({
                             text: [
                                 { text: 'Learn more: ', color: '#2563EB' },
@@ -830,7 +749,6 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
             const header = (currentPage, pageCount, pageSize) => {
                 const headerProject = projectData?.name || '';
                 const domainProject = projectData?.domain || '';
-                // Prefer org custom logo (SVG or raster), then built-in logo, then text
                 const logoNode = (orgBranding && orgBranding.logoSvg)
                     ? { svg: orgBranding.logoSvg, width: 120 }
                     : (orgBranding && orgBranding.logoDataUrl)
@@ -935,104 +853,57 @@ async function generatePDF(projectData, runData, groupedViolations, reportTitle,
     });
 }
 
-/**
- * Send email notification
- */
-async function sendEmailNotification(db, userId, projectData, reportTitle, downloadUrl) {
-    try {
-        // Create a mail document in Firestore for a mail extension to process
-        // This is a common pattern with Firebase extensions like "Trigger Email"
-        await db.collection('mail').add({
-            to: [userId], // Assumes userId is email, or you need to look up user email
-            message: {
-                subject: `Accessibility Report Ready: ${reportTitle}`,
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #649DAD;">Your Accessibility Report is Ready</h2>
-                        <p>Hello,</p>
-                        <p>Your accessibility report "<strong>${reportTitle}</strong>" for <strong>${projectData.domain || 'your project'}</strong> has been generated successfully.</p>
-                        <p style="margin: 30px 0;">
-                            <a href="${downloadUrl}" 
-                               style="background-color: #649DAD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                                Download Report
-                            </a>
-                        </p>
-                        <p style="color: #666; font-size: 12px;">This link is unique to your report and will expire in 7 days.</p>
-                        <p style="color: #666; font-size: 12px;">If you did not request this report, please ignore this email.</p>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-                        <p style="color: #999; font-size: 11px;">A11yScan - Accessibility Testing Platform</p>
-                    </div>
-                `
-            }
-        });
-
-        console.log('Email notification queued for:', userId);
-    } catch (err) {
-        console.error('Failed to send email notification:', err);
-        // Don't throw - email failure shouldn't fail the job
-    }
-}
-
-async function handleGenerateReport(db, projectId, runId) {
+async function handleGenerateReport(projectId, runId) {
     console.log('handleGenerateReport', projectId, runId);
 
-    const projectRef = db.collection('projects').doc(projectId);
-    const projSnap = await projectRef.get();
-    if (!projSnap.exists) {
-        throw new Error('Project not found: ' + projectId);
-    }
-    const projectData = projSnap.data();
+    const project = await getProject(projectId);
+    if (!project) throw new Error('Project not found: ' + projectId);
 
-    // Update run status -> running
-    const runRef = projectRef.collection('runs').doc(runId);
-    await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+    await updateRun(runId, { status: 'running', startedAt: new Date().toISOString() });
 
-    // Get run doc data
-    const runSnap = await runRef.get();
-    if (!runSnap.exists) {
-        throw new Error('Run not found: ' + runId);
-    }
-    const runData = runSnap.data() || {};
-    const pagesIds = Array.isArray(runData.pagesIds) ? runData.pagesIds : [];
-    const reportTitle = runData.meta?.title || runData.reportTitle || 'Accessibility Report';
-    const creatorId = runData.creatorId || 'system';
+    const runData = await getRun(runId);
+    if (!runData) throw new Error('Run not found: ' + runId);
+    const pagesIds = runData.pageIds || [];
 
     if (pagesIds.length === 0) {
         throw new Error('No pages specified for report generation');
     }
 
-    console.log(`Generating report for ${pagesIds.length} pages...`);
+    console.log(`[generateReport] Generating report for ${pagesIds.length} pages...`);
 
-    // Fetch all scan results for the specified pages
-    const scansCol = projectRef.collection('scans');
-    const allScans = [];
+    // Fetch page URL map (scans don't include pageUrl directly)
+    const pagesResult = await getPages(projectId, { limit: 10000 });
+    const allPagesList = (pagesResult && pagesResult.pages) || [];
+    const pageUrlMap = new Map(allPagesList.map(p => [p.id, p.url]));
 
-    for (const pageId of pagesIds) {
-        const scanQuery = await scansCol
-            .where('pageId', '==', pageId)
-            .orderBy('createdAt', 'desc')
-            .limit(1)
-            .get();
-
-        if (!scanQuery.empty) {
-            const scanDoc = scanQuery.docs[0];
-            allScans.push({
-                pageId,
-                pageUrl: scanDoc.data().pageUrl,
-                issues: scanDoc.data().issues || [],
-                summary: scanDoc.data().summary || {}
-            });
-        }
-    }
+    // Fetch latest scan per page
+    const scans = await getScans(projectId, { pageIds: pagesIds, latestPerPage: true });
+    const allScans = (scans || []).map(scan => ({
+        pageId: scan.pageId,
+        pageUrl: pageUrlMap.get(scan.pageId) || null,
+        issues: Array.isArray(scan.issues) ? scan.issues : [],
+        summary: (scan.summary && typeof scan.summary === 'object') ? scan.summary : {},
+    }));
 
     if (allScans.length === 0) {
         throw new Error('No scan results found for the specified pages');
     }
 
-    console.log(`Found scan results for ${allScans.length} pages`);
+    console.log(`[generateReport] Found scan results for ${allScans.length} pages`);
+
+    // Find the pre-created Report record for this run (created by the report trigger action)
+    let reportRecord = null;
+    try {
+        const reportsList = await getReports(projectId, { runId });
+        reportRecord = (reportsList && reportsList.length > 0) ? reportsList[0] : null;
+    } catch (e) {
+        console.warn('[generateReport] Could not fetch report record:', e && e.message ? e.message : e);
+    }
+
+    const reportTitle = (reportRecord && reportRecord.title) || runData.meta?.title || 'Accessibility Report';
 
     const standardsMatrix = loadStandardsMatrix();
-    const complianceProfiles = normalizeComplianceProfiles(projectData?.config?.complianceProfiles);
+    const complianceProfiles = normalizeComplianceProfiles(project.config?.complianceProfiles);
     const inScopeScIds = standardsMatrix ? getScScope(standardsMatrix, complianceProfiles) : null;
     const scIssueIndex = standardsMatrix ? buildScIssueIndex(allScans) : new Map();
 
@@ -1042,30 +913,14 @@ async function handleGenerateReport(db, projectId, runId) {
             if (issue.ruleId) ruleIds.push(issue.ruleId);
         });
     });
-    // Resolve organisationId: prefer project field, fall back to creator's user doc
-    let organisationId = projectData?.organisationId || null;
-    if (!organisationId && creatorId && creatorId !== 'system') {
-        try {
-            const userSnap = await db.collection('users').doc(creatorId).get();
-            if (userSnap.exists) organisationId = userSnap.data().organisationId || null;
-        } catch { /* ignore */ }
-    }
 
     const [ruleDataById, orgBranding] = await Promise.all([
         loadRuleDescriptions(ruleIds),
-        loadOrgBranding(db, organisationId),
+        loadOrgBranding(),
     ]);
-    console.log('[generateReport] orgBranding loaded:', {
-        organisationId,
-        primaryColor: orgBranding.primaryColor,
-        secondaryColor: orgBranding.secondaryColor,
-        hasLogo: !!orgBranding.logoDataUrl,
-    });
 
-    // Group violations by type and code
     const groupedViolations = groupViolations(allScans, inScopeScIds);
 
-    // Calculate stats from grouped violations
     const calculatedStats = {
         critical: Object.keys(groupedViolations.critical).length,
         serious: Object.keys(groupedViolations.serious).length,
@@ -1074,9 +929,9 @@ async function handleGenerateReport(db, projectId, runId) {
     };
 
     // Generate PDF
-    console.log('Generating PDF...');
+    console.log('[generateReport] Generating PDF...');
     const pdfBuffer = await generatePDF(
-        projectData,
+        project,
         runData,
         groupedViolations,
         reportTitle,
@@ -1089,99 +944,68 @@ async function handleGenerateReport(db, projectId, runId) {
     );
 
     // Upload PDF to storage
-    const defaultBucketName = admin.app().options?.storageBucket || process.env.STORAGE_BUCKET;
-    if (!defaultBucketName) {
-        throw new Error('No storage bucket configured');
-    }
-
-    const bucket = storage.bucket(defaultBucketName);
-    
-    // Create unique filename with hash to prevent guessing
     const fileHash = crypto.randomBytes(16).toString('hex');
     const fileName = `${projectId}_${runId}_${fileHash}.pdf`;
     const filePath = `projects/${projectId}/reports/${fileName}`;
-    
-    const file = bucket.file(filePath);
-    await file.save(pdfBuffer, {
-        contentType: 'application/pdf',
-        metadata: {
-            contentDisposition: `attachment; filename="${reportTitle}.pdf"`,
-            cacheControl: 'private, max-age=0',
-            metadata: {
-                projectId,
-                runId,
-                generatedAt: new Date().toISOString()
-            }
-        }
+
+    const downloadUrl = await uploadAndGetSignedUrl(
+        filePath,
+        pdfBuffer,
+        'application/pdf',
+        1000 * 60 * 60 * 24 * 7, // 7 days
+        process.env.STORAGE_BUCKET
+    );
+
+    console.log('[generateReport] PDF uploaded to storage:', filePath);
+
+    // Update run to done
+    await updateRun(runId, {
+        status: 'done',
+        finishedAt: new Date().toISOString(),
+        pagesScanned: allScans.length,
     });
 
-    console.log('PDF uploaded to storage:', filePath);
-
-    // Generate download URL
-    let downloadUrl;
-    if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
-        const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST.replace(/^https?:\/\//, '');
-        downloadUrl = `http://${emulatorHost}/v0/b/${defaultBucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
+    // Update the Report record if one exists
+    if (reportRecord) {
+        try {
+            await updateReport(reportRecord.id, {
+                status: 'completed',
+                pdfUrl: downloadUrl,
+                stats: calculatedStats,
+                pageCount: allScans.length,
+                completedAt: new Date().toISOString(),
+            });
+            console.log('[generateReport] Report record updated:', reportRecord.id);
+        } catch (e) {
+            console.warn('[generateReport] Failed to update report record:', e && e.message ? e.message : e);
+        }
     } else {
-        // Production: generate signed URL valid for 7 days
-        [downloadUrl] = await file.getSignedUrl({
-            action: 'read',
-            expires: Date.now() + 1000 * 60 * 60 * 24 * 7 // 7 days
-        });
+        console.warn('[generateReport] No Report record found for runId', runId, '— PDF URL:', downloadUrl);
     }
 
-    // Update run document
-    await runRef.update({
-        status: 'done',
-        finishedAt: admin.firestore.FieldValue.serverTimestamp(),
-        reportFileURL: downloadUrl,
-        reportFilePath: filePath,
-        pagesScanned: allScans.length
-    });
-
-    console.log('Run document updated with report URL');
-
-    // Create report document in projects/{projectId}/reports collection
-    const reportsCol = projectRef.collection('reports');
-    const reportDoc = await reportsCol.add({
-        title: reportTitle,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        runId: runId,
-        pdfUrl: downloadUrl,
-        filePath: filePath,
-        type: runData.reportType || 'full',
-        pageSetId: runData.pageSetId || null,
-        pageCount: allScans.length,
-        status: 'completed',
-        createdBy: creatorId,
-        stats: calculatedStats,
-        complianceProfiles: complianceProfiles,
-        // Fields required for collectionGroup('reports') queries
-        projectId,
-        organisationId: organisationId || null,
-        projectName: projectData?.name || projectData?.domain || null,
-    });
-
-    console.log('Report document created:', reportDoc.id);
-
-    // Send email notification
-    await sendEmailNotification(db, creatorId, projectData, reportTitle, downloadUrl);
-
-    console.log('Report generation completed successfully');
+    console.log('[generateReport] Completed successfully');
 
     try {
-        const slackConfig = await getSlackConfigFromOrg(db, projectData?.organisationId);
+        const slackConfig = process.env.SLACK_WEBHOOK_URL
+            ? { webhookUrl: process.env.SLACK_WEBHOOK_URL, channel: process.env.SLACK_CHANNEL }
+            : null;
         if (slackConfig) {
             await notifyReportGenerated({
                 projectId,
-                projectName: (projectData && (projectData.name || projectData.domain)) || projectId,
+                projectName: (project.name || project.domain) || projectId,
                 pdfUrl: downloadUrl,
             }, slackConfig);
         }
     } catch (e) {
-        console.warn('Slack notification failed:', e && e.message ? e.message : e);
+        console.warn('[generateReport] Slack notification failed:', e && e.message ? e.message : e);
     }
-    return { ok: true, reportUrl: downloadUrl, pagesScanned: allScans.length, reportId: reportDoc.id };
+
+    return {
+        ok: true,
+        reportUrl: downloadUrl,
+        pagesScanned: allScans.length,
+        reportId: reportRecord?.id || null,
+    };
 }
 
 module.exports = { handleGenerateReport };

@@ -1,4 +1,5 @@
 /**
+ * GET   /api/v2/reports/:id  — get a report (for the worker)
  * PATCH /api/v2/reports/:id  — update report (status, pdfUrl, stats, …)
  * Auth: Bearer <apiToken>
  */
@@ -13,6 +14,21 @@ import {
 } from "@/lib/worker-auth";
 
 export const dynamic = "force-dynamic";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const worker = await authenticateWorker(req);
+  if (!worker) return unauthorized();
+
+  const { id } = await params;
+
+  const report = await prisma.report.findUnique({ where: { id } });
+  if (!report) return notFound("Report not found");
+
+  return Response.json(report);
+}
 
 export async function PATCH(
   req: NextRequest,

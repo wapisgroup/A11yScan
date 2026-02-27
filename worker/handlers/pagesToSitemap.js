@@ -1,102 +1,87 @@
 /**
  * handlePagesToSitemapJob
  * ----------------------
- * Builds a structured sitemap tree from all discovered pages and persists it.
- *
- * Notes:
- * - The structured sitemap is uploaded to storage (preferred) or local artifacts as fallback.
- * - The resulting URL/path is stored on the project and run documents.
+ * Phase 8: Replaced Firebase/Firestore reads and writes with REST API calls.
+ * Core sitemap-tree logic (buildSitemapTree) is unchanged.
  */
 
-const admin = require('firebase-admin');
 const path = require('path');
-const { buildSitemapTree, uploadTreeJson } = require('../helpers/pages_to_sitemap');
-const { notifySitemapGenerated, getSlackConfigFromOrg } = require('../helpers/slack');
+const { buildSitemapTree } = require('../helpers/pages_to_sitemap');
+const { notifySitemapGenerated } = require('../helpers/slack');
+const {
+    getProject,
+    updateProject,
+    getPages,
+    updateRun,
+} = require('../helpers/api-client');
+const { uploadAndGetUrl } = require('../helpers/storage');
 
-async function handlePagesToSitemapJob(db, projectId, runId) {
+async function handlePagesToSitemapJob(projectId, runId) {
     console.log('handlePagesToSitemapJob', projectId, runId);
-    // locate project and ensure it exists
-    const projectRef = db.collection('projects').doc(projectId);
-    const projSnap = await projectRef.get();
-    if (!projSnap.exists) {
-        throw new Error('Project not found: ' + projectId);
-    }
 
-    // Update run status -> running
-    const runRef = projectRef.collection('runs').doc(runId);
-    await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+    const project = await getProject(projectId);
+    if (!project) throw new Error('Project not found: ' + projectId);
 
-    const project = projSnap.data();
-    // Read all pages for this project
-    const pagesCol = projectRef.collection('pages');
-    const pagesSnap = await pagesCol.get();
-    const pages = [];
-    pagesSnap.forEach(doc => {
-        const d = doc.data();
-        if (d && d.url) pages.push({ id: d.url, title: d.title || null });
-    });
+    await updateRun(runId, { status: 'running', startedAt: new Date().toISOString() });
 
+    // Fetch all pages for this project
+    const pagesResult = await getPages(projectId, { limit: 10000 });
+    const allPages = (pagesResult && pagesResult.pages) || [];
+    const pages = allPages
+        .filter(p => p && p.url)
+        .map(p => ({ id: p.url, title: p.title || null }));
 
     try {
         const structuredTree = buildSitemapTree(pages, { maxDepth: 10, stripQuery: true });
         const treeJson = JSON.stringify(structuredTree, null, 2);
-
-        // Save the tree JSON to the same storage/ local-artifacts place you use for sitemap
         const treePath = `projects/${projectId}/sitemaps/${runId}.tree.json`;
         let treeUrl = null;
 
-        try {
-            // treeJson and treePath exist where you're generating the tree (treePath e.g. `projects/${projectId}/sitemaps/${runId}.tree.json`)
-            treeUrl = await uploadTreeJson(admin, treeJson, treePath);
-
-            // persist url into project doc (and optionally into the run doc)
-            await projectRef.update({ sitemapTreeUrl: treeUrl });
+        const bucketName = process.env.STORAGE_BUCKET;
+        if (bucketName) {
             try {
-                const runRef = projectRef.collection('runs').doc(runId);
-                await runRef.update({ sitemapTreeUrl: treeUrl });
-            } catch (e) {
-                console.warn('Failed to update run with sitemapTreeUrl:', e && e.message ? e.message : e);
+                treeUrl = await uploadAndGetUrl(treePath, treeJson, 'application/json', bucketName);
+                if (treeUrl) {
+                    await updateProject(projectId, { sitemapTreeUrl: treeUrl });
+                    console.log('[pagesToSitemap] Uploaded structured sitemap:', treeUrl);
+                }
+            } catch (err) {
+                // fallback: write locally
+                const fs = require('fs');
+                const artifactsDir = process.env.LOCAL_ARTIFACTS_DIR || path.join(__dirname, '../local-artifacts');
+                try { fs.mkdirSync(artifactsDir, { recursive: true }); } catch (e) {}
+                const localPath = path.join(artifactsDir, `${runId}.tree.json`);
+                try {
+                    fs.writeFileSync(localPath, treeJson, 'utf8');
+                    console.log('[pagesToSitemap] Wrote sitemap locally after upload error:', err && err.message ? err.message : err);
+                } catch (fsErr) {
+                    console.error('[pagesToSitemap] Local write also failed:', fsErr && fsErr.message ? fsErr.message : fsErr);
+                }
             }
-
-            console.log('Uploaded structured sitemap and saved URL into project doc:', treeUrl);
-        } catch (err) {
-            // fallback to local file and persist error
-            const fs = require('fs');
-            const artifactsDir = process.env.LOCAL_ARTIFACTS_DIR || path.join(__dirname, '../local-artifacts');
-            try { fs.mkdirSync(artifactsDir, { recursive: true }); } catch (e) { }
-            const localPath = path.join(artifactsDir, `${runId}.tree.json`);
-            try {
-                fs.writeFileSync(localPath, treeJson, 'utf8');
-                console.log('Wrote structured sitemap to', localPath, 'after storage upload error:', err && err.message ? err.message : err);
-            } catch (fsErr) {
-                console.error('Failed to write structured sitemap locally as fallback:', fsErr && fsErr.message ? fsErr.message : fsErr);
-            }
-
-            try {
-                await projectRef.update({
-                    sitemapTreeLocalPath: localPath,
-                    sitemapUploadError: (err && err.message) ? err.message : String(err)
-                });
-            } catch (metaErr) {
-                console.warn('Failed to update project doc with local path / error:', metaErr && metaErr.message ? metaErr.message : metaErr);
-            }
+        } else {
+            console.warn('[pagesToSitemap] STORAGE_BUCKET not set — skipping upload');
         }
 
-        // Finalize run
-        await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp() });
+        await updateRun(runId, { status: 'done', finishedAt: new Date().toISOString() });
 
-        console.log('Sitemap job finished', projectId, runId, 'pages:', pages.length);
+        console.log('[pagesToSitemap] Finished', projectId, runId, 'pages:', pages.length);
 
-        const slackConfig = await getSlackConfigFromOrg(db, project.organisationId);
-        if (slackConfig) {
-            await notifySitemapGenerated({
-                projectId,
-                projectName: project.name || project.domain || projectId,
-                sitemapTreeUrl: treeUrl,
-            }, slackConfig);
+        try {
+            const slackConfig = process.env.SLACK_WEBHOOK_URL
+                ? { webhookUrl: process.env.SLACK_WEBHOOK_URL, channel: process.env.SLACK_CHANNEL }
+                : null;
+            if (slackConfig) {
+                await notifySitemapGenerated({
+                    projectId,
+                    projectName: project.name || project.domain || projectId,
+                    sitemapTreeUrl: treeUrl,
+                }, slackConfig);
+            }
+        } catch (e) {
+            console.warn('[pagesToSitemap] Slack notification failed:', e && e.message ? e.message : e);
         }
     } catch (err) {
-        console.warn('Failed to generate/upload structured sitemap:', err && err.message ? err.message : err);
+        console.warn('[pagesToSitemap] Failed to generate/upload structured sitemap:', err && err.message ? err.message : err);
     }
 }
 

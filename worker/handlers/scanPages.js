@@ -1,45 +1,36 @@
-
 /**
  * @file scanPages.js
  * @module worker/handlers/scanPages
  *
- * @description
- * Worker handler to execute accessibility scans for all pages referenced by a given run document,
- * writing results to Firestore and updating usage statistics.
+ * Phase 8: Replaced Firebase/Firestore reads and writes with REST API calls.
+ * Puppeteer/axe-core scan logic, static heuristics, BigQuery writes, and
+ * AI-heuristics are all unchanged.
  *
- * ## Firestore schema assumptions:
- * - Projects are stored at: `projects/{projectId}`
- * - Each project has subcollections:
- *    - `pages` (documents with field `url`)
- *    - `runs` (each run references an array of `pagesIds`)
- *    - `scans` (one document per scan result, keyed by page/run)
- * - Usage counters are tracked in: `subscriptions/{ownerId}/currentUsage`
- *
- * ## Side effects:
- * - Writes a scan result document for each page in `projects/{projectId}/scans`
- * - Updates per-page summary and metadata in `projects/{projectId}/pages/{pageId}`
- * - Aggregates and updates run stats in `projects/{projectId}/runs/{runId}`
- * - Increments usage counters in `subscriptions/{ownerId}`
- *
- * ## Concurrency model:
- * - Limits number of concurrent scans using p-limit, default concurrency 3 (configurable via env)
- *
- * ## Puppeteer/axe vs fallback:
- * - Uses Puppeteer and axe-core for full browser-based accessibility checks when available
- * - Falls back to static HTML heuristics using fetchHtml + cheerio if Puppeteer or axe fails
- *
- * ## Security note:
- * - Page snapshots are sanitized in the browser context before being persisted, removing scripts, noscript, and dangerous attributes
+ * Changes from Phase 7 (Firestore) to Phase 8 (REST API):
+ * - Project / run / page / scan data is read and written via helpers/api-client.js
+ * - Storage uploads use helpers/storage.js (uploadAndGetUrl) instead of admin.storage()
+ * - Per-page run stat increments are accumulated locally and flushed once at the end
+ * - Subscription usage tracking and scanIndex writes are removed (Firestore-specific)
+ * - Slack config is read from env vars instead of Firestore org document
  */
 
-const admin = require('firebase-admin');
-const { notifyScanFinished, getSlackConfigFromOrg } = require('../helpers/slack');
+const { notifyScanFinished } = require('../helpers/slack');
 const cheerio = require('cheerio');
 const pLimit = require('p-limit');
 const { fetchHtml } = require('../helpers/generic');
 const { AblelyticsCoreTests } = require('../helpers/ablelytics-core-tests');
 const { AblelyticsAiHeuristics } = require('../helpers/ai-heuristics');
 const { insertPageScan, insertIssues, insertCoreCheckTimings } = require('../helpers/bigquery');
+const {
+    getProject,
+    updateProject,
+    getPages,
+    updatePage,
+    getRun,
+    updateRun,
+    createScan,
+} = require('../helpers/api-client');
+const { uploadAndGetUrl } = require('../helpers/storage');
 
 // ── Compliance profile → axe tag mapping ─────────────────────────────────────
 const PROFILE_TO_AXE_TAGS = {
@@ -90,6 +81,12 @@ function readPageSummary(pageData) {
         return {};
     }
 
+    // New API format: violationCount from PageViolationCount join
+    if (pageData.violationCount && typeof pageData.violationCount === 'object') {
+        return pageData.violationCount;
+    }
+
+    // Legacy Firestore formats (kept for backward compatibility)
     const byViolations = pageData.violationsCount;
     if (byViolations && typeof byViolations === 'object') {
         return byViolations;
@@ -280,220 +277,83 @@ async function removeCookieBanners(pageP, mode) {
 }
 
 /**
- * Uploads HTML content to Cloud Storage and returns a download URL.
- * @param {string} projectId - The project ID
- * @param {string} runId - The run ID
- * @param {string} pageId - The page ID
- * @param {string} html - The HTML content to upload
- * @returns {Promise<string>} - The download URL (signed URL in production, public URL in emulator)
+ * Upload HTML snapshot to Cloud Storage and return a download URL.
  */
 async function uploadHtmlToStorage(projectId, runId, pageId, html) {
-    try {
-        const bucket = admin.storage().bucket();
-        const filePath = `scans/${projectId}/${runId}/${pageId}/snapshot.html`;
-        const file = bucket.file(filePath);
-        
-        // Upload the HTML
-        await file.save(html, {
-            contentType: 'text/html',
-            metadata: {
-                cacheControl: 'public, max-age=604800', // 7 days
-            },
-        });
-        
-        // In emulator mode, return a simple public URL (signed URLs require real credentials)
-        if (process.env.EMULATOR_MODE === '1') {
-            const bucketName = bucket.name;
-            const storageHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || 'localhost:9199';
-            const projectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
-            console.log('storage url:',`http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`)
-            return `http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
-        }
-        
-        // In production, generate a Firebase download URL (non-expiring, CORS-friendly, browser-accessible)
-        // Set a download token in the file metadata so we can construct the Firebase download URL
-        const { randomUUID } = require('crypto');
-        const downloadToken = randomUUID();
-        await file.setMetadata({
-            metadata: { firebaseStorageDownloadTokens: downloadToken }
-        });
-        const encodedPath = encodeURIComponent(filePath);
-        return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
-    } catch (error) {
-        console.error('Failed to upload HTML to storage:', error);
-        return null;
-    }
-}
-
-async function uploadBinaryToStorage(projectId, runId, pageId, filename, buffer, contentType) {
-    try {
-        const bucket = admin.storage().bucket();
-        const filePath = `scans/${projectId}/${runId}/${pageId}/${filename}`;
-        const file = bucket.file(filePath);
-        await file.save(buffer, {
-            contentType,
-            metadata: {
-                cacheControl: 'public, max-age=604800',
-            },
-        });
-
-        if (process.env.EMULATOR_MODE === '1') {
-            const bucketName = bucket.name;
-            const storageHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || 'localhost:9199';
-            return `http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
-        }
-
-        const { randomUUID } = require('crypto');
-        const downloadToken = randomUUID();
-        await file.setMetadata({
-            metadata: { firebaseStorageDownloadTokens: downloadToken }
-        });
-        const encodedPath = encodeURIComponent(filePath);
-        return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
-    } catch (error) {
-        console.error('Failed to upload binary to storage:', error);
-        return null;
-    }
+    const filePath = `scans/${projectId}/${runId}/${pageId}/snapshot.html`;
+    return uploadAndGetUrl(filePath, html, 'text/html');
 }
 
 /**
- * Scans all pages referenced by a run, writes scan results, and updates usage and stats.
- *
- * @param {FirebaseFirestore.Firestore} db - The Firestore database instance
- * @param {string} projectId - The project ID (must exist in `projects/{projectId}`)
- * @param {string} runId - The run document ID (must exist in `projects/{projectId}/runs/{runId}`)
- * @returns {Promise<{ok: boolean, scanned: number, agg: Object}>} - Object with scan summary
- * @throws {Error} If the project or run is not found
- *
- * ## High-level flow:
- * 1. Lookup project and run, validate existence.
- * 2. Optionally reset usage counters if needed (based on subscription period).
- * 3. Mark run as 'running'.
- * 4. Initialize Puppeteer/axe-core if possible; fall back to static checks if not.
- * 5. Scan each page (concurrently, up to limit):
- *      - Load page document and fetch/render page.
- *      - Run axe-core (if using Puppeteer) or static heuristics.
- *      - Capture and sanitize page snapshot and node highlights.
- *      - Write scan result, update page doc, update run stats, increment usage.
- * 6. Finalize run: mark as 'done', persist aggregate stats, close browser.
+ * Upload a binary artifact (screenshot, etc.) to Cloud Storage.
  */
-async function handleScanPages(db, projectId, runId) {
+async function uploadBinaryToStorage(projectId, runId, pageId, filename, buffer, contentType) {
+    const filePath = `scans/${projectId}/${runId}/${pageId}/${filename}`;
+    return uploadAndGetUrl(filePath, buffer, contentType);
+}
+
+/**
+ * Scans all pages referenced by a run, writes scan results, and updates stats.
+ *
+ * @param {string} projectId
+ * @param {string} runId
+ */
+async function handleScanPages(projectId, runId) {
     console.log('handleScanPages', projectId, runId);
-    // === Project lookup phase ===
-    // Locate project and ensure it exists
-    const projectRef = db.collection('projects').doc(projectId);
-    const projSnap = await projectRef.get();
-    if (!projSnap.exists) {
-        throw new Error('Project not found: ' + projectId);
-    }
 
-    // Get project owner for usage tracking
-    const projectData = projSnap.data();
-    const projectOwner = projectData?.owner;
+    // === Project lookup ===
+    const project = await getProject(projectId);
+    if (!project) throw new Error('Project not found: ' + projectId);
 
-    // Project config settings
-    const storeArtifacts = projectData?.config?.storeArtifacts !== false; // default true
-    const axeTags = getAxeTagsFromProfiles(projectData?.config?.complianceProfiles);
+    const storeArtifacts = project.config?.storeArtifacts !== false; // default true
+    const axeTags = getAxeTagsFromProfiles(project.config?.complianceProfiles);
     console.log('[scan] storeArtifacts:', storeArtifacts, '| axe tags:', axeTags);
 
-    // === Usage counters reset logic ===
-    // Check and reset usage counters if needed (do this once at the start of scan)
-    if (projectOwner) {
-        try {
-            const subscriptionRef = db.collection('subscriptions').doc(projectOwner);
-            const subscriptionSnap = await subscriptionRef.get();
-            
-            if (subscriptionSnap.exists) {
-                const subscription = subscriptionSnap.data();
-                const now = new Date();
-                const needsReset = shouldResetUsageCounters(subscription, now);
-                
-                if (needsReset) {
-                    console.log('Resetting usage counters for new billing period');
-                    await subscriptionRef.update({
-                        'currentUsage.scansThisMonth': 0,
-                        'currentUsage.apiCallsToday': 0,
-                        'currentUsage.usagePeriodStart': admin.firestore.Timestamp.fromDate(now),
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    });
-                }
-            }
-        } catch (error) {
-            console.error('Failed to check/reset usage counters:', error);
-        }
-    }
+    // === Mark run as running ===
+    await updateRun(runId, { status: 'running', startedAt: new Date().toISOString() });
 
-    // === Run status transition ===
-    // Mark the run as 'running' and set start timestamp
-    const runRef = projectRef.collection('runs').doc(runId);
-    await runRef.update({ status: 'running', startedAt: admin.firestore.FieldValue.serverTimestamp() });
-
-    // Get run doc data and list of page IDs to scan
-    const runSnap = await runRef.get();
-    if (!runSnap.exists) {
-        throw new Error('Run not found: ' + runId);
-    }
-    const runData = runSnap.data() || {};
-    let pagesIds = Array.isArray(runData.pagesIds) ? runData.pagesIds : [];
-    let resolvedPagesSnap = null;
-
-    // For pipeline jobs (collect pages -> scan), resolve target pages at run start.
-    if (pagesIds.length === 0 && Boolean(runData.resolvePagesAtStart)) {
-        const pagesSnap = await projectRef.collection('pages').get();
-        resolvedPagesSnap = pagesSnap;
-        pagesIds = pagesSnap.docs.map((d) => d.id);
-        await runRef.update({
-            pagesIds,
-            pagesTotal: pagesIds.length,
-            resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    }
+    // === Get run data + page IDs ===
+    // The API auto-resolves resolvePagesAtStart — no extra logic needed here.
+    const runData = await getRun(runId);
+    if (!runData) throw new Error('Run not found: ' + runId);
+    const pagesIds = runData.pageIds || [];
 
     if (pagesIds.length === 0) {
-        console.log('No pages to scan for run', runId);
-        await runRef.update({ status: 'done', finishedAt: admin.firestore.FieldValue.serverTimestamp(), pagesScanned: 0 });
+        console.log('[scan] No pages to scan for run', runId);
+        await updateRun(runId, { status: 'done', finishedAt: new Date().toISOString(), pagesScanned: 0 });
         return { ok: true, scanned: 0 };
     }
 
-    // Project-level aggregate stats are maintained on projects/{id}.projectStats.
-    // If this is the first run for an older project (no projectStats yet), bootstrap once
-    // from current page documents so deltas stay correct.
+    // === Pre-fetch all project pages and build lookup map ===
+    const pagesResult = await getPages(projectId, { limit: 10000 });
+    const allPages = (pagesResult && pagesResult.pages) || [];
+    const pageMap = new Map(allPages.map(p => [p.id, p]));
+
+    // === Project-level aggregate stats ===
     const projectStatsDelta = emptyProjectStats();
     const projectStatsBaseline = emptyProjectStats();
-    const hasExistingProjectStats = hasPersistedProjectStats(projectData);
+    const hasExistingProjectStats = hasPersistedProjectStats(project);
     let baselineLoaded = false;
 
     if (!hasExistingProjectStats) {
-        try {
-            const allPagesSnap = resolvedPagesSnap || await projectRef.collection('pages').get();
-            allPagesSnap.forEach((pageDoc) => {
-                addProjectStats(projectStatsBaseline, contributionFromPage(pageDoc.data() || {}));
-            });
-            baselineLoaded = true;
-            console.log('[scan] bootstrapped projectStats baseline from pages:', projectStatsBaseline);
-        } catch (err) {
-            console.warn(
-                '[scan] failed to bootstrap projectStats baseline; falling back to incremental from zero',
-                err && err.message ? err.message : err
-            );
-        }
+        allPages.forEach(pageData => {
+            addProjectStats(projectStatsBaseline, contributionFromPage(pageData));
+        });
+        baselineLoaded = true;
+        console.log('[scan] bootstrapped projectStats baseline from pages:', projectStatsBaseline);
     }
 
-    // === Concurrency limiter setup ===
-    // Limit the number of concurrent page scans (default 3, configurable)
+    // === Concurrency limiter ===
     const concurrency = Number(process.env.SCAN_CONCURRENCY) || 3;
     const limit = pLimit(concurrency);
 
-    // === Puppeteer/axe initialization and fallback ===
-    // Try to initialize Puppeteer + axe-core for browser-based scans.
-    // If unavailable, fall back to static HTML heuristics.
+    // === Puppeteer/axe initialization ===
     let usePuppeteer = false;
     let puppeteer = null;
     let axe = null;
     let browser = null;
     try {
         puppeteer = require('puppeteer');
-        // axe-core provides a .source string we can inject
         axe = require('axe-core');
         browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         usePuppeteer = true;
@@ -509,29 +369,10 @@ async function handleScanPages(db, projectId, runId) {
     const agg = { critical: 0, serious: 0, moderate: 0, minor: 0 };
     let scannedCount = 0;
 
-    /**
-     * Pushes a normalized issue object into the issues array and increments aggregate counters.
-     *
-     * @param {Array} issues - The array to push the issue into
-     * @param {string} impact - Impact level: 'critical', 'serious', 'moderate', or 'minor'
-     * @param {string} message - Human-readable issue description
-     * @param {string} [selector] - CSS selector or node identifier (optional)
-     * @param {string} [ruleId] - Rule identifier (optional)
-     * @param {string} [helpUrl] - Reference URL for more info (optional)
-     * @param {string} [description] - Additional description (optional)
-     * @param {Array} [tags] - Array of standards tags (e.g., ['wcag2a', 'wcag411']) (optional)
-     * @param {string} [failureSummary] - Specific failure explanation for this node (optional)
-     * @param {string} [html] - HTML snippet of the problematic element (optional)
-     * @param {Array} [target] - CSS selector array from axe (optional)
-     *
-     * The issue object has the shape:
-     *   { impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target }
-     * Also increments the corresponding counter in agg.
-     */
     function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target, engine, confidence, needsReview, evidence, aiHowToFix, decision) {
-        issues.push({ 
-            impact, 
-            message, 
+        issues.push({
+            impact,
+            message,
             selector: selector || null,
             ruleId: ruleId || null,
             helpUrl: helpUrl || null,
@@ -550,119 +391,97 @@ async function handleScanPages(db, projectId, runId) {
         if (agg[impact] !== undefined) agg[impact]++;
     }
 
-    // === Per-page scan flow (concurrent) ===
-    // Each page is processed independently, including fetch/render, axe/static checks, snapshotting, and persistence.
+    // === Per-page scan ===
     await Promise.all(pagesIds.map(pageId => limit(async () => {
-        let pageRef = null;
         const pageScanStartedAt = new Date();
         try {
-            // Per-page metadata (snapshot, node rectangles, etc.).
-            // IMPORTANT: must be per-page to avoid leaking data across pages.
             const pageInfo = {};
 
-            pageRef = projectRef.collection('pages').doc(pageId);
-            const pageSnap = await pageRef.get();
-            if (!pageSnap.exists) {
-                console.warn('Page doc not found for id', pageId);
+            const page = pageMap.get(pageId);
+            if (!page) {
+                console.warn('[scan] Page not found in map for id', pageId);
                 return;
             }
-            const page = pageSnap.data();
             const pageUrl = page.url;
-            const previousContribution = contributionFromPage(page || {});
+            const previousContribution = contributionFromPage(page);
 
             // Skip non-HTML resources (XML sitemaps, PDFs, images, fonts, etc.)
             const NON_HTML_EXT = /\.(xml|pdf|css|js|jpg|jpeg|png|gif|svg|webp|ico|woff2?|ttf|eot|mp4|mp3|zip|gz|json)(\?|#|$)/i;
             if (NON_HTML_EXT.test(pageUrl)) {
                 console.log(`[scan] Skipping non-HTML resource ${pageUrl}`);
                 try {
-                    await pageRef.update({
+                    await updatePage(pageId, {
                         status: 'skipped',
                         activeRunId: null,
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                     });
                 } catch (e) { /* ignore */ }
                 return;
             }
 
             try {
-                await pageRef.update({
+                await updatePage(pageId, {
                     status: 'running',
                     activeRunId: runId,
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 });
             } catch (e) {
-                console.warn('Failed to mark page as running for', pageId, e && e.message ? e.message : e);
+                console.warn('[scan] Failed to mark page as running for', pageId, e && e.message ? e.message : e);
             }
 
             const issues = [];
             let httpStatus = null;
             const removeCookieBannersEnabled = Boolean(
-                projectData?.config?.removeCookieBanners && projectData.config.removeCookieBanners !== 'none'
+                project.config?.removeCookieBanners && project.config.removeCookieBanners !== 'none'
             );
 
             if (usePuppeteer && browser) {
                 let pageP = null;
                 try {
                     pageP = await browser.newPage();
-                    
-                    // Set viewport to a standard desktop size to ensure consistent rendering and layout
+
+                    // Set viewport to a standard desktop size
                     await pageP.setViewport({ width: 1200, height: 900 });
                     await pageP.setDefaultNavigationTimeout(30000);
-                    
+
                     // Inject cookies if configured in project settings
-                    // MUST be done BEFORE navigation or by navigating to domain first
-                    if (projectData?.config?.cookies && Array.isArray(projectData.config.cookies) && projectData.config.cookies.length > 0) {
+                    if (project.config?.cookies && Array.isArray(project.config.cookies) && project.config.cookies.length > 0) {
                         try {
-                            // Parse the page URL to get the domain
                             const urlObj = new URL(pageUrl);
                             const pageDomain = urlObj.hostname;
                             const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
-                            
+
                             console.log(`========== COOKIE INJECTION DEBUG ==========`);
                             console.log(`Target URL: ${pageUrl}`);
                             console.log(`Base domain: ${baseUrl}`);
-                            console.log(`Cookies to inject: ${projectData.config.cookies.length}`);
-                            
-                            // Navigate to base URL first to establish domain context
-                            console.log(`Navigating to base URL: ${baseUrl}`);
+                            console.log(`Cookies to inject: ${project.config.cookies.length}`);
+
                             await pageP.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch((err) => {
                                 console.log('Initial navigation for cookies failed:', err.message);
                             });
-                            
-                            // Set each cookie
-                            for (let i = 0; i < projectData.config.cookies.length; i++) {
-                                const cookie = projectData.config.cookies[i];
+
+                            for (let i = 0; i < project.config.cookies.length; i++) {
+                                const cookie = project.config.cookies[i];
                                 console.log(`\n--- Cookie ${i + 1} ---`);
                                 console.log(`Raw cookie data:`, cookie);
-                                
-                                // Clean up domain if it contains protocol or path
+
                                 let cookieDomain = cookie.domain || pageDomain;
-                                
-                                // Remove protocol if present (https://, http://)
                                 cookieDomain = cookieDomain.replace(/^https?:\/\//, '');
-                                
-                                // Remove path if present (everything after /)
                                 cookieDomain = cookieDomain.split('/')[0];
-                                
-                                // Remove www. prefix to allow cookie on all subdomains
                                 if (cookieDomain.startsWith('www.')) {
-                                    cookieDomain = cookieDomain.substring(4); // Remove 'www.'
+                                    cookieDomain = cookieDomain.substring(4);
                                 }
-                                
-                                // Add leading dot for subdomain sharing (unless already present)
                                 if (!cookieDomain.startsWith('.')) {
                                     cookieDomain = '.' + cookieDomain;
                                 }
-                                
+
                                 const cookieObj = {
                                     name: cookie.name,
                                     value: cookie.value,
                                     domain: cookieDomain,
                                     path: '/',
                                 };
-                                
+
                                 console.log(`Cleaned cookie object:`, cookieObj);
-                                
+
                                 try {
                                     await pageP.setCookie(cookieObj);
                                     console.log(`✓ Cookie set successfully: ${cookie.name}`);
@@ -670,49 +489,46 @@ async function handleScanPages(db, projectId, runId) {
                                     console.error(`✗ Failed to set cookie ${cookie.name}:`, cookieErr.message);
                                 }
                             }
-                            
-                            // Verify cookies were set
+
                             console.log(`\n--- Verifying cookies after setCookie ---`);
                             const cookiesAfterSet = await pageP.cookies();
                             console.log(`Total cookies in browser: ${cookiesAfterSet.length}`);
                             cookiesAfterSet.forEach(c => {
                                 console.log(`  - ${c.name}=${c.value.substring(0, 50)}... (domain: ${c.domain})`);
                             });
-                            
+
                             console.log(`========== END COOKIE INJECTION DEBUG ==========\n`);
                         } catch (cookieErr) {
                             console.warn('Failed to inject cookies:', cookieErr);
                         }
                     }
-                    
-                    // Pre-inject axe-core before navigation so it's available immediately after page load
+
+                    // Pre-inject axe-core before navigation
                     if (axe && axe.source) {
                         await pageP.evaluateOnNewDocument(axe.source);
                     }
 
-                    // Use 'networkidle2' to wait for network to be mostly idle, so page is fully loaded
                     const resp = await pageP.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 30000 }).catch(e => null);
 
                     if (resp) httpStatus = resp.status();
 
-                    // Skip non-2xx pages — don't run accessibility checks on error/redirect pages
+                    // Skip non-2xx pages
                     if (httpStatus !== null && (httpStatus < 200 || httpStatus >= 300)) {
                         console.log(`[scan] Skipping non-2xx page ${pageUrl} (HTTP ${httpStatus})`);
                         try {
-                            await pageRef.update({
+                            await updatePage(pageId, {
                                 httpStatus,
                                 status: 'skipped',
                                 activeRunId: null,
-                                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                             });
                         } catch (e) { /* ignore */ }
-                        return; // inner finally closes pageP; exits limit callback
+                        return;
                     }
 
                     // Remove cookie banners if configured
                     if (removeCookieBannersEnabled) {
                         try {
-                            const mode = projectData.config.removeCookieBanners;
+                            const mode = project.config.removeCookieBanners;
                             console.log(`\n--- Removing cookie banners (mode: ${mode}) ---`);
                             const removed = await removeCookieBanners(pageP, mode);
                             console.log(`✓ Removed ${removed.length} cookie banner elements`);
@@ -723,7 +539,7 @@ async function handleScanPages(db, projectId, runId) {
                             }
                             console.log(`--- End banner removal ---\n`);
 
-                            // Install MutationObserver to auto-remove cookie banners that re-appear
+                            // Install MutationObserver to auto-remove re-appearing banners
                             await pageP.evaluate((bannerMode) => {
                                 const cookieYesSelectors = [
                                     '#cookieyes-consent', '.cookieyes-banner', '[id*="cookieyes"]',
@@ -760,18 +576,16 @@ async function handleScanPages(db, projectId, runId) {
                             console.warn('Failed to remove cookie banners:', bannerErr);
                         }
                     }
-                    
+
                     // Verify cookies after page load
-                    if (projectData?.config?.cookies && Array.isArray(projectData.config.cookies) && projectData.config.cookies.length > 0) {
+                    if (project.config?.cookies && Array.isArray(project.config.cookies) && project.config.cookies.length > 0) {
                         console.log(`\n--- Verifying cookies after page load ---`);
                         const cookiesAfterLoad = await pageP.cookies();
                         console.log(`Total cookies after page load: ${cookiesAfterLoad.length}`);
                         cookiesAfterLoad.forEach(c => {
                             console.log(`  - ${c.name}=${c.value.substring(0, 50)}... (domain: ${c.domain}, path: ${c.path})`);
                         });
-                        
-                        // Check if our specific cookies are present
-                        for (const expectedCookie of projectData.config.cookies) {
+                        for (const expectedCookie of project.config.cookies) {
                             const found = cookiesAfterLoad.find(c => c.name === expectedCookie.name);
                             if (found) {
                                 console.log(`✓ Cookie "${expectedCookie.name}" is present in browser`);
@@ -781,11 +595,9 @@ async function handleScanPages(db, projectId, runId) {
                         }
                         console.log(`--- End cookie verification ---\n`);
                     }
-                    // Cookie banner MutationObserver installed after first removal handles re-appearances
 
-                    // Run axe-core accessibility checks (pre-injected via evaluateOnNewDocument)
+                    // Run axe-core accessibility checks
                     if (axe && axe.source) {
-                        // Run axe with tags derived from the project's compliance profiles
                         const axeResults = await pageP.evaluate(async (tags) => {
                             try {
                                 return await axe.run(document, { runOnly: { type: 'tag', values: tags } });
@@ -793,10 +605,9 @@ async function handleScanPages(db, projectId, runId) {
                                 return { error: String(e) };
                             }
                         }, axeTags);
-                        
+
                         if (axeResults && axeResults.violations) {
-                            // Extra stability check for axe "list" findings:
-                            // validate candidates against current DOM to reduce transient false positives.
+                            // Extra stability check for axe "list" findings
                             const listSelectors = Array.from(
                                 new Set(
                                     axeResults.violations
@@ -844,8 +655,7 @@ async function handleScanPages(db, projectId, runId) {
                                 const helpUrl = v.helpUrl || null;
                                 const description = v.description || null;
                                 const tags = v.tags || [];
-                                
-                                // one issue per node
+
                                 v.nodes.forEach(node => {
                                     if (ruleId === 'list') {
                                         const verificationSelector = Array.isArray(node?.target) ? node.target[0] : null;
@@ -853,7 +663,6 @@ async function handleScanPages(db, projectId, runId) {
                                             return;
                                         }
                                     }
-                                    // Use either the node's html or the joined target selectors for highlighting
                                     const selector = (node && (node.html || node.target && node.target.join(','))) || null;
                                     const failureSummary = (node && node.failureSummary) || null;
                                     const html = (node && node.html) || null;
@@ -865,16 +674,12 @@ async function handleScanPages(db, projectId, runId) {
                             pushIssue(issues, 'serious', 'Axe run error: ' + axeResults.error, null, null, null, null, [], null, null, null, 'axe-core');
                         }
 
-                        // Cookie banner MutationObserver handles re-appearances automatically
-
-                        // === Page snapshot and node highlight capture (merged into single evaluate) ===
+                        // === Page snapshot and node highlight capture ===
                         try {
                             const nodesForEvaluation = (axeResults && axeResults.violations) ? axeResults.violations.flatMap(v => v.nodes || []).map(n => ({ target: n.target, html: n.html })) : [];
                             console.log('Nodes for evaluation count:', nodesForEvaluation.length);
 
-                            // Single evaluate call: sanitize HTML + compute node bounding rects
                             const snapshotResult = await pageP.evaluate((nodes) => {
-                                // --- Sanitize HTML ---
                                 let html = null;
                                 try {
                                     const clone = document.documentElement.cloneNode(true);
@@ -892,7 +697,6 @@ async function handleScanPages(db, projectId, runId) {
                                     html = '<!doctype html>' + clone.outerHTML;
                                 } catch (e) {}
 
-                                // --- Compute node rects ---
                                 function getPrimarySelector(n) { if (n && n.target && n.target.length > 0) return n.target[0]; return null; }
                                 function getXPathForElement(elm) {
                                     if (elm.id) return `id("${elm.id}")`;
@@ -944,15 +748,12 @@ async function handleScanPages(db, projectId, runId) {
                             const issueNodes = snapshotResult ? snapshotResult.nodeRects : [];
                             console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
 
-                            // Upload HTML snapshot and screenshot only when storeArtifacts is enabled
                             if (storeArtifacts && sanitizedHtml) {
                                 const storageUrl = await uploadHtmlToStorage(projectId, runId, pageId, sanitizedHtml);
                                 if (storageUrl) {
                                     pageInfo.pageSnapshotUrl = storageUrl;
                                 } else {
-                                    // Fallback: store truncated HTML if storage upload fails
-                                    console.warn('Storage upload failed, storing truncated HTML in Firestore');
-                                    pageInfo.pageSnapshot = sanitizedHtml.substring(0, 500000);
+                                    console.warn('[scan] Storage upload failed for snapshot');
                                 }
                             }
                             if (storeArtifacts) {
@@ -978,15 +779,12 @@ async function handleScanPages(db, projectId, runId) {
                         } catch (e) {
                             console.warn('Failed to capture sanitized snapshot / node rects', e);
                         }
-
-                        
                     }
 
-                    // Ablelytics core tests (Puppeteer/Playwright compatible checks)
+                    // Ablelytics core tests
                     let coreIssues = [];
                     let coreStats = null;
                     try {
-                        // Cookie banner MutationObserver handles re-appearances automatically
                         const coreTests = new AblelyticsCoreTests(pageP, {
                             includeMultiPageChecks: false,
                             includeExperimentalChecks: String(process.env.ENABLE_CORE_EXPERIMENTAL_HEURISTICS || '').toLowerCase() === '1',
@@ -1110,7 +908,7 @@ async function handleScanPages(db, projectId, runId) {
                         }
                     }
 
-                    // AI heuristics checks (content intent / meaning)
+                    // AI heuristics checks
                     let aiIssues = [];
                     if (String(process.env.ENABLE_AI_HEURISTICS || '').toLowerCase() === '1') {
                         try {
@@ -1165,7 +963,7 @@ async function handleScanPages(db, projectId, runId) {
                                         } else {
                                             const r = el.getBoundingClientRect();
                                             function getXPathForElement(elm) {
-                                                if (elm.id) return `id(\"${elm.id}\")`;
+                                                if (elm.id) return `id("${elm.id}")`;
                                                 const parts = [];
                                                 while (elm && elm.nodeType === Node.ELEMENT_NODE) {
                                                     let nb = 1;
@@ -1207,7 +1005,7 @@ async function handleScanPages(db, projectId, runId) {
                         }
                     }
 
-                    // Also collect simple checks: title and html[lang]
+                    // Simple checks: title and html[lang]
                     try {
                         const meta = await pageP.evaluate(() => ({ title: document.title || '', lang: document.documentElement.lang || '' }));
                         if (!meta.title || meta.title.trim() === '') pushIssue(issues, 'critical', 'Missing or empty <title> element', null, null, null, null, [], null, null, null, 'ablelytics-core');
@@ -1217,15 +1015,12 @@ async function handleScanPages(db, projectId, runId) {
                     }
 
                     // === Cross-engine deduplication ===
-                    // If axe-core and ablelytics-core report same rule on same element, keep axe-core
                     const seenAxeKeys = new Set();
                     issues.forEach(issue => {
                         if (issue.engine === 'axe-core') {
                             seenAxeKeys.add(`${issue.ruleId}::${issue.selector || (issue.html ? issue.html.slice(0, 80) : '')}`);
                         }
                     });
-                    // Remaining ablelytics-core IDs that still use WCAG format (no matching axe rule file).
-                    // IDs with a matching rule (bypass, tabindex, etc.) are already normalised in shared.js.
                     const coreToAxeRuleMap = {
                         'wcag-2.4.7': 'focus-visible',
                     };
@@ -1245,22 +1040,20 @@ async function handleScanPages(db, projectId, runId) {
                     try { if (pageP) await pageP.close(); } catch (e) { }
                 }
             } else {
-                // fallback static checks using fetchHtml + cheerio
+                // Fallback: static HTML checks via fetchHtml + cheerio
                 const pageData = await fetchHtml(pageUrl);
                 httpStatus = pageData ? pageData.status : null;
 
-                // Skip non-2xx pages in static fallback path as well
                 if (httpStatus !== null && (httpStatus < 200 || httpStatus >= 300)) {
                     console.log(`[scan] Skipping non-2xx page ${pageUrl} (HTTP ${httpStatus}) [static]`);
                     try {
-                        await pageRef.update({
+                        await updatePage(pageId, {
                             httpStatus,
                             status: 'skipped',
                             activeRunId: null,
-                            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                         });
                     } catch (e) { /* ignore */ }
-                    return; // exits limit callback
+                    return;
                 }
 
                 if (!pageData || !pageData.text) {
@@ -1294,32 +1087,14 @@ async function handleScanPages(db, projectId, runId) {
                 }
             }
 
-            // === Persistence: store scan result per page in projects/{projectId}/scans ===
-            const scansCol = projectRef.collection('scans');
-            
-            // Extract pageSnapshot, pageSnapshotUrl and nodeInfo to top level
-            const { pageSnapshot, pageSnapshotUrl, pageScreenshotUrl, nodeInfo, coreTiming, ...restPageInfo } = pageInfo;
-            
-            const scanDoc = {
-                pageId: pageId,
-                pageUrl: pageUrl,
-                runId,
-                httpStatus: httpStatus,
-                summary: {
-                    critical: issues.filter(i => i.impact === 'critical').length,
-                    serious: issues.filter(i => i.impact === 'serious').length,
-                    moderate: issues.filter(i => i.impact === 'moderate').length,
-                    minor: issues.filter(i => i.impact === 'minor').length,
-                },
-                issues,
-                // Store HTML snapshot URL from Cloud Storage (preferred) or truncated HTML (fallback)
-                pageSnapshotUrl: pageSnapshotUrl || null,
-                pageScreenshotUrl: pageScreenshotUrl || null,
-                pageSnapshot: pageSnapshot || null,
-                nodeInfo: nodeInfo || [],
-                coreTiming: coreTiming || null,
-                pageInfo: Object.keys(restPageInfo).length > 0 ? restPageInfo : null,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            // === Persist scan result via REST API ===
+            const { pageSnapshotUrl, pageScreenshotUrl, nodeInfo, coreTiming } = pageInfo;
+
+            const scanSummary = {
+                critical: issues.filter(i => i.impact === 'critical').length,
+                serious: issues.filter(i => i.impact === 'serious').length,
+                moderate: issues.filter(i => i.impact === 'moderate').length,
+                minor: issues.filter(i => i.impact === 'minor').length,
             };
 
             const scanFinishedAt = new Date();
@@ -1330,17 +1105,17 @@ async function handleScanPages(db, projectId, runId) {
             try {
                 await insertPageScan({
                     projectId,
-                    organisationId: projectData?.organisationId || null,
+                    organisationId: project.organisationId || null,
                     runId,
                     pageId,
                     pageUrl,
-                    action: runData?.action || runData?.type || null,
+                    action: runData.type || null,
                     status: 'scanned',
                     httpStatus,
-                    summary: scanDoc.summary,
+                    summary: scanSummary,
                     issuesTotal: issues.length,
                     engines: detectedEngines,
-                    coreTotalDurationMs: pageInfo?.coreTiming?.totalDurationMs || null,
+                    coreTotalDurationMs: pageInfo.coreTiming?.totalDurationMs || null,
                     usedPuppeteer: usePuppeteer && Boolean(browser),
                     scanStartedAt: pageScanStartedAt,
                     scanFinishedAt,
@@ -1349,7 +1124,7 @@ async function handleScanPages(db, projectId, runId) {
 
                 await insertIssues({
                     projectId,
-                    organisationId: projectData?.organisationId || null,
+                    organisationId: project.organisationId || null,
                     runId,
                     pageId,
                     pageUrl,
@@ -1357,10 +1132,10 @@ async function handleScanPages(db, projectId, runId) {
                     ingestedAt: scanFinishedAt,
                 });
 
-                if (Array.isArray(pageInfo?.coreTiming?.checks) && pageInfo.coreTiming.checks.length > 0) {
+                if (Array.isArray(pageInfo.coreTiming?.checks) && pageInfo.coreTiming.checks.length > 0) {
                     await insertCoreCheckTimings({
                         projectId,
-                        organisationId: projectData?.organisationId || null,
+                        organisationId: project.organisationId || null,
                         runId,
                         pageId,
                         pageUrl,
@@ -1372,93 +1147,45 @@ async function handleScanPages(db, projectId, runId) {
                 }
             } catch (bqErr) {
                 console.warn(
-                    'BigQuery write failed for scanned page',
+                    '[scan] BigQuery write failed for page',
                     pageId,
                     bqErr && bqErr.message ? bqErr.message : bqErr
                 );
             }
 
-            await scansCol.add(scanDoc);
-
-            // Maintain an org-scoped scan index for fast listing/filtering in UI.
-            try {
-                const organisationId = projectData?.organisationId || null;
-                const scanIndexId = `${projectId}__${pageId}`;
-                await db.collection('scanIndex').doc(scanIndexId).set({
-                    projectId,
-                    projectName: projectData?.name || projectData?.domain || projectId,
-                    organisationId,
-                    pageId,
-                    url: pageUrl || null,
-                    runId,
-                    status: 'scanned',
-                    summary: scanDoc.summary,
-                    totalIssues:
-                        Number(scanDoc.summary?.critical || 0) +
-                        Number(scanDoc.summary?.serious || 0) +
-                        Number(scanDoc.summary?.moderate || 0) +
-                        Number(scanDoc.summary?.minor || 0),
-                    lastScanned: admin.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                }, { merge: true });
-            } catch (e) {
-                console.warn('Failed to update scan index for', pageId, e && e.message ? e.message : e);
-            }
-
-            // Track this page scan in subscription usage
-            if (projectOwner) {
-                try {
-                    const subscriptionRef = db.collection('subscriptions').doc(projectOwner);
-                    await subscriptionRef.update({
-                        'currentUsage.scansThisMonth': admin.firestore.FieldValue.increment(1),
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    });
-                } catch (error) {
-                    console.error('Failed to track page scan in usage:', error);
-                    // Don't fail the scan if usage tracking fails
-                }
-            }
-
-            // Update run counters
-            scannedCount++;
-
-            // Update page document with latest scan summary and metadata
-            try {
-                await pageRef.update({
-                    lastRunId: runId,
-                    lastScan: {
-                        runId: runId,
-                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        httpStatus: httpStatus || null,
-                        summary: scanDoc.summary
-                    },
-                    lastPageInfo: pageInfo,
-                    violationsCount: scanDoc.summary,
-                    status: 'scanned',
-                    activeRunId: null,
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                });
-            } catch (e) {
-                // If update fails, log and continue — do not fail the whole job for a single page metadata update
-                console.warn('Failed to update page document with scan summary for', pageId, e && e.message ? e.message : e);
-            }
-
-            // Update aggregated counters on the run document
-            await runRef.update({
-                pagesScanned: admin.firestore.FieldValue.increment(1),
-                'stats.critical': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'critical').length),
-                'stats.serious': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'serious').length),
-                'stats.moderate': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'moderate').length),
-                'stats.minor': admin.firestore.FieldValue.increment(issues.filter(i => i.impact === 'minor').length)
+            await createScan({
+                projectId,
+                pageId,
+                runId,
+                httpStatus: httpStatus || null,
+                summary: scanSummary,
+                issues,
+                pageSnapshotUrl: pageSnapshotUrl || null,
+                pageScreenshotUrl: pageScreenshotUrl || null,
+                nodeInfo: nodeInfo || null,
             });
 
+            // Update page with latest scan summary
+            try {
+                await updatePage(pageId, {
+                    lastRunId: runId,
+                    status: 'scanned',
+                    activeRunId: null,
+                    httpStatus: httpStatus || null,
+                    violationCounts: scanSummary,
+                });
+            } catch (e) {
+                console.warn('[scan] Failed to update page document for', pageId, e && e.message ? e.message : e);
+            }
+
+            scannedCount++;
+
+            // Accumulate project stats delta
             const nextContribution = contributionFromPage({
                 ...page,
                 status: 'scanned',
                 httpStatus: httpStatus || null,
-                lastStats: scanDoc.summary,
-                lastScan: { summary: scanDoc.summary },
-                violationsCount: scanDoc.summary,
+                violationCount: scanSummary,
             });
 
             const previousForDelta = (hasExistingProjectStats || baselineLoaded)
@@ -1467,25 +1194,27 @@ async function handleScanPages(db, projectId, runId) {
             addProjectStats(projectStatsDelta, diffProjectStats(nextContribution, previousForDelta));
 
         } catch (err) {
-            console.error('Error scanning page', pageId, err && err.stack ? err.stack : err);
+            console.error('[scan] Error scanning page', pageId, err && err.stack ? err.stack : err);
             const scanFinishedAt = new Date();
-            // record error inside scans collection
+
+            // Record error scan
             try {
-                const scansCol = projectRef.collection('scans');
-                await scansCol.add({ pageId, runId, error: String(err), createdAt: admin.firestore.FieldValue.serverTimestamp() });
+                await createScan({ projectId, pageId, runId, issues: [], summary: null });
             } catch (e) {
-                console.warn('Failed to write error scan doc', e);
+                console.warn('[scan] Failed to write error scan doc', e);
             }
 
+            // BigQuery write for failed page
             try {
-                const failedPageUrl = pageRef ? (await pageRef.get()).data()?.url || null : null;
+                const failedPage = pageMap.get(pageId);
+                const failedPageUrl = failedPage ? failedPage.url : null;
                 await insertPageScan({
                     projectId,
-                    organisationId: projectData?.organisationId || null,
+                    organisationId: project.organisationId || null,
                     runId,
                     pageId,
                     pageUrl: failedPageUrl,
-                    action: runData?.action || runData?.type || null,
+                    action: runData.type || null,
                     status: 'failed',
                     httpStatus: null,
                     summary: { critical: 0, serious: 0, moderate: 0, minor: 0 },
@@ -1500,172 +1229,92 @@ async function handleScanPages(db, projectId, runId) {
                 });
             } catch (bqErr) {
                 console.warn(
-                    'BigQuery write failed for failed page',
+                    '[scan] BigQuery write failed for failed page',
                     pageId,
                     bqErr && bqErr.message ? bqErr.message : bqErr
                 );
             }
 
             try {
-                const organisationId = projectData?.organisationId || null;
-                const scanIndexId = `${projectId}__${pageId}`;
-                await db.collection('scanIndex').doc(scanIndexId).set({
-                    projectId,
-                    projectName: projectData?.name || projectData?.domain || projectId,
-                    organisationId,
-                    pageId,
-                    url: pageRef ? (await pageRef.get()).data()?.url || null : null,
-                    runId,
-                    status: 'failed',
-                    summary: { critical: 0, serious: 0, moderate: 0, minor: 0 },
-                    totalIssues: 0,
-                    lastScanned: admin.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                }, { merge: true });
+                await updatePage(pageId, { status: 'failed', activeRunId: null });
             } catch (e) {
-                console.warn('Failed to update failed scan index for', pageId, e && e.message ? e.message : e);
-            }
-
-            try {
-                if (pageRef) {
-                    await pageRef.update({
-                        status: 'failed',
-                        activeRunId: null,
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    });
-                }
-            } catch (e) {
-                console.warn('Failed to mark page as failed for', pageId, e && e.message ? e.message : e);
+                console.warn('[scan] Failed to mark page as failed for', pageId, e && e.message ? e.message : e);
             }
         }
     })));
 
-    // === Cleanup and finalization ===
-    // Close browser if used
-    try { if (browser) await browser.close(); } catch (e) { console.warn('Failed to close browser', e); }
+    // === Cleanup ===
+    try { if (browser) await browser.close(); } catch (e) { console.warn('[scan] Failed to close browser', e); }
 
-    // Finalize run: mark done and attach aggregated stats
-    await runRef.update({
+    // === Finalize run ===
+    await updateRun(runId, {
         status: 'done',
-        finishedAt: admin.firestore.FieldValue.serverTimestamp(),
+        finishedAt: new Date().toISOString(),
         pagesScanned: scannedCount,
-        'stats.critical': agg.critical,
-        'stats.serious': agg.serious,
-        'stats.moderate': agg.moderate,
-        'stats.minor': agg.minor
+        stats: agg,
     });
 
+    // === Update project aggregate stats ===
     try {
-        if (hasExistingProjectStats) {
-            const baseProjectUpdate = {
-                lastScanAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            };
+        const freshProject = await getProject(projectId);
+        const now = new Date().toISOString();
+        const baseProjectUpdate = { lastScanAt: now };
 
+        if (hasExistingProjectStats) {
             if (isZeroProjectStats(projectStatsDelta)) {
-                await projectRef.set(baseProjectUpdate, { merge: true });
+                await updateProject(projectId, baseProjectUpdate);
             } else {
-                await projectRef.set({
+                const cur = (typeof freshProject.projectStats === 'object' && freshProject.projectStats) || {};
+                await updateProject(projectId, {
                     ...baseProjectUpdate,
                     projectStats: {
-                        pagesTotal: admin.firestore.FieldValue.increment(projectStatsDelta.pagesTotal),
-                        pagesScanned: admin.firestore.FieldValue.increment(projectStatsDelta.pagesScanned),
-                        pages404: admin.firestore.FieldValue.increment(projectStatsDelta.pages404),
-                        critical: admin.firestore.FieldValue.increment(projectStatsDelta.critical),
-                        serious: admin.firestore.FieldValue.increment(projectStatsDelta.serious),
-                        moderate: admin.firestore.FieldValue.increment(projectStatsDelta.moderate),
-                        minor: admin.firestore.FieldValue.increment(projectStatsDelta.minor),
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        pagesTotal: (Number(cur.pagesTotal) || 0) + projectStatsDelta.pagesTotal,
+                        pagesScanned: (Number(cur.pagesScanned) || 0) + projectStatsDelta.pagesScanned,
+                        pages404: (Number(cur.pages404) || 0) + projectStatsDelta.pages404,
+                        critical: (Number(cur.critical) || 0) + projectStatsDelta.critical,
+                        serious: (Number(cur.serious) || 0) + projectStatsDelta.serious,
+                        moderate: (Number(cur.moderate) || 0) + projectStatsDelta.moderate,
+                        minor: (Number(cur.minor) || 0) + projectStatsDelta.minor,
+                        updatedAt: now,
                     },
-                }, { merge: true });
+                });
             }
         } else {
             const resolvedProjectStats = emptyProjectStats();
-            if (baselineLoaded) {
-                addProjectStats(resolvedProjectStats, projectStatsBaseline);
-            }
+            if (baselineLoaded) addProjectStats(resolvedProjectStats, projectStatsBaseline);
             addProjectStats(resolvedProjectStats, projectStatsDelta);
-
-            await projectRef.set({
-                projectStats: {
-                    pagesTotal: resolvedProjectStats.pagesTotal,
-                    pagesScanned: resolvedProjectStats.pagesScanned,
-                    pages404: resolvedProjectStats.pages404,
-                    critical: resolvedProjectStats.critical,
-                    serious: resolvedProjectStats.serious,
-                    moderate: resolvedProjectStats.moderate,
-                    minor: resolvedProjectStats.minor,
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                },
-                lastScanAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
+            await updateProject(projectId, {
+                ...baseProjectUpdate,
+                projectStats: { ...resolvedProjectStats, updatedAt: now },
+            });
         }
     } catch (e) {
         console.warn(
-            'Failed to update project aggregate stats for',
+            '[scan] Failed to update project aggregate stats for',
             projectId,
             e && e.message ? e.message : e
         );
     }
 
-    console.log('ScanPages job finished', projectId, runId, 'scanned:', scannedCount, 'agg:', agg);
+    console.log('[scan] ScanPages job finished', projectId, runId, 'scanned:', scannedCount, 'agg:', agg);
 
     try {
-        const slackConfig = await getSlackConfigFromOrg(db, projectData?.organisationId);
+        const slackConfig = process.env.SLACK_WEBHOOK_URL
+            ? { webhookUrl: process.env.SLACK_WEBHOOK_URL, channel: process.env.SLACK_CHANNEL }
+            : null;
         if (slackConfig) {
             await notifyScanFinished({
                 projectId,
-                projectName: (projectData && (projectData.name || projectData.domain)) || projectId,
+                projectName: (project.name || project.domain) || projectId,
                 pagesScanned: scannedCount,
                 agg,
             }, slackConfig);
         }
     } catch (e) {
-        console.warn('Slack notification failed:', e && e.message ? e.message : e);
+        console.warn('[scan] Slack notification failed:', e && e.message ? e.message : e);
     }
 
     return { ok: true, scanned: scannedCount, agg };
-}
-
-/**
- * Determines if usage counters should be reset for a subscription.
- *
- * @param {Object} subscription - The subscription object from Firestore.
- *   Expects:
- *     - currentUsage.usagePeriodStart: Firestore Timestamp (start of current usage period)
- *     - currentPeriodStart: Firestore Timestamp (Stripe-provided billing period start, optional)
- * @param {Date} now - Current time
- * @returns {boolean} True if counters should be reset (new billing period or new day for daily counters)
- *
- * Reset rules:
- *   - If usagePeriodStart is missing, always reset.
- *   - If Stripe's currentPeriodStart is present and later than our usagePeriodStart, reset.
- *   - For daily counters (apiCallsToday), reset if usagePeriodStart is before today.
- */
-function shouldResetUsageCounters(subscription, now) {
-    // If no usage period start is set, we should reset
-    if (!subscription.currentUsage?.usagePeriodStart) {
-        return true;
-    }
-    
-    const periodStart = subscription.currentUsage.usagePeriodStart.toDate();
-    const currentPeriodStart = subscription.currentPeriodStart?.toDate();
-    
-    // If we have a current period start from Stripe and it's different from our usage period, reset
-    if (currentPeriodStart && periodStart < currentPeriodStart) {
-        return true;
-    }
-    
-    // For daily counters (apiCallsToday), reset if it's a new day
-    const periodStartDay = new Date(periodStart).setHours(0, 0, 0, 0);
-    const nowDay = new Date(now).setHours(0, 0, 0, 0);
-    
-    if (periodStartDay < nowDay) {
-        return true;
-    }
-    
-    return false;
 }
 
 module.exports = { handleScanPages };
