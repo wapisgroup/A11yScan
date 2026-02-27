@@ -1,7 +1,7 @@
-// Prisma schema for Accessibility Checker — Phase 1–4
+// Prisma schema for Accessibility Checker — Phase 1–6
 // Models: User, Account, VerificationToken, Organization, Project,
 //         Page, PageViolationCount, PageSet, PageSetPage, PageSetRule,
-//         Run, RunPage, Scan, Schedule, Job
+//         Run, RunPage, Scan, Schedule, Job, Report
 
 datasource db {
   provider = "postgresql"
@@ -105,6 +105,7 @@ model Project {
   pageSets     PageSet[]
   runs         Run[]
   scans        Scan[]
+  reports      Report[]
 
   @@map("projects")
 }
@@ -298,4 +299,34 @@ model Job {
   @@index([createdBy])
   @@index([projectId])
   @@map("jobs")
+}
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
+
+model Report {
+  id             String    @id @default(cuid())
+  projectId      String
+  organizationId String?
+  type           String    // "full" | "pageset" | "individual"
+  status         String    @default("pending") // "pending" | "generating" | "completed" | "failed"
+  title          String
+  pageSetId      String?
+  pageSetName    String?
+  pageIds        Json?     // string[] — IDs of pages included in this report
+  pageCount      Int?
+  pdfUrl         String?
+  runId          String?   // linked Run (generate_report type)
+  createdBy      String?   // user id
+  error          String?
+  stats          Json?     // { critical, serious, moderate, minor }
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([organizationId])
+  @@index([createdBy])
+  @@map("reports")
 }

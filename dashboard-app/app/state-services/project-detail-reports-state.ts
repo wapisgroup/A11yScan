@@ -1,37 +1,60 @@
 "use client";
 
-import { useCallback } from "react";
-
-import { useItemsPageState, type DefaultPageState } from "./default-list-state";
-import type { Report } from "@/services/reportService";
-import { loadReports, subscribeProjectReports } from "@/services/reportService";
-
-export type ProjectDetailReportsTabState = DefaultPageState<Report>;
-
 /**
  * useProjectReportsPageState
  * --------------------------
- * Reports-list state based on `useItemsPageState`, using real-time Firestore subscription.
- * 
- * This hook manages the reports list for a project detail page with automatic
- * real-time updates when reports are created, updated, or deleted.
+ * Phase 6: replaces Firestore subscribeProjectReports / loadReports with
+ * the getReports() server action.
  */
+
+import { useCallback, useEffect, useState } from "react";
+import type { Report } from "@/services/reportService";
+import { getReports } from "@/actions/reports";
+
+export type ProjectDetailReportsTabState = {
+  pagedItems: Report[];
+  allItems: Report[];
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+};
+
 export const useProjectReportsPageState = (
   projectId: string,
-  pageSize = 10
+  _pageSize = 10
 ): ProjectDetailReportsTabState => {
-  const load = useCallback(() => {
-    if (!projectId) return Promise.resolve([]);
-    return loadReports(projectId);
+  const [items, setItems] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!projectId) {
+      setItems([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const reports = await getReports(projectId);
+      setItems(reports);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load reports"
+      );
+    } finally {
+      setLoading(false);
+    }
   }, [projectId]);
 
-  const subscribe = useCallback(
-    (onNext: (items: Report[]) => void, onError: (err: unknown) => void) =>
-      subscribeProjectReports(projectId, onNext, onError),
-    [projectId]
-  );
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const base = useItemsPageState<Report>(pageSize, load, null, subscribe);
-
-  return base;
+  return {
+    pagedItems: items,
+    allItems: items,
+    loading,
+    error,
+    refresh: load,
+  };
 };

@@ -20,7 +20,6 @@ import { formatTimeAgo } from "@/ui-helpers/default";
 import { DSButton } from "@/components/atom/ds-button";
 import { DSIconButton } from "@/components/atom/ds-icon-button";
 import { CreateReportModal } from "@/components/modals/CreateReportModal";
-import { useAuth } from "@/utils/firebase";
 import { PageContainer } from "../molecule/page-container";
 import { EmptyState } from "../atom/EmptyState";
 import { LoadingState } from "../atom/LoadingState";
@@ -31,7 +30,6 @@ type ReportsTabProps = {
 };
 
 export function ReportsTab({ projectId }: ReportsTabProps) {
-  const { user } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterText, setFilterText] = useState('');
 
@@ -210,15 +208,12 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
         )}
 
         {/* Create Report Drawer */}
-        {user && (
-          <CreateReportModal
-            open={showCreateModal}
-            onClose={() => setShowCreateModal(false)}
-            projectId={projectId}
-            userId={user.uid}
-            onSuccess={() => setShowCreateModal(false)}
-          />
-        )}
+        <CreateReportModal
+          open={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          projectId={projectId}
+          onSuccess={() => setShowCreateModal(false)}
+        />
       </div>
     </PageContainer>
   );

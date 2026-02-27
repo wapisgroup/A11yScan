@@ -3,12 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteDoc, doc } from '@/utils/firestore-read-tracker';
 import { PiFilePdf, PiDownload, PiTrash, PiCalendar, PiGlobe, PiWarning, PiCheckCircle, PiPlus } from "react-icons/pi";
 
 import { PageContainer } from "@/components/molecule/page-container";
 import { Pagination } from "@/components/molecule/pagination";
-import { useAuth, db } from "@/utils/firebase";
+import { useAuth } from "@/hooks/use-auth";
+import { deleteReport } from "@/actions/reports";
 import { useReportsPageState } from "@/state-services/reports-state";
 import { DSButton } from "@/components/atom/ds-button";
 import { DSIconButton } from "@/components/atom/ds-icon-button";
@@ -41,7 +41,7 @@ export default function Reports() {
     setProjectFilter,
     setPage,
     refresh,
-  } = useReportsPageState(user?.organisationId, 20);
+  } = useReportsPageState(undefined, 20);
 
   const handleDelete = async (reportId: string, reportTitle: string) => {
     const ok = await confirm({
@@ -55,11 +55,7 @@ export default function Reports() {
     if (!ok) return;
 
     try {
-      // Find the report to get its projectId
-      const report = pagedReports.find(r => r.id === reportId);
-      if (!report) return;
-
-      await deleteDoc(doc(db, "projects", report.projectId, "reports", reportId));
+      await deleteReport(reportId);
       await refresh();
     } catch (err) {
       console.error("Failed to delete report:", err);
@@ -133,7 +129,7 @@ export default function Reports() {
                   className="px-4 py-2 border border-[var(--color-border-light)] rounded-lg as-p2-text primary-text-color bg-[var(--color-bg)] hover:border-brand input-focus"
                 >
                   <option value="all">All Reports ({allReports.length})</option>
-                  <option value="project">Project Reports ({allReports.filter(r => r.type === 'project').length})</option>
+                  <option value="project">Project Reports ({allReports.filter(r => r.type === 'full').length})</option>
                   <option value="pageset">PageSet Reports ({allReports.filter(r => r.type === 'pageset').length})</option>
                 </select>
               </div>
@@ -304,7 +300,6 @@ export default function Reports() {
       <CreateReportModal
         open={showCreateReport}
         onClose={() => setShowCreateReport(false)}
-        userId={user?.uid ?? ''}
         onSuccess={() => setShowCreateReport(false)}
       />
     </PageWrapper>

@@ -3,47 +3,54 @@
 /**
  * CreateReportModal
  * Shared component in modals/CreateReportModal.tsx.
+ *
+ * Phase 6: replaced Firestore reportService / projectsService calls with
+ * server actions from @/actions/reports and @/actions/projects.
  */
 
 import { useState, useEffect } from "react";
 import { PiListChecks, PiGlobe, PiInfo, PiWarning } from "react-icons/pi";
 import { DSButton } from "@/components/atom/ds-button";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
-import { createReport, getScannedPages, getPageSetPages } from "@/services/reportService";
-import { loadProjects, type Project } from "@/services/projectsService";
-import { collection, query, getDocs } from '@/utils/firestore-read-tracker';
-import { db } from "@/utils/firebase";
+import { createReport, getScannedPages, getPageSets } from "@/actions/reports";
+import { getProjects, type Project } from "@/actions/projects";
 
-type ReportType = 'full' | 'pageset';
+type ReportType = "full" | "pageset";
 
 type PageSet = {
   id: string;
   name: string;
-  pageCount?: number;
+  pageCount: number;
 };
 
 type CreateReportModalProps = {
   open: boolean;
   onClose: () => void;
   projectId?: string;
-  userId: string;
   onSuccess?: () => void;
 };
 
-export function CreateReportModal({ open, onClose, projectId: initialProjectId, userId, onSuccess }: CreateReportModalProps) {
+export function CreateReportModal({
+  open,
+  onClose,
+  projectId: initialProjectId,
+  onSuccess,
+}: CreateReportModalProps) {
   const needsProjectPicker = !initialProjectId;
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId ?? '');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(
+    initialProjectId ?? ""
+  );
   const [loadingProjects, setLoadingProjects] = useState(false);
 
   const projectId = initialProjectId || selectedProjectId;
 
-  const [selectedType, setSelectedType] = useState<ReportType>('full');
+  const [selectedType, setSelectedType] = useState<ReportType>("full");
   const [pageSets, setPageSets] = useState<PageSet[]>([]);
-  const [selectedPageSetId, setSelectedPageSetId] = useState<string>('');
-  const [reportTitle, setReportTitle] = useState('');
+  const [selectedPageSetId, setSelectedPageSetId] = useState<string>("");
+  const [reportTitle, setReportTitle] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loadingPageSets, setLoadingPageSets] = useState(false);
   const [scannedPageCount, setScannedPageCount] = useState<number | null>(null);
   const [loadingScannedCount, setLoadingScannedCount] = useState(false);
@@ -52,17 +59,19 @@ export function CreateReportModal({ open, onClose, projectId: initialProjectId, 
   useEffect(() => {
     if (!open || !needsProjectPicker) return;
     setLoadingProjects(true);
-    loadProjects()
+    getProjects()
       .then((list) => {
         setProjects(list);
-        if (list.length > 0 && !selectedProjectId) setSelectedProjectId(list[0].id);
+        if (list.length > 0 && !selectedProjectId)
+          setSelectedProjectId(list[0].id);
       })
       .catch(() => {})
       .finally(() => setLoadingProjects(false));
   }, [open, needsProjectPicker]);
 
+  // Count scanned pages for the "no scanned pages" warning
   useEffect(() => {
-    if (!open) return;
+    if (!open || !projectId) return;
     setScannedPageCount(null);
     setLoadingScannedCount(true);
     getScannedPages(projectId)
@@ -71,27 +80,18 @@ export function CreateReportModal({ open, onClose, projectId: initialProjectId, 
       .finally(() => setLoadingScannedCount(false));
   }, [open, projectId]);
 
+  // Load page sets when pageset type is selected
   useEffect(() => {
-    if (open && selectedType === 'pageset') {
-      loadPageSets();
+    if (open && selectedType === "pageset" && projectId) {
+      loadPageSetList();
     }
   }, [open, selectedType, projectId]);
 
-  const loadPageSets = async () => {
+  const loadPageSetList = async () => {
+    if (!projectId) return;
     try {
       setLoadingPageSets(true);
-      const pageSetsQuery = query(collection(db, "projects", projectId, "pageSets"));
-      const pageSetsSnap = await getDocs(pageSetsQuery);
-      
-      const sets = pageSetsSnap.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          name: data.name || 'Untitled Page Set',
-          pageCount: Number(data.pageCount || data.pageIds?.length || 0),
-        };
-      });
-      
+      const sets = await getPageSets(projectId);
       setPageSets(sets);
       if (sets.length > 0 && !selectedPageSetId) {
         setSelectedPageSetId(sets[0].id);
@@ -105,46 +105,24 @@ export function CreateReportModal({ open, onClose, projectId: initialProjectId, 
 
   const handleSubmit = async () => {
     if (!reportTitle.trim()) {
-      setError('Please enter a report title');
+      setError("Please enter a report title");
       return;
     }
 
-    if (selectedType === 'pageset' && !selectedPageSetId) {
-      setError('Please select a page set');
+    if (selectedType === "pageset" && !selectedPageSetId) {
+      setError("Please select a page set");
       return;
     }
 
     try {
       setLoading(true);
-      setError('');
-
-      // Get page IDs based on selected type
-      let pageIds: string[] = [];
-      let pageSetName: string | undefined;
-
-      if (selectedType === 'full') {
-        const pages = await getScannedPages(projectId);
-        pageIds = pages.map(p => p.id);
-      } else {
-        const pages = await getPageSetPages(projectId, selectedPageSetId);
-        pageIds = pages.map(p => p.id);
-        const selectedSet = pageSets.find(ps => ps.id === selectedPageSetId);
-        pageSetName = selectedSet?.name;
-      }
-
-      if (pageIds.length === 0) {
-        setError('No scanned pages found. Please run a scan first.');
-        setLoading(false);
-        return;
-      }
+      setError("");
 
       const result = await createReport({
         projectId,
         type: selectedType,
         title: reportTitle.trim(),
-        pageSetId: selectedType === 'pageset' ? selectedPageSetId : undefined,
-        pageIds,
-        createdBy: userId,
+        pageSetId: selectedType === "pageset" ? selectedPageSetId : undefined,
       });
 
       if (result.success) {
@@ -155,18 +133,20 @@ export function CreateReportModal({ open, onClose, projectId: initialProjectId, 
       }
     } catch (err) {
       console.error("Failed to create report:", err);
-      setError(err instanceof Error ? err.message : 'Failed to create report');
+      setError(
+        err instanceof Error ? err.message : "Failed to create report"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setReportTitle('');
-    setSelectedType('full');
-    setSelectedPageSetId('');
-    if (needsProjectPicker) setSelectedProjectId('');
-    setError('');
+    setReportTitle("");
+    setSelectedType("full");
+    setSelectedPageSetId("");
+    if (needsProjectPicker) setSelectedProjectId("");
+    setError("");
     onClose();
   };
 
@@ -184,7 +164,12 @@ export function CreateReportModal({ open, onClose, projectId: initialProjectId, 
           </DSButton>
           <DSButton
             onClick={() => void handleSubmit()}
-            disabled={loading || loadingScannedCount || scannedPageCount === 0 || (selectedType === 'pageset' && pageSets.length === 0)}
+            disabled={
+              loading ||
+              loadingScannedCount ||
+              scannedPageCount === 0 ||
+              (selectedType === "pageset" && pageSets.length === 0)
+            }
           >
             {loading ? "Generating…" : "Generate Report"}
           </DSButton>
@@ -192,183 +177,216 @@ export function CreateReportModal({ open, onClose, projectId: initialProjectId, 
       }
     >
       <div className="p-6 space-y-6 overflow-y-auto h-full">
-          {/* Project picker (only when projectId not provided) */}
-          {needsProjectPicker && (
-            <div>
-              <label className="block as-p2-text primary-text-color mb-2">Project</label>
-              {loadingProjects ? (
-                <div className="as-p3-text secondary-text-color">Loading projects…</div>
-              ) : (
-                <select
-                  value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent"
-                >
-                  <option value="">Select a project</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name || p.domain}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {/* No scans warning */}
-          {!loadingScannedCount && scannedPageCount === 0 && (
-            <div className="flex gap-3 p-4 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30">
-              <PiWarning size={20} className="text-[var(--color-warning)] flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="as-p2-text primary-text-color font-medium mb-0.5">No scanned pages yet</p>
-                <p className="as-p3-text secondary-text-color">
-                  Run a scan on your pages before generating a report. Reports are built from scan results.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Report Title */}
+        {/* Project picker (only when projectId not provided) */}
+        {needsProjectPicker && (
           <div>
             <label className="block as-p2-text primary-text-color mb-2">
-              Report Title
+              Project
             </label>
-            <input
-              type="text"
-              value={reportTitle}
-              onChange={(e) => setReportTitle(e.target.value)}
-              placeholder="e.g., Monthly Accessibility Audit - January 2026"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent"
+            {loadingProjects ? (
+              <div className="as-p3-text secondary-text-color">
+                Loading projects…
+              </div>
+            ) : (
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent"
+              >
+                <option value="">Select a project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name || p.domain}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+
+        {/* No scans warning */}
+        {!loadingScannedCount && scannedPageCount === 0 && (
+          <div className="flex gap-3 p-4 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30">
+            <PiWarning
+              size={20}
+              className="text-[var(--color-warning)] flex-shrink-0 mt-0.5"
             />
-          </div>
-
-          {/* Report Type Selection */}
-          <div>
-            <label className="block as-p2-text primary-text-color mb-3">
-              Report Type
-            </label>
-            
-            <div className="space-y-3">
-              {/* Full Page Report */}
-              <div
-                onClick={() => setSelectedType('full')}
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  selectedType === 'full'
-                    ? 'border-[#649DAD] bg-[#649DAD]/5'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${
-                    selectedType === 'full' ? 'bg-brand text-white' : 'bg-gray-100 secondary-text-color'
-                  }`}>
-                    <PiGlobe size={24} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="as-h5-text primary-text-color">Full Page Report</h4>
-                      <input
-                        type="radio"
-                        checked={selectedType === 'full'}
-                        onChange={() => setSelectedType('full')}
-                        className="text-[#649DAD] focus:ring-[#649DAD]"
-                      />
-                    </div>
-                    <p className="as-p2-text secondary-text-color">
-                      Generate a report for all scanned pages in this project. Includes a complete summary 
-                      of all accessibility issues, grouped by type, with descriptions and fix suggestions.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Page Set Report */}
-              <div
-                onClick={() => setSelectedType('pageset')}
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  selectedType === 'pageset'
-                    ? 'border-brand bg-brand-light'
-                    : 'border-[var(--color-border-medium)] hover:border-[var(--color-border-light)]'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${
-                    selectedType === 'pageset' ? 'bg-brand text-white' : 'bg-gray-100 secondary-text-color'
-                  }`}>
-                    <PiListChecks size={24} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="as-h5-text primary-text-color">Page Set Report</h4>
-                      <input
-                        type="radio"
-                        checked={selectedType === 'pageset'}
-                        onChange={() => setSelectedType('pageset')}
-                        className="brand-color ring-brand"
-                      />
-                    </div>
-                    <p className="as-p2-text secondary-text-color">
-                      Generate a report for a specific subset of pages. Useful for focusing on particular 
-                      sections of your website (e.g., checkout flow, blog pages, main navigation).
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Page Set Selection (only show when pageset is selected) */}
-          {selectedType === 'pageset' && (
             <div>
-              <label className="block as-p2-text primary-text-color mb-2">
-                Select Page Set
-              </label>
-              {loadingPageSets ? (
-                <div className="as-p2-text secondary-text-color">Loading page sets...</div>
-              ) : pageSets.length === 0 ? (
-                <div className="p-4 bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30 rounded-lg">
-                  <p className="as-p2-text text-[var(--color-warning)]">
-                    No page sets found. Please create a page set first from the Page Sets tab.
-                  </p>
-                </div>
-              ) : (
-                <select
-                  value={selectedPageSetId}
-                  onChange={(e) => setSelectedPageSetId(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent"
-                >
-                  {pageSets.map((ps) => (
-                    <option key={ps.id} value={ps.id}>
-                      {ps.name} ({ps.pageCount} page{ps.pageCount !== 1 ? 's' : ''})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {/* Info Box */}
-          <div className="bg-[var(--color-info)]/10 border border-[var(--color-info)]/30 rounded-lg p-4 flex gap-3">
-            <PiInfo className="text-[var(--color-info)] flex-shrink-0" size={20} />
-            <div className="as-p2-text text-[var(--color-info)]">
-              <p className="as-p2-text primary-text-color mb-1">Report Contents</p>
-              <ul className="list-disc list-inside space-y-1 text-blue-700">
-                <li>Executive summary with issue counts by severity</li>
-                <li>Issues grouped by type with detailed descriptions</li>
-                <li>Fix suggestions and WCAG guidelines</li>
-                <li>List of affected pages for each issue</li>
-              </ul>
-              <p className="mt-2">
-                You'll receive an email notification when the report is ready to download.
+              <p className="as-p2-text primary-text-color font-medium mb-0.5">
+                No scanned pages yet
+              </p>
+              <p className="as-p3-text secondary-text-color">
+                Run a scan on your pages before generating a report. Reports
+                are built from scan results.
               </p>
             </div>
           </div>
+        )}
 
-          {/* Error Message */}
-          {error && (
-            <div className="p-4 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30 rounded-lg">
-              <p className="as-p2-text text-[var(--color-error)]">{error}</p>
-            </div>
-          )}
+        {/* Report Title */}
+        <div>
+          <label className="block as-p2-text primary-text-color mb-2">
+            Report Title
+          </label>
+          <input
+            type="text"
+            value={reportTitle}
+            onChange={(e) => setReportTitle(e.target.value)}
+            placeholder="e.g., Monthly Accessibility Audit - January 2026"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent"
+          />
         </div>
+
+        {/* Report Type Selection */}
+        <div>
+          <label className="block as-p2-text primary-text-color mb-3">
+            Report Type
+          </label>
+
+          <div className="space-y-3">
+            {/* Full Page Report */}
+            <div
+              onClick={() => setSelectedType("full")}
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                selectedType === "full"
+                  ? "border-[#649DAD] bg-[#649DAD]/5"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`p-2 rounded-lg ${
+                    selectedType === "full"
+                      ? "bg-brand text-white"
+                      : "bg-gray-100 secondary-text-color"
+                  }`}
+                >
+                  <PiGlobe size={24} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="as-h5-text primary-text-color">
+                      Full Page Report
+                    </h4>
+                    <input
+                      type="radio"
+                      checked={selectedType === "full"}
+                      onChange={() => setSelectedType("full")}
+                      className="text-[#649DAD] focus:ring-[#649DAD]"
+                    />
+                  </div>
+                  <p className="as-p2-text secondary-text-color">
+                    Generate a report for all scanned pages in this project.
+                    Includes a complete summary of all accessibility issues,
+                    grouped by type, with descriptions and fix suggestions.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Page Set Report */}
+            <div
+              onClick={() => setSelectedType("pageset")}
+              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                selectedType === "pageset"
+                  ? "border-brand bg-brand-light"
+                  : "border-[var(--color-border-medium)] hover:border-[var(--color-border-light)]"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`p-2 rounded-lg ${
+                    selectedType === "pageset"
+                      ? "bg-brand text-white"
+                      : "bg-gray-100 secondary-text-color"
+                  }`}
+                >
+                  <PiListChecks size={24} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="as-h5-text primary-text-color">
+                      Page Set Report
+                    </h4>
+                    <input
+                      type="radio"
+                      checked={selectedType === "pageset"}
+                      onChange={() => setSelectedType("pageset")}
+                      className="brand-color ring-brand"
+                    />
+                  </div>
+                  <p className="as-p2-text secondary-text-color">
+                    Generate a report for a specific subset of pages. Useful
+                    for focusing on particular sections of your website (e.g.,
+                    checkout flow, blog pages, main navigation).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Page Set Selection (only show when pageset is selected) */}
+        {selectedType === "pageset" && (
+          <div>
+            <label className="block as-p2-text primary-text-color mb-2">
+              Select Page Set
+            </label>
+            {loadingPageSets ? (
+              <div className="as-p2-text secondary-text-color">
+                Loading page sets...
+              </div>
+            ) : pageSets.length === 0 ? (
+              <div className="p-4 bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30 rounded-lg">
+                <p className="as-p2-text text-[var(--color-warning)]">
+                  No page sets found. Please create a page set first from the
+                  Page Sets tab.
+                </p>
+              </div>
+            ) : (
+              <select
+                value={selectedPageSetId}
+                onChange={(e) => setSelectedPageSetId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#649DAD] focus:border-transparent"
+              >
+                {pageSets.map((ps) => (
+                  <option key={ps.id} value={ps.id}>
+                    {ps.name} ({ps.pageCount} page
+                    {ps.pageCount !== 1 ? "s" : ""})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+
+        {/* Info Box */}
+        <div className="bg-[var(--color-info)]/10 border border-[var(--color-info)]/30 rounded-lg p-4 flex gap-3">
+          <PiInfo className="text-[var(--color-info)] flex-shrink-0" size={20} />
+          <div className="as-p2-text text-[var(--color-info)]">
+            <p className="as-p2-text primary-text-color mb-1">
+              Report Contents
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-blue-700">
+              <li>Executive summary with issue counts by severity</li>
+              <li>Issues grouped by type with detailed descriptions</li>
+              <li>Fix suggestions and WCAG guidelines</li>
+              <li>List of affected pages for each issue</li>
+            </ul>
+            <p className="mt-2">
+              You'll receive an email notification when the report is ready to
+              download.
+            </p>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="p-4 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30 rounded-lg">
+            <p className="as-p2-text text-[var(--color-error)]">{error}</p>
+          </div>
+        )}
+      </div>
     </DSDrawerShell>
   );
 }
