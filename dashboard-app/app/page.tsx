@@ -1,13 +1,11 @@
-"use client";
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
 
-import { PrivateRoute } from "@/utils/private-router";
-
-export default function Home() {
-
-
-  return (
-    <PrivateRoute>
-      <h1>No-page</h1>
-    </PrivateRoute>
-  )
+export default async function Home() {
+  const session = await auth();
+  if (session?.user) {
+    redirect('/workspace/projects');
+  } else {
+    redirect('/auth/login');
+  }
 }

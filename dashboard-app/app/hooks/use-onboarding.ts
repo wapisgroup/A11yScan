@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+/**
+ * useOnboarding — Phase 9 (PostgreSQL)
+ * Four Firestore onSnapshot listeners replaced with a single server action call
+ * that returns the full snapshot, polled every POLL_MS.
+ * Write operations (markWelcomeSeen, dismissChecklist, markReportViewed) call
+ * updateOnboardingFlags server action.
+ */
+
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
-  doc,
-  updateDoc,
-  onSnapshot,
-  collection,
-  query,
-  where,
-  limit,
-} from '@/utils/firestore-read-tracker';
-import { db } from "@/utils/firebase";
+  getOnboardingSnapshot,
+  updateOnboardingFlags,
+} from "@/actions/onboarding";
+
+const POLL_MS = 10_000; // refresh checklist steps every 10 s
 
 export type OnboardingStep = {
   id: string;
@@ -33,7 +37,10 @@ export type OnboardingState = {
   markReportViewed: () => Promise<void>;
 };
 
-export function useOnboarding(uid: string | null | undefined, organisationId?: string | null): OnboardingState {
+export function useOnboarding(
+  uid: string | null | undefined,
+  organisationId?: string | null
+): OnboardingState {
   const [welcomeSeen, setWelcomeSeen] = useState<boolean | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [hasProject, setHasProject] = useState(false);
@@ -41,76 +48,76 @@ export function useOnboarding(uid: string | null | undefined, organisationId?: s
   const [hasScan, setHasScan] = useState(false);
   const [reportViewed, setReportViewed] = useState(false);
 
-  // User doc flags
-  useEffect(() => {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeRef = useRef(false);
+
+  // ── Polling ──────────────────────────────────────────────────────────────
+
+  const fetchAndApply = useCallback(async () => {
     if (!uid) return;
-    const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
-      if (!snap.exists()) return;
-      const d = snap.data();
-      setWelcomeSeen(!!d.onboarding?.welcomeSeen);
-      setDismissed(!!d.onboarding?.checklistDismissed);
-      setReportViewed(!!d.onboarding?.reportViewed);
-    });
-    return unsub;
+    try {
+      const snap = await getOnboardingSnapshot(uid);
+      setWelcomeSeen(snap.welcomeSeen);
+      setDismissed(snap.checklistDismissed);
+      setReportViewed(snap.reportViewed);
+      setHasProject(snap.hasProject);
+      setHasPageCollection(snap.hasPageCollection);
+      setHasScan(snap.hasScan);
+    } catch {
+      // ignore transient errors — will retry on next poll
+    }
   }, [uid]);
 
-  // Step 1 — has any project.
-  // Use a direct limit(1) query instead of subscribeProjects to avoid the slow-path
-  // auto-resolve (which fires twice when organisationId transitions from undefined → value).
-  // Guard on organisationId === undefined so we don't fire before auth finishes loading;
-  // null means "no org" and uses the owner filter.
   useEffect(() => {
-    if (!uid) return;
-    if (organisationId === undefined) return; // auth not fully resolved yet
-    const q = organisationId
-      ? query(collection(db, "projects"), where("organisationId", "==", organisationId), limit(1))
-      : query(collection(db, "projects"), where("owner", "==", uid), limit(1));
-    const unsub = onSnapshot(q, (snap: { empty: boolean }) => setHasProject(!snap.empty));
-    return unsub;
-  }, [uid, organisationId]);
+    if (!uid) {
+      setWelcomeSeen(null);
+      setDismissed(false);
+      setHasProject(false);
+      setHasPageCollection(false);
+      setHasScan(false);
+      setReportViewed(false);
+      return;
+    }
 
-  // Step 2 — any completed page_collection job
-  useEffect(() => {
-    if (!uid) return;
-    const q = query(
-      collection(db, "jobs"),
-      where("createdBy", "==", uid),
-      where("action", "==", "page_collection"),
-      where("status", "==", "done"),
-      limit(1)
-    );
-    const unsub = onSnapshot(q, (snap) => setHasPageCollection(!snap.empty));
-    return unsub;
-  }, [uid]);
+    activeRef.current = true;
+    void fetchAndApply();
 
-  // Step 3 — any completed full_scan job
-  useEffect(() => {
-    if (!uid) return;
-    const q = query(
-      collection(db, "jobs"),
-      where("createdBy", "==", uid),
-      where("action", "==", "full_scan"),
-      where("status", "==", "done"),
-      limit(1)
-    );
-    const unsub = onSnapshot(q, (snap) => setHasScan(!snap.empty));
-    return unsub;
-  }, [uid]);
+    const schedule = () => {
+      timerRef.current = setTimeout(async () => {
+        if (!activeRef.current) return;
+        await fetchAndApply();
+        if (activeRef.current) schedule();
+      }, POLL_MS);
+    };
+    schedule();
+
+    return () => {
+      activeRef.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [uid, organisationId, fetchAndApply]);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
 
   const markWelcomeSeen = useCallback(async () => {
     if (!uid) return;
-    await updateDoc(doc(db, "users", uid), { "onboarding.welcomeSeen": true });
+    setWelcomeSeen(true);
+    await updateOnboardingFlags(uid, { welcomeSeen: true });
   }, [uid]);
 
   const dismissChecklist = useCallback(async () => {
     if (!uid) return;
-    await updateDoc(doc(db, "users", uid), { "onboarding.checklistDismissed": true });
+    setDismissed(true);
+    await updateOnboardingFlags(uid, { checklistDismissed: true });
   }, [uid]);
 
   const markReportViewed = useCallback(async () => {
     if (!uid || reportViewed) return;
-    await updateDoc(doc(db, "users", uid), { "onboarding.reportViewed": true });
+    setReportViewed(true);
+    await updateOnboardingFlags(uid, { reportViewed: true });
   }, [uid, reportViewed]);
+
+  // ── Steps ─────────────────────────────────────────────────────────────────
 
   const steps: OnboardingStep[] = [
     {

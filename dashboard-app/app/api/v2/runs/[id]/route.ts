@@ -1,6 +1,6 @@
 /**
  * GET   /api/v2/runs/:id  — get run data + page IDs for the worker
- * PATCH /api/v2/runs/:id  — update run (status, pagesScanned, stats, …)
+ * PATCH /api/v2/runs/:id  — update run (status, pagesScanned, usageIncrementScans, stats, …)
  * Auth: Bearer <apiToken>
  *
  * Special behaviour on GET:
@@ -12,6 +12,7 @@
 import type { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { incrementSubscriptionUsage } from "@/utils/subscription-guard";
 import {
   authenticateWorker,
   unauthorized,
@@ -74,7 +75,10 @@ export async function PATCH(
 
   const existing = await prisma.run.findUnique({
     where: { id },
-    select: { id: true },
+    select: {
+      id: true,
+      project: { select: { organizationId: true, ownerId: true } },
+    },
   });
   if (!existing) return notFound("Run not found");
 
@@ -84,6 +88,7 @@ export async function PATCH(
     finishedAt?: string | null;
     pagesTotal?: number | null;
     pagesScanned?: number | null;
+    usageIncrementScans?: number | null;
     stats?: Record<string, unknown> | null;
     hidden?: boolean;
   };
@@ -100,7 +105,24 @@ export async function PATCH(
     updateData.stats = (body.stats as Prisma.InputJsonValue) ?? Prisma.DbNull;
   if (body.hidden !== undefined) updateData.hidden = body.hidden;
 
-  const updated = await prisma.run.update({ where: { id }, data: updateData });
+  const hasRunUpdate = Object.keys(updateData).length > 0;
+  const updated = hasRunUpdate
+    ? await prisma.run.update({ where: { id }, data: updateData })
+    : await prisma.run.findUnique({ where: { id } });
+  if (!updated) return notFound("Run not found");
+
+  // Increment scan usage as pages complete (worker sends +1 per successfully scanned page).
+  const usageIncrementRaw = Number(body.usageIncrementScans ?? 0);
+  const usageIncrement = Number.isFinite(usageIncrementRaw) ? Math.max(0, usageIncrementRaw) : 0;
+  if (usageIncrement > 0) {
+    const usageActorId = existing.project.ownerId || worker.id;
+    await incrementSubscriptionUsage(
+      usageActorId,
+      "scansThisMonth",
+      usageIncrement,
+      existing.project.organizationId
+    );
+  }
 
   return Response.json(updated);
 }

@@ -126,7 +126,11 @@ export function ProjectDetailClient({ project: serverProject }: { project: Actio
       autoScanTriggered.current = true;
       void (async () => {
         const result = await startFullScan(id);
-        if (result.noPages) setShowNoPageModal(true);
+        if (result.noPages) {
+          setShowNoPageModal(true);
+        } else if (result.title !== "Error") {
+          setTab("runs");
+        }
       })();
     }
   }, [searchParams, id]);
@@ -139,7 +143,13 @@ export function ProjectDetailClient({ project: serverProject }: { project: Actio
   const handleStartFullScan = () => {
     void (async () => {
       const result = await startFullScan(id);
-      if (result.noPages) setShowNoPageModal(true);
+      if (result.noPages) {
+        setShowNoPageModal(true);
+      } else if (result.title === "Error") {
+        alert(result.message);
+      } else {
+        setTab("runs");
+      }
     })();
   };
 

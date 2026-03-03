@@ -1,28 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { WorkspaceLayout } from "@/components/organism/workspace-layout";
-import { PrivateRoute } from "@/utils/private-router";
-import { useAuth, db, auth } from "@/utils/firebase";
 import { PageContainer } from "@/components/molecule/page-container";
-import { doc, updateDoc, Timestamp } from '@/utils/firestore-read-tracker';
 import { DSButton } from "@/components/atom/ds-button";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useConfirm } from "@/components/providers/window-provider";
 import { PiCopy, PiKey, PiArrowsClockwise } from "react-icons/pi";
-
-function generateToken() {
-  // Generate a UUID v4 style token
-  return 'ak_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+import {
+  getMyProfile,
+  updateMyProfile,
+  changeMyPassword,
+  generateMyApiToken,
+} from "@/actions/account";
 
 export default function ProfilePage() {
-  const { user, changePassword } = useAuth();
   const { hasFeature, packageConfig } = useSubscription();
   const confirm = useConfirm();
   const [firstName, setFirstName] = useState("");
@@ -36,6 +28,8 @@ export default function ProfilePage() {
   const [tokenCopied, setTokenCopied] = useState(false);
   const [generatingToken, setGeneratingToken] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'API'>('profile');
+  const [apiToken, setApiToken] = useState<string | null>(null);
+  const [isEmailPasswordUser, setIsEmailPasswordUser] = useState(false);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -45,20 +39,22 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
 
-  // Detect if this is an email/password account
-  const isEmailPasswordUser = auth.currentUser?.providerData?.some(
-    (p) => p.providerId === "password"
-  ) ?? false;
-
   useEffect(() => {
-    if (user) {
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
-      setEmail(user.email || "");
-      setPhone(user.phone || "");
-      setLanguage(user.language || "en");
-    }
-  }, [user]);
+    void (async () => {
+      try {
+        const profile = await getMyProfile();
+        setFirstName(profile.firstName);
+        setLastName(profile.lastName);
+        setEmail(profile.email);
+        setPhone(profile.phone);
+        setLanguage(profile.language);
+        setApiToken(profile.apiToken);
+        setIsEmailPasswordUser(profile.hasPassword);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load profile");
+      }
+    })();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,10 +63,7 @@ export default function ProfilePage() {
     setSaving(true);
 
     try {
-      if (!user?.uid) throw new Error("Not authenticated");
-
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
+      await updateMyProfile({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: phone.trim(),
@@ -102,27 +95,15 @@ export default function ProfilePage() {
 
     setChangingPassword(true);
     try {
-      await changePassword(currentPassword, newPassword);
+      await changeMyPassword({ currentPassword, newPassword });
       setPasswordSuccess("Password changed successfully!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       setTimeout(() => setPasswordSuccess(""), 4000);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("auth/wrong-password") ||
-          msg.includes("auth/invalid-credential") ||
-          msg.includes("auth/invalid-login-credentials")) {
-        setPasswordError("Current password is incorrect.");
-      } else if (msg.includes("auth/too-many-requests")) {
-        setPasswordError("Too many attempts. Please wait a moment and try again.");
-      } else if (msg.includes("auth/weak-password")) {
-        setPasswordError("New password is too weak. Please choose a stronger password.");
-      } else if (msg.includes("auth/requires-recent-login")) {
-        setPasswordError("For security, please sign out and sign back in before changing your password.");
-      } else {
-        setPasswordError("Failed to change password. Please try again.");
-      }
+      const msg = err instanceof Error ? err.message : "Failed to change password.";
+      setPasswordError(msg);
     } finally {
       setChangingPassword(false);
     }
@@ -373,18 +354,18 @@ export default function ProfilePage() {
                     </p>
                   )}
 
-                  {user?.apiToken ? (
+                  {apiToken ? (
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Your API Token</label>
                         <div className="flex items-center gap-3">
                           <code className="flex-1 px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-mono text-gray-600 truncate">
-                            {'••••••••••••••••••••••••' + user.apiToken.slice(-8)}
+                            {'••••••••••••••••••••••••' + apiToken.slice(-8)}
                           </code>
                           <DSButton
                             variant="outline"
                             onClick={async () => {
-                              await navigator.clipboard.writeText(user.apiToken!);
+                              await navigator.clipboard.writeText(apiToken);
                               setTokenCopied(true);
                               setTimeout(() => setTokenCopied(false), 2000);
                             }}
@@ -412,17 +393,12 @@ export default function ProfilePage() {
 
                             setGeneratingToken(true);
                             try {
-                              const newToken = generateToken();
-                              const userRef = doc(db, 'users', user.uid);
-                              await updateDoc(userRef, {
-                                apiToken: newToken,
-                                apiTokenCreatedAt: Timestamp.now(),
-                              });
-                              user.apiToken = newToken; // Update local user object to reflect new token
+                              const result = await generateMyApiToken();
+                              setApiToken(result.token);
                               setSuccess('API token regenerated successfully!');
                               setTimeout(() => setSuccess(''), 3000);
                             } catch (err) {
-                              setError('Failed to regenerate token');
+                              setError(err instanceof Error ? err.message : 'Failed to regenerate token');
                             } finally {
                               setGeneratingToken(false);
                             }
@@ -442,20 +418,14 @@ export default function ProfilePage() {
                         disabled={generatingToken}
                         leadingIcon={<PiKey className="mr-1" />}  
                         onClick={async () => {
-                          if (!user) return;
                           setGeneratingToken(true);
                           try {
-                            const newToken = generateToken();
-                            const userRef = doc(db, 'users', user!.uid);
-                            await updateDoc(userRef, {
-                              apiToken: newToken,
-                              apiTokenCreatedAt: Timestamp.now(),
-                            });
-                            user.apiToken = newToken;
+                            const result = await generateMyApiToken();
+                            setApiToken(result.token);
                             setSuccess('API token generated! Copy it now — it won\'t be shown in full again.');
                             setTimeout(() => setSuccess(''), 5000);
                           } catch (err) {
-                            setError('Failed to generate token');
+                            setError(err instanceof Error ? err.message : 'Failed to generate token');
                           } finally {
                             setGeneratingToken(false);
                           }

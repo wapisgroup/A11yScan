@@ -1,9 +1,19 @@
 'use client';
 
+/**
+ * useSubscription — Phase 9 (PostgreSQL)
+ * Firestore onSnapshot replaced with interval polling via server actions.
+ * The useSyncExternalStore singleton pattern is preserved so all consumers
+ * share one in-flight request and one cached result.
+ */
+
 import { useEffect, useSyncExternalStore } from 'react';
-import { onSnapshot, doc, getDoc } from '@/utils/firestore-read-tracker';
-import { useAuth, db } from '../utils/firebase';
+import { useAuth } from '../utils/firebase';
 import type { AuthUser } from '../hooks/use-auth';
+import {
+  getUserSubscriptionAction,
+  getOrgSubscriptionAction,
+} from '../actions/subscription';
 import {
   getPackageConfig,
   hasFeature as checkHasFeature,
@@ -13,7 +23,13 @@ import {
   needsUpgrade as checkNeedsUpgrade,
   getStatusMessage,
 } from '../services/subscriptionService';
-import { Subscription, PackageConfig } from '../types/subscription';
+import type { Subscription, PackageConfig } from '../types/subscription';
+
+// ── Poll interval ─────────────────────────────────────────────────────────────
+
+const POLL_MS = 30_000; // subscription data rarely changes
+
+// ── Return type ───────────────────────────────────────────────────────────────
 
 interface UseSubscriptionReturn {
   subscription: Subscription | null;
@@ -29,7 +45,9 @@ interface UseSubscriptionReturn {
   refetch: () => Promise<void>;
 }
 
-type SubscriptionStoreState = {
+// ── Singleton store ───────────────────────────────────────────────────────────
+
+type StoreState = {
   key: string | null;
   subscription: Subscription | null;
   packageConfig: PackageConfig | null;
@@ -37,7 +55,7 @@ type SubscriptionStoreState = {
   error: string | null;
 };
 
-const defaultStoreState: SubscriptionStoreState = {
+const DEFAULT: StoreState = {
   key: null,
   subscription: null,
   packageConfig: null,
@@ -45,25 +63,25 @@ const defaultStoreState: SubscriptionStoreState = {
   error: null,
 };
 
-let storeState: SubscriptionStoreState = defaultStoreState;
+let storeState: StoreState = DEFAULT;
 const storeListeners = new Set<() => void>();
-let storeUnsubscribe: (() => void) | null = null;
 let storeActiveKey: string | null = null;
 let storeVersion = 0;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
-function emitStore() {
-  storeListeners.forEach((listener) => listener());
+function emit() {
+  storeListeners.forEach((fn) => fn());
 }
 
-function setStoreState(next: Partial<SubscriptionStoreState>) {
+function setState(next: Partial<StoreState>) {
   storeState = { ...storeState, ...next };
-  emitStore();
+  emit();
 }
 
-function stopStoreListener() {
-  if (storeUnsubscribe) {
-    storeUnsubscribe();
-    storeUnsubscribe = null;
+function stopPolling() {
+  if (pollTimer) {
+    clearTimeout(pollTimer);
+    pollTimer = null;
   }
 }
 
@@ -72,93 +90,72 @@ function keyForUser(user: AuthUser | null | undefined): string | null {
   return `${user.uid}:${String(user.organisationId || '')}`;
 }
 
+async function fetchSubscription(user: AuthUser): Promise<Subscription | null> {
+  const raw = user.organisationId
+    ? await getOrgSubscriptionAction(user.organisationId as string)
+    : await getUserSubscriptionAction(user.uid);
+
+  return raw as unknown as Subscription | null;
+}
+
+async function poll(
+  user: AuthUser,
+  key: string,
+  version: number
+): Promise<void> {
+  if (storeVersion !== version || storeActiveKey !== key) return;
+
+  try {
+    const sub = await fetchSubscription(user);
+    if (storeVersion !== version || storeActiveKey !== key) return;
+
+    const config = sub
+      ? getPackageConfig((sub as any).packageName || sub.packageId)
+      : null;
+
+    setState({ subscription: sub, packageConfig: config, loading: false, error: null });
+  } catch (err) {
+    if (storeVersion !== version || storeActiveKey !== key) return;
+    setState({
+      error: err instanceof Error ? err.message : 'Failed to load subscription',
+      loading: false,
+    });
+  }
+
+  // Schedule next poll
+  if (storeVersion === version && storeActiveKey === key) {
+    pollTimer = setTimeout(() => poll(user, key, version), POLL_MS);
+  }
+}
+
 async function ensureStoreForUser(user: AuthUser | null | undefined): Promise<void> {
   const nextKey = keyForUser(user);
-
-  // Already listening for this user+org tuple.
   if (nextKey === storeActiveKey) return;
 
-  stopStoreListener();
+  stopPolling();
   storeActiveKey = nextKey;
 
   if (!user?.uid || !nextKey) {
-    setStoreState(defaultStoreState);
+    setState(DEFAULT);
     return;
   }
 
-  const currentVersion = ++storeVersion;
-  setStoreState({
-    key: nextKey,
-    subscription: null,
-    packageConfig: null,
-    loading: true,
-    error: null,
-  });
+  const version = ++storeVersion;
+  setState({ key: nextKey, subscription: null, packageConfig: null, loading: true, error: null });
 
-  // Resolve org owner once per key, then subscribe to the right subscription doc.
-  let subscriptionUid = user.uid;
-  try {
-    const organisationId = user.organisationId as string | undefined;
-    if (organisationId) {
-      const orgSnap = await getDoc(doc(db, 'organizations', organisationId));
-      if (orgSnap.exists()) {
-        const ownerId = orgSnap.data()?.ownerId as string | undefined;
-        if (ownerId) subscriptionUid = ownerId;
-      }
-    }
-  } catch {
-    // fall back to user.uid
-  }
-
-  if (storeVersion !== currentVersion || storeActiveKey !== nextKey) {
-    return;
-  }
-
-  storeUnsubscribe = onSnapshot(
-    doc(db, 'subscriptions', subscriptionUid),
-    (snap: any) => {
-      if (storeVersion !== currentVersion || storeActiveKey !== nextKey) return;
-
-      if (!snap.exists()) {
-        setStoreState({
-          subscription: null,
-          packageConfig: null,
-          loading: false,
-          error: null,
-        });
-        return;
-      }
-
-      const sub = snap.data() as Subscription;
-      const config = getPackageConfig((sub as any).packageName || sub.packageId);
-
-      setStoreState({
-        subscription: sub,
-        packageConfig: config,
-        loading: false,
-        error: null,
-      });
-    },
-    (err: unknown) => {
-      if (storeVersion !== currentVersion || storeActiveKey !== nextKey) return;
-      setStoreState({
-        error: err instanceof Error ? err.message : 'Failed to load subscription',
-        loading: false,
-      });
-    }
-  );
+  await poll(user, nextKey, version);
 }
 
 function subscribeStore(listener: () => void): () => void {
   storeListeners.add(listener);
-  return () => {
-    storeListeners.delete(listener);
-  };
+  return () => storeListeners.delete(listener);
 }
 
-function getStoreSnapshot(): SubscriptionStoreState {
+function getStoreSnapshot(): StoreState {
   return storeState;
 }
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useSubscription(): UseSubscriptionReturn {
   const { user } = useAuth();
@@ -168,19 +165,24 @@ export function useSubscription(): UseSubscriptionReturn {
     void ensureStoreForUser(user);
   }, [user?.uid, user?.organisationId]);
 
-  // Kept for API compatibility — real-time listener means manual refetch is a no-op.
-  const refetch = async () => {};
-
-  const hasFeature = (featureKey: keyof PackageConfig['features']): boolean => {
-    return checkHasFeature(snapshot.subscription, featureKey);
+  const refetch = async () => {
+    if (!user) return;
+    const key = keyForUser(user);
+    if (!key) return;
+    stopPolling();
+    await poll(user, key, storeVersion);
   };
 
-  const canPerformAction = (action: keyof Subscription['currentUsage']): boolean => {
-    return checkCanPerformAction(snapshot.subscription, action as any);
-  };
+  const hasFeature = (featureKey: keyof PackageConfig['features']): boolean =>
+    checkHasFeature(snapshot.subscription, featureKey);
+
+  const canPerformAction = (action: keyof Subscription['currentUsage']): boolean =>
+    checkCanPerformAction(snapshot.subscription, action as any);
 
   const usageLimits = fetchUsageLimits(snapshot.subscription, snapshot.packageConfig?.limits);
-  const trialDaysRemaining = snapshot.subscription ? getTrialDaysRemaining(snapshot.subscription) : 0;
+  const trialDaysRemaining = snapshot.subscription
+    ? getTrialDaysRemaining(snapshot.subscription)
+    : 0;
   const needsUpgrade = checkNeedsUpgrade(snapshot.subscription);
   const statusMessage = getStatusMessage(snapshot.subscription);
 

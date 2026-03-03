@@ -16,8 +16,9 @@
  */
 "use client";
 
-import { Unsubscribe } from '@/utils/firestore-read-tracker';
 import { useCallback, useEffect, useMemo, useState } from "react";
+
+type Unsubscribe = () => void;
 
 
 /**

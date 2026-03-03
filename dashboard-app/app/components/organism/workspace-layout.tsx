@@ -5,7 +5,7 @@
  * Shared component in organism/workspace-layout.tsx.
  */
 
-import React, { type ReactNode, useEffect, useState } from "react";
+import React, { type ReactNode, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -23,7 +23,6 @@ import { PiCirclesFourLight, PiFolderOpenLight, PiNotepadLight, PiCalendar, PiPa
 import { FiUser, FiLogOut, FiSettings, FiCreditCard, FiShield } from "react-icons/fi";
 import { useToast } from "../providers/window-provider";
 import { useJobsSse } from "@/hooks/use-jobs-sse";
-import { subscribeToUserNotificationsWithToasts } from "@/services/userNotificationsService";
 import { useAuth } from "@/utils/firebase";
 import { URL_APP_PROFILE, URL_APP_ORGANISATION, URL_APP_BILLING, URL_APP_ADMIN } from "@/utils/urls";
 import { isPlatformAdminUser } from "@/utils/platform-admin";
@@ -64,12 +63,6 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
   // Phase 5: SSE hook replaces Firestore subscribeToJobsWithToasts
   useJobsSse(Boolean(user?.uid && shouldListenToJobs), toast);
-
-  useEffect(() => {
-    if (!user?.uid) return;
-    const unsubscribe = subscribeToUserNotificationsWithToasts(toast, user.uid);
-    return unsubscribe;
-  }, [toast, user?.uid]);
 
   const handleLogout = async () => {
     try {

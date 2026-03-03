@@ -1,29 +1,32 @@
-import { collection, onSnapshot, query, where } from '@/utils/firestore-read-tracker';
-import { db } from "@/utils/firebase";
+/**
+ * userNotificationsService — Phase 9 (PostgreSQL / SSE)
+ * Replaces Firestore onSnapshot with an SSE EventSource.
+ */
 import type { ToastOptions } from "@/components/providers/window-provider";
 
 export type ToastFunction = (options: ToastOptions) => string;
 
-type NotificationDoc = {
-  userId?: string;
-  title?: string;
-  message?: string;
-  type?: string;
-  level?: "default" | "info" | "success" | "danger" | "warning";
-  read?: boolean;
+type SseNotification = {
+  id: string;
+  title: string | null;
+  message: string | null;
+  type: string | null;
+  level: string | null;
+  read: boolean;
+  createdAt: string;
 };
 
-function mapLevelToTone(level?: NotificationDoc["level"]): ToastOptions["tone"] {
+function mapLevelToTone(level: string | null | undefined): ToastOptions["tone"] {
   if (level === "danger") return "danger";
   if (level === "success") return "success";
   if (level === "info") return "info";
-  if (level === "warning") return "default";
   return "default";
 }
 
 /**
- * Shows toast notifications for newly created in-app notifications.
- * It ignores initial snapshot to avoid replay after navigation.
+ * Opens an SSE connection to /api/sse/notifications.
+ * Shows a toast for each new (unread) notification that arrives after mount.
+ * Returns a cleanup function that closes the stream.
  */
 export function subscribeToUserNotificationsWithToasts(
   toast: ToastFunction,
@@ -31,37 +34,26 @@ export function subscribeToUserNotificationsWithToasts(
 ): () => void {
   if (!userId) return () => {};
 
-  const notificationsQuery = query(
-    collection(db, "userNotifications"),
-    where("userId", "==", userId)
-  );
+  const es = new EventSource("/api/sse/notifications");
 
-  let isInitialLoad = true;
-
-  const unsubscribe = onSnapshot(
-    notificationsQuery,
-    (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (isInitialLoad || change.type !== "added") return;
-
-        const data = change.doc.data() as NotificationDoc;
-        if (data.read) return;
-
+  es.onmessage = (event) => {
+    try {
+      const notifications = JSON.parse(event.data as string) as SseNotification[];
+      for (const n of notifications) {
+        if (n.read) continue;
         toast({
-          title: data.title || "Notification",
-          message: data.message || "You have a new update.",
-          tone: mapLevelToTone(data.level),
+          title: n.title ?? "Notification",
+          message: n.message ?? "You have a new update.",
+          tone: mapLevelToTone(n.level),
           durationMs: 4500,
         });
-      });
-
-      isInitialLoad = false;
-    },
-    (error) => {
-      console.error("Error subscribing to user notifications:", error);
+      }
+    } catch {
+      // ignore malformed payloads
     }
-  );
+  };
 
-  return () => unsubscribe();
+  es.onerror = () => {};
+
+  return () => es.close();
 }
-

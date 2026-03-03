@@ -2,9 +2,9 @@
  * GET /api/sse/jobs
  *
  * Server-Sent Events stream for the current user's recent jobs.
- * Phase 5: replaces Firestore onSnapshot in workspace-layout (toast notifications).
+ * Phase 9: replaces Firestore subscribeToJobs / subscribeToJobsWithToasts.
  *
- * Polls PostgreSQL every 5 s and pushes the updated job list to the client.
+ * Polls PostgreSQL every JOBS_SSE_POLL_MS ms and pushes the updated job list.
  * Auth: session cookie (Auth.js JWT).
  */
 
@@ -13,14 +13,19 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+const JOBS_SSE_POLL_MS = Math.max(500, Number(process.env.JOBS_SSE_POLL_MS ?? "2000"));
 
 export type SseJob = {
   id: string;
   action: string | null;
   status: string;
   projectId: string | null;
+  runId: string | null;
+  createdBy: string | null;
   createdAt: string;
+  startedAt: string | null;
   doneAt: string | null;
+  error: string | null;
 };
 
 export async function GET(req: NextRequest) {
@@ -29,10 +34,7 @@ export async function GET(req: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const where = session.user.organizationId
-    ? { organizationId: session.user.organizationId }
-    : { createdBy: session.user.id };
-
+  const userId = session.user.id;
   const encoder = new TextEncoder();
   let cancelled = false;
   req.signal.addEventListener("abort", () => {
@@ -43,17 +45,33 @@ export async function GET(req: NextRequest) {
     async start(controller) {
       const send = async () => {
         const rows = await prisma.job.findMany({
-          where,
+          where: { createdBy: userId },
           orderBy: { createdAt: "desc" },
-          take: 10,
+          take: 25,
+          select: {
+            id: true,
+            action: true,
+            status: true,
+            projectId: true,
+            runId: true,
+            createdBy: true,
+            createdAt: true,
+            startedAt: true,
+            doneAt: true,
+            error: true,
+          },
         });
         const payload: SseJob[] = rows.map((r) => ({
           id: r.id,
           action: r.action,
           status: r.status,
           projectId: r.projectId,
+          runId: r.runId,
+          createdBy: r.createdBy,
           createdAt: r.createdAt.toISOString(),
+          startedAt: r.startedAt?.toISOString() ?? null,
           doneAt: r.doneAt?.toISOString() ?? null,
+          error: r.error,
         }));
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
@@ -65,7 +83,7 @@ export async function GET(req: NextRequest) {
       while (!cancelled) {
         await send();
         await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, 5_000);
+          const timer = setTimeout(resolve, JOBS_SSE_POLL_MS);
           req.signal.addEventListener("abort", () => {
             clearTimeout(timer);
             resolve();

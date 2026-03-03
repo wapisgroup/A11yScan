@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./firebase";
-import { getUserSubscription } from "../services/subscriptionService";
+import { getOrganizationSubscription, getUserSubscription } from "../services/subscriptionService";
 
 
 type PrivateRouteProps = {
@@ -34,7 +34,10 @@ type SubscriptionGuardCacheEntry = SubscriptionGuardResult & {
 const subscriptionGuardCache = new Map<string, SubscriptionGuardCacheEntry>();
 const subscriptionGuardInflight = new Map<string, Promise<SubscriptionGuardResult>>();
 
-async function getSubscriptionGuardResult(userId: string): Promise<SubscriptionGuardResult> {
+async function getSubscriptionGuardResult(
+  userId: string,
+  organizationId?: string | null
+): Promise<SubscriptionGuardResult> {
   const now = Date.now();
   const cached = subscriptionGuardCache.get(userId);
   if (cached && now - cached.checkedAt < SUBSCRIPTION_CHECK_TTL_MS) {
@@ -45,7 +48,9 @@ async function getSubscriptionGuardResult(userId: string): Promise<SubscriptionG
   if (inflight) return inflight;
 
   const request = (async (): Promise<SubscriptionGuardResult> => {
-    const subscription = await getUserSubscription(userId);
+    const subscription =
+      (organizationId ? await getOrganizationSubscription(organizationId) : null) ??
+      (await getUserSubscription(userId));
     if (!subscription) {
       return { hasSubscription: false, trialExpired: false };
     }
@@ -101,7 +106,8 @@ export function PrivateRoute({
       }
 
       try {
-        const result = await getSubscriptionGuardResult(user.uid);
+        const orgId = user.organisationId ?? user.organizationId ?? null;
+        const result = await getSubscriptionGuardResult(user.uid, orgId);
         if (!result.hasSubscription) {
           // No subscription, redirect to onboarding
           router.replace('/onboarding');
@@ -114,8 +120,9 @@ export function PrivateRoute({
         }
       } catch (error) {
         console.error('Error checking subscription:', error);
-        // On error, allow access but log the issue
-        setHasSubscription(true);
+        // Fail closed: if subscription state cannot be verified, route to onboarding.
+        setHasSubscription(false);
+        router.replace('/onboarding');
       } finally {
         setCheckingSubscription(false);
       }

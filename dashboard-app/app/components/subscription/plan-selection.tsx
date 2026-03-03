@@ -5,21 +5,21 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { db, useAuth } from '../../utils/firebase';
+import { useState } from 'react';
+import { useAuth } from '../../utils/firebase';
 import { getAllPackages } from '../../config/subscriptions';
 import { PackageConfig } from '../../types/subscription';
 import { StartTrialButton } from './start-trial-button';
 import { CheckoutModal } from './checkout-modal';
 import { Elements } from '@stripe/react-stripe-js';
 import { getStripe } from '../../services/stripeService';
-import { doc, getDoc } from '@/utils/firestore-read-tracker';
 
 export function PlanSelection() {
     const { user } = useAuth();
     const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
     const packages = getAllPackages();
-    const [organisationId, setOrganisationId] = useState<string>('');
+    // organisationId is already available in the session — no Firestore read needed.
+    const organisationId = String(user?.organisationId ?? user?.organizationId ?? '');
     const [checkoutTarget, setCheckoutTarget] = useState<{
         packageName: string;
         packageDisplayName: string;
@@ -35,26 +35,6 @@ export function PlanSelection() {
 
         return `$${price}`;
     };
-
-    useEffect(() => {
-        const getOrganizationId = async () => {
-            if (!user) {
-                return;
-            }
-
-            try {
-
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                if (userDoc.exists()) {
-                    setOrganisationId(userDoc.data().organisationId);
-                }
-            } catch (error) {
-                console.error("Error checking subscription:", error);
-            }
-        };
-
-        getOrganizationId();
-    }, [user]);
 
     const getAnnualSavings = (pkg: PackageConfig): string => {
         if (pkg.pricing.monthly === 0) return '';
@@ -278,7 +258,7 @@ export function PlanSelection() {
                     All plans include SSL security, automatic backups, and 99.9% uptime SLA.
                 </p>
                 <p className="text-gray-600 mt-2">
-                    Need help choosing? <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">Contact our sales team</a>
+                    Need help choosing? <a href="https://www.ablelytics.com/contact" target='_blank' className="text-blue-600 hover:text-blue-700 font-medium">Contact our sales team</a>
                 </p>
             </div>
 

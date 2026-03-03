@@ -20,7 +20,6 @@ import { OverviewTaskRow } from "../molecule/overview-task-row";
 import { PageContainer } from "../molecule/page-container";
 import { DSButton } from "../atom/ds-button";
 import { useAlert } from "../providers/window-provider";
-import { auth } from "@/utils/firebase";
 
 type Run = {
   id: string;
@@ -54,28 +53,26 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
   const latestRuns = allRuns.slice(0, 5);
 
   const handleStartSitemap = async () => {
+    if (!projectId) return;
     const result = await startSitemap(projectId);
     await alert(result);
   };
 
   const handleStartPageCollection = async () => {
+    if (!projectId) return;
     const result = await startPageCollection(projectId);
     await alert(result);
   };
 
   const handleStartFullScan = async () => {
+    if (!projectId) return;
     const result = await startFullScan(projectId);
     await alert(result);
   };
 
   const handleDownloadSitemap = useCallback(async () => {
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Not authenticated');
-      const token = await currentUser.getIdToken();
-      const res = await fetch(`/api/projects/${projectId}/sitemap`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/projects/${projectId}/sitemap`);
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -94,10 +91,7 @@ export function OverviewTab({ project, runs = [], setTab }: OverviewTabProps) {
     if (!projectId) return;
     setSitemapLoading(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await fetch(`/api/projects/${projectId}/sitemap-tree`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(`/api/projects/${projectId}/sitemap-tree`);
       if (res.ok) {
         const data = await res.json();
         setSitemapTree(data);

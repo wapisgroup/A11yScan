@@ -368,6 +368,31 @@ async function handleScanPages(projectId, runId) {
     // === Aggregate stats for the run ===
     const agg = { critical: 0, serious: 0, moderate: 0, minor: 0 };
     let scannedCount = 0;
+    let completedCount = 0;
+    const progressUpdateIntervalMs = Number(process.env.SCAN_PROGRESS_UPDATE_MS) || 1000;
+    let lastProgressUpdateAt = 0;
+    let progressUpdateChain = Promise.resolve();
+
+    const maybePushRunProgress = async (force = false) => {
+        const now = Date.now();
+        if (!force && now - lastProgressUpdateAt < progressUpdateIntervalMs) return;
+        lastProgressUpdateAt = now;
+
+        // Serialize progress writes to avoid racing PATCH calls from concurrent page workers.
+        progressUpdateChain = progressUpdateChain
+            .then(async () => {
+                await updateRun(runId, {
+                    status: 'running',
+                    pagesTotal: pagesIds.length,
+                    pagesScanned: completedCount,
+                });
+            })
+            .catch((e) => {
+                console.warn('[scan] Failed to push run progress for', runId, e && e.message ? e.message : e);
+            });
+
+        await progressUpdateChain;
+    };
 
     function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target, engine, confidence, needsReview, evidence, aiHowToFix, decision) {
         issues.push({
@@ -449,10 +474,10 @@ async function handleScanPages(projectId, runId) {
                             const pageDomain = urlObj.hostname;
                             const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
 
-                            console.log(`========== COOKIE INJECTION DEBUG ==========`);
-                            console.log(`Target URL: ${pageUrl}`);
-                            console.log(`Base domain: ${baseUrl}`);
-                            console.log(`Cookies to inject: ${project.config.cookies.length}`);
+                            // console.log(`========== COOKIE INJECTION DEBUG ==========`);
+                            // console.log(`Target URL: ${pageUrl}`);
+                            // console.log(`Base domain: ${baseUrl}`);
+                            // console.log(`Cookies to inject: ${project.config.cookies.length}`);
 
                             await pageP.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch((err) => {
                                 console.log('Initial navigation for cookies failed:', err.message);
@@ -460,8 +485,8 @@ async function handleScanPages(projectId, runId) {
 
                             for (let i = 0; i < project.config.cookies.length; i++) {
                                 const cookie = project.config.cookies[i];
-                                console.log(`\n--- Cookie ${i + 1} ---`);
-                                console.log(`Raw cookie data:`, cookie);
+                                // console.log(`\n--- Cookie ${i + 1} ---`);
+                                // console.log(`Raw cookie data:`, cookie);
 
                                 let cookieDomain = cookie.domain || pageDomain;
                                 cookieDomain = cookieDomain.replace(/^https?:\/\//, '');
@@ -480,24 +505,24 @@ async function handleScanPages(projectId, runId) {
                                     path: '/',
                                 };
 
-                                console.log(`Cleaned cookie object:`, cookieObj);
+                                // console.log(`Cleaned cookie object:`, cookieObj);
 
                                 try {
                                     await pageP.setCookie(cookieObj);
-                                    console.log(`✓ Cookie set successfully: ${cookie.name}`);
+                                    // console.log(`✓ Cookie set successfully: ${cookie.name}`);
                                 } catch (cookieErr) {
                                     console.error(`✗ Failed to set cookie ${cookie.name}:`, cookieErr.message);
                                 }
                             }
 
-                            console.log(`\n--- Verifying cookies after setCookie ---`);
+                            // console.log(`\n--- Verifying cookies after setCookie ---`);
                             const cookiesAfterSet = await pageP.cookies();
-                            console.log(`Total cookies in browser: ${cookiesAfterSet.length}`);
+                            // console.log(`Total cookies in browser: ${cookiesAfterSet.length}`);
                             cookiesAfterSet.forEach(c => {
-                                console.log(`  - ${c.name}=${c.value.substring(0, 50)}... (domain: ${c.domain})`);
+                                // console.log(`  - ${c.name}=${c.value.substring(0, 50)}... (domain: ${c.domain})`);
                             });
 
-                            console.log(`========== END COOKIE INJECTION DEBUG ==========\n`);
+                            // console.log(`========== END COOKIE INJECTION DEBUG ==========\n`);
                         } catch (cookieErr) {
                             console.warn('Failed to inject cookies:', cookieErr);
                         }
@@ -529,15 +554,15 @@ async function handleScanPages(projectId, runId) {
                     if (removeCookieBannersEnabled) {
                         try {
                             const mode = project.config.removeCookieBanners;
-                            console.log(`\n--- Removing cookie banners (mode: ${mode}) ---`);
+                            // console.log(`\n--- Removing cookie banners (mode: ${mode}) ---`);
                             const removed = await removeCookieBanners(pageP, mode);
-                            console.log(`✓ Removed ${removed.length} cookie banner elements`);
+                            // console.log(`✓ Removed ${removed.length} cookie banner elements`);
                             if (removed.length > 0) {
                                 removed.forEach((el, i) => {
-                                    console.log(`  ${i + 1}. <${el.tag}> ${el.id ? `id="${el.id}"` : ''} ${el.class ? `class="${el.class.substring(0, 40)}..."` : ''}`);
+                                    // console.log(`  ${i + 1}. <${el.tag}> ${el.id ? `id="${el.id}"` : ''} ${el.class ? `class="${el.class.substring(0, 40)}..."` : ''}`);
                                 });
                             }
-                            console.log(`--- End banner removal ---\n`);
+                            // console.log(`--- End banner removal ---\n`);
 
                             // Install MutationObserver to auto-remove re-appearing banners
                             await pageP.evaluate((bannerMode) => {
@@ -677,7 +702,7 @@ async function handleScanPages(projectId, runId) {
                         // === Page snapshot and node highlight capture ===
                         try {
                             const nodesForEvaluation = (axeResults && axeResults.violations) ? axeResults.violations.flatMap(v => v.nodes || []).map(n => ({ target: n.target, html: n.html })) : [];
-                            console.log('Nodes for evaluation count:', nodesForEvaluation.length);
+                            // console.log('Nodes for evaluation count:', nodesForEvaluation.length);
 
                             const snapshotResult = await pageP.evaluate((nodes) => {
                                 let html = null;
@@ -746,7 +771,7 @@ async function handleScanPages(projectId, runId) {
 
                             const sanitizedHtml = snapshotResult ? snapshotResult.html : null;
                             const issueNodes = snapshotResult ? snapshotResult.nodeRects : [];
-                            console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
+                            // console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
 
                             if (storeArtifacts && sanitizedHtml) {
                                 const storageUrl = await uploadHtmlToStorage(projectId, runId, pageId, sanitizedHtml);
@@ -828,14 +853,14 @@ async function handleScanPages(projectId, runId) {
                         if (coreStats) {
                             pageInfo.coreTiming = coreStats;
                             if (String(process.env.ENABLE_CORE_TIMING_LOGS || '1').toLowerCase() !== '0') {
-                                console.log('[ablelytics-core][timing]', JSON.stringify({
-                                    projectId,
-                                    runId,
-                                    pageId,
-                                    pageUrl,
-                                    totalDurationMs: coreStats.totalDurationMs,
-                                    checks: coreStats.checks
-                                }));
+                                // console.log('[ablelytics-core][timing]', JSON.stringify({
+                                //     projectId,
+                                //     runId,
+                                //     pageId,
+                                //     pageUrl,
+                                //     totalDurationMs: coreStats.totalDurationMs,
+                                //     checks: coreStats.checks
+                                // }));
                             }
                         }
                     } catch (coreErr) {
@@ -910,34 +935,34 @@ async function handleScanPages(projectId, runId) {
 
                     // AI heuristics checks
                     let aiIssues = [];
-                    if (String(process.env.ENABLE_AI_HEURISTICS || '').toLowerCase() === '1') {
-                        try {
-                            const aiTests = new AblelyticsAiHeuristics(pageP);
-                            aiIssues = (await aiTests.runAll()).filter((issue) => (issue.confidence ?? 0) >= 0.65);
-                            aiIssues.forEach((issue) => {
-                                pushIssue(
-                                    issues,
-                                    issue.impact,
-                                    issue.message,
-                                    issue.selector,
-                                    issue.ruleId,
-                                    issue.helpUrl,
-                                    issue.description,
-                                    issue.tags,
-                                    issue.failureSummary,
-                                    issue.html,
-                                    issue.target,
-                                    issue.engine || 'ai-heuristics',
-                                    issue.confidence,
-                                    issue.needsReview,
-                                    issue.evidence,
-                                    issue.aiHowToFix
-                                );
-                            });
-                        } catch (aiErr) {
-                            console.warn('AI heuristics failed:', aiErr && aiErr.message ? aiErr.message : aiErr);
-                        }
-                    }
+                    // if (String(process.env.ENABLE_AI_HEURISTICS || '').toLowerCase() === '1') {
+                    //     try {
+                    //         const aiTests = new AblelyticsAiHeuristics(pageP);
+                    //         aiIssues = (await aiTests.runAll()).filter((issue) => (issue.confidence ?? 0) >= 0.65);
+                    //         aiIssues.forEach((issue) => {
+                    //             pushIssue(
+                    //                 issues,
+                    //                 issue.impact,
+                    //                 issue.message,
+                    //                 issue.selector,
+                    //                 issue.ruleId,
+                    //                 issue.helpUrl,
+                    //                 issue.description,
+                    //                 issue.tags,
+                    //                 issue.failureSummary,
+                    //                 issue.html,
+                    //                 issue.target,
+                    //                 issue.engine || 'ai-heuristics',
+                    //                 issue.confidence,
+                    //                 issue.needsReview,
+                    //                 issue.evidence,
+                    //                 issue.aiHowToFix
+                    //             );
+                    //         });
+                    //     } catch (aiErr) {
+                    //         console.warn('AI heuristics failed:', aiErr && aiErr.message ? aiErr.message : aiErr);
+                    //     }
+                    // }
 
                     if (aiIssues.length > 0) {
                         try {
@@ -1056,9 +1081,9 @@ async function handleScanPages(projectId, runId) {
                     return;
                 }
 
-                if (!pageData || !pageData.text) {
-                    pushIssue(issues, 'critical', `Failed to fetch page (status: ${httpStatus})`, null, null, null, null, [], null, null, null, 'ablelytics-core');
-                } else {
+                    if (!pageData || !pageData.text) {
+                        pushIssue(issues, 'critical', `Failed to fetch page (status: ${httpStatus})`, null, null, null, null, [], null, null, null, 'ablelytics-core');
+                    } else {
                     const $ = cheerio.load(pageData.text);
                     const title = ($('title').first().text() || '').trim();
                     if (!title) pushIssue(issues, 'critical', 'Missing or empty <title> element', null, null, null, null, [], null, null, null, 'ablelytics-core');
@@ -1089,6 +1114,7 @@ async function handleScanPages(projectId, runId) {
 
             // === Persist scan result via REST API ===
             const { pageSnapshotUrl, pageScreenshotUrl, nodeInfo, coreTiming } = pageInfo;
+            const snapshotArtifactPath = pageSnapshotUrl || null;
 
             const scanSummary = {
                 critical: issues.filter(i => i.impact === 'critical').length,
@@ -1153,11 +1179,15 @@ async function handleScanPages(projectId, runId) {
                 );
             }
 
+            console.log(`[snapshotArtifactPath] ${snapshotArtifactPath} for page ${pageId}`);
+
             await createScan({
                 projectId,
                 pageId,
                 runId,
+                type: runData.type || 'scan_pages',
                 httpStatus: httpStatus || null,
+                artifactPath: snapshotArtifactPath,
                 summary: scanSummary,
                 issues,
                 pageSnapshotUrl: pageSnapshotUrl || null,
@@ -1180,6 +1210,15 @@ async function handleScanPages(projectId, runId) {
 
             scannedCount++;
 
+            // Bill scans incrementally per successfully scanned page.
+            try {
+                await updateRun(runId, {
+                    usageIncrementScans: 1,
+                });
+            } catch (e) {
+                console.warn('[scan] Failed to increment scan usage for run', runId, e && e.message ? e.message : e);
+            }
+
             // Accumulate project stats delta
             const nextContribution = contributionFromPage({
                 ...page,
@@ -1199,7 +1238,14 @@ async function handleScanPages(projectId, runId) {
 
             // Record error scan
             try {
-                await createScan({ projectId, pageId, runId, issues: [], summary: null });
+                await createScan({
+                    projectId,
+                    pageId,
+                    runId,
+                    type: runData.type || 'scan_pages',
+                    issues: [],
+                    summary: null,
+                });
             } catch (e) {
                 console.warn('[scan] Failed to write error scan doc', e);
             }
@@ -1240,17 +1286,22 @@ async function handleScanPages(projectId, runId) {
             } catch (e) {
                 console.warn('[scan] Failed to mark page as failed for', pageId, e && e.message ? e.message : e);
             }
+        } finally {
+            completedCount++;
+            void maybePushRunProgress(false);
         }
     })));
 
     // === Cleanup ===
     try { if (browser) await browser.close(); } catch (e) { console.warn('[scan] Failed to close browser', e); }
 
+    await maybePushRunProgress(true);
+
     // === Finalize run ===
     await updateRun(runId, {
         status: 'done',
         finishedAt: new Date().toISOString(),
-        pagesScanned: scannedCount,
+        pagesScanned: completedCount,
         stats: agg,
     });
 

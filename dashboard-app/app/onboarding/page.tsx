@@ -4,29 +4,33 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { db, useAuth } from "@/utils/firebase";
+import { useAuth } from "@/utils/firebase";
 import { PlanSelection } from "@/components/subscription/plan-selection";
-import { getUserSubscription } from "@/services/subscriptionService";
+import { getOrganizationSubscription, getUserSubscription } from "@/services/subscriptionService";
 import { FaCheck } from "react-icons/fa";
-import { doc, getDoc } from '@/utils/firestore-read-tracker';
 
 export default function OnboardingPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   
 
   useEffect(() => {
     const checkSubscription = async () => {
+      if (authLoading) return;
+
       if (!user) {
-        router.push("/auth/login");
+        router.replace("/auth/login");
         return;
       }
 
       try {
-        const subscription = await getUserSubscription(user.uid);
+        const orgId = user.organisationId ?? user.organizationId ?? null;
+        const subscription =
+          (orgId ? await getOrganizationSubscription(orgId) : null) ??
+          (await getUserSubscription(user.uid));
         if (subscription) {
-          router.push("/workspace");
+          router.replace("/workspace");
         } else {
           setLoading(false);
         }
@@ -37,7 +41,7 @@ export default function OnboardingPage() {
     };
 
     checkSubscription();
-  }, [user, router]);
+  }, [authLoading, user, router]);
 
   if (loading) {
     return (
@@ -55,7 +59,7 @@ export default function OnboardingPage() {
           <div className="max-w-7xl mx-auto">
             <Link href="/" className="flex items-center gap-4">
               <Image
-                src="/web-logo-02.svg"
+                src="/logo.svg"
                 alt="Ablelytics"
                 width={160}
                 height={40}
@@ -200,13 +204,13 @@ export default function OnboardingPage() {
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-slate-600">
               <p>© 2026 Ablelytics · Automated accessibility scanning</p>
               <nav className="flex gap-6">
-                <Link href="/privacy" className="hover:text-slate-900 transition-colors">
+                <Link href="https://www.ablelytics.com/privacy" target="_blank" className="hover:text-slate-900 transition-colors">
                   Privacy
                 </Link>
-                <Link href="/terms" className="hover:text-slate-900 transition-colors">
+                <Link href="https://www.ablelytics.com/terms" target="_blank" className="hover:text-slate-900 transition-colors">
                   Terms
                 </Link>
-                <Link href="/contact" className="hover:text-slate-900 transition-colors">
+                <Link href="https://www.ablelytics.com/contact" target="_blank" className="hover:text-slate-900 transition-colors">
                   Contact
                 </Link>
               </nav>

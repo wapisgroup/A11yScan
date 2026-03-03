@@ -80,9 +80,10 @@ export async function getAllReports(): Promise<Report[]> {
 /** Create a report (status=pending). Also creates a Run + Job for the worker. */
 export async function createReport(input: {
   projectId: string;
-  type: "full" | "pageset";
+  type: "full" | "pageset" | "individual";
   title: string;
   pageSetId?: string;
+  pageIds?: string[];
 }): Promise<{ success: boolean; reportId?: string; message: string }> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -99,7 +100,11 @@ export async function createReport(input: {
   let pageIds: string[];
   let pageSetName: string | undefined;
 
-  if (input.type === "pageset" && input.pageSetId) {
+  if (input.type === "individual") {
+    pageIds = Array.isArray(input.pageIds)
+      ? input.pageIds.map((id) => String(id)).filter(Boolean)
+      : [];
+  } else if (input.type === "pageset" && input.pageSetId) {
     const pageSetPages = await prisma.pageSetPage.findMany({
       where: { pageSetId: input.pageSetId },
       include: {
@@ -148,8 +153,16 @@ export async function createReport(input: {
       projectId: input.projectId,
       type: "generate_report",
       status: "queued",
+      pagesTotal: pageIds.length,
     },
   });
+
+  if (pageIds.length > 0) {
+    await prisma.runPage.createMany({
+      data: pageIds.map((pageId) => ({ runId: run.id, pageId })),
+      skipDuplicates: true,
+    });
+  }
 
   // Create a Job for the worker to pick up (Phase 7–8)
   await prisma.job.create({

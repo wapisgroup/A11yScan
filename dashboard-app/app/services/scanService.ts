@@ -1,5 +1,4 @@
-import { collection, query, where, getDocs, orderBy, limit } from "@/utils/firestore-read-tracker";
-import { db } from "@/utils/firebase";
+import { getScanReports } from "@/actions/scans";
 
 export type PageReport = {
   id: string;
@@ -28,12 +27,6 @@ export type IssueSummary = {
   minor: number;
 };
 
-// Maximum scanIndex entries to read per query. Keeps reads bounded while
-// providing enough data for client-side severity / project filtering.
-const SCAN_INDEX_LIMIT = 500;
-
-// Maximum pages to read per project in the legacy fallback path.
-const FALLBACK_PAGES_LIMIT = 500;
 // Short cache to collapse React StrictMode duplicate fetches in development.
 const LOAD_CACHE_TTL_MS = 2_000;
 
@@ -45,29 +38,6 @@ const loadInflight = new Map<string, Promise<PageReportsResult>>();
 
 function cacheKey(organisationId: string, projectIdFilter?: string | null): string {
   return `${organisationId}::${projectIdFilter || '*'}`;
-}
-
-function toPageReport(data: any, fallbackId: string, fallbackProjectName?: string): PageReport {
-  const summary = data.summary || {};
-  return {
-    id: String(data.pageId || fallbackId),
-    url: String(data.url || "Unknown URL"),
-    projectId: String(data.projectId || ""),
-    projectName: String(data.projectName || fallbackProjectName || "Unknown Project"),
-    status: String(data.status || "scanned"),
-    criticalIssues: Number(summary.critical || 0),
-    seriousIssues: Number(summary.serious || 0),
-    moderateIssues: Number(summary.moderate || 0),
-    minorIssues: Number(summary.minor || 0),
-    totalIssues:
-      Number(data.totalIssues || 0) ||
-      Number(summary.critical || 0) +
-        Number(summary.serious || 0) +
-        Number(summary.moderate || 0) +
-        Number(summary.minor || 0),
-    lastScanned: data.lastScanned?.toDate?.() || data.updatedAt?.toDate?.(),
-    scanId: String(data.runId || ""),
-  };
 }
 
 /**
@@ -97,104 +67,27 @@ export async function loadPageReports(
 
   const loader = (async (): Promise<PageReportsResult> => {
   try {
-    // Fast path — bounded read from the denormalized scanIndex
-    const scanIndexSnap = await getDocs(
-      projectIdFilter
-        ? query(
-            collection(db, "scanIndex"),
-            where("organisationId", "==", organisationId),
-            where("projectId", "==", projectIdFilter),
-            orderBy("lastScanned", "desc"),
-            limit(SCAN_INDEX_LIMIT)
-          )
-        : query(
-            collection(db, "scanIndex"),
-            where("organisationId", "==", organisationId),
-            orderBy("lastScanned", "desc"),
-            limit(SCAN_INDEX_LIMIT)
-          )
-    );
+    void organisationId;
+    const data = await getScanReports({
+      projectId: projectIdFilter || null,
+      limit: 500,
+    });
 
-    if (scanIndexSnap.size > 0) {
-      const projectsMap = new Map<string, string>();
-      const reports: PageReport[] = [];
-
-      scanIndexSnap.docs.forEach((d) => {
-        const data = d.data() as any;
-        const projId = String(data.projectId || "");
-        const projName = String(data.projectName || "Unknown Project");
-        if (projId && !projectsMap.has(projId)) projectsMap.set(projId, projName);
-        reports.push(toPageReport(data, d.id));
-      });
-
-      const projects: ProjectInfo[] = Array.from(projectsMap.entries()).map(
-        ([id, name]) => ({ id, name })
-      );
-      const result = { reports, projects };
-      loadCache.set(key, { data: result, expiresAt: Date.now() + LOAD_CACHE_TTL_MS });
-      return result;
-    }
-
-    // Fallback: no scanIndex entries — read from each project's pages subcollection
-    const projectsSnap = await getDocs(
-      projectIdFilter
-        ? query(
-            collection(db, "projects"),
-            where("organisationId", "==", organisationId),
-            where("__name__", "==", projectIdFilter)
-          )
-        : query(
-            collection(db, "projects"),
-            where("organisationId", "==", organisationId)
-          )
-    );
-
-    const projects: ProjectInfo[] = projectsSnap.docs.map((d) => ({
-      id: d.id,
-      name: (d.data() as any).name || "Unknown Project",
+    const reports: PageReport[] = data.reports.map((r) => ({
+      id: r.id,
+      url: r.url,
+      projectId: r.projectId,
+      projectName: r.projectName,
+      status: r.status,
+      criticalIssues: r.criticalIssues,
+      seriousIssues: r.seriousIssues,
+      moderateIssues: r.moderateIssues,
+      minorIssues: r.minorIssues,
+      totalIssues: r.totalIssues,
+      lastScanned: r.lastScanned,
+      scanId: r.scanId,
     }));
-
-    const reports: PageReport[] = [];
-
-    for (const projectDoc of projectsSnap.docs) {
-      const projectId = projectDoc.id;
-      const projectName = (projectDoc.data() as any).name || "Unknown Project";
-
-      let pagesSnap = await getDocs(
-        query(collection(db, "projects", projectId, "pages"), limit(FALLBACK_PAGES_LIMIT))
-      );
-
-      if (pagesSnap.size === 0) {
-        pagesSnap = await getDocs(
-          query(collection(db, "pages"), where("projectId", "==", projectId), limit(FALLBACK_PAGES_LIMIT))
-        );
-      }
-
-      for (const pageDoc of pagesSnap.docs) {
-        const pageData = pageDoc.data() as any;
-        const summary =
-          pageData.lastScan?.summary || pageData.summary || pageData.violationsCount || {};
-        reports.push({
-          id: pageDoc.id,
-          url: pageData.url || "Unknown URL",
-          projectId,
-          projectName,
-          status: pageData.status || "scanned",
-          criticalIssues: Number(summary.critical || 0),
-          seriousIssues: Number(summary.serious || 0),
-          moderateIssues: Number(summary.moderate || 0),
-          minorIssues: Number(summary.minor || 0),
-          totalIssues:
-            Number(summary.critical || 0) +
-            Number(summary.serious || 0) +
-            Number(summary.moderate || 0) +
-            Number(summary.minor || 0),
-          lastScanned:
-            pageData.lastScan?.createdAt?.toDate?.() || pageData.updatedAt?.toDate?.(),
-          scanId: String(pageData.lastRunId || pageData.lastScanId || ""),
-        });
-      }
-    }
+    const projects: ProjectInfo[] = data.projects;
 
     const result = { reports, projects };
     loadCache.set(key, { data: result, expiresAt: Date.now() + LOAD_CACHE_TTL_MS });

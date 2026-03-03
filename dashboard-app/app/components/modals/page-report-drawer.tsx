@@ -127,6 +127,23 @@ export default function PageReportDrawer({
       : html + injection;
   }, [state?.snapshotHtml]);
 
+  const snapshotDebug = useMemo(() => {
+    const scan = state?.selectedScan as Record<string, unknown> | null | undefined;
+    if (!scan) return null;
+
+    const runId = (scan.runId as string | null | undefined) ?? null;
+    const scanPageId = (scan.pageId as string | null | undefined) ?? pageId ?? null;
+    const storedUrl = (scan.pageSnapshotUrl as string | null | undefined) ?? null;
+    const proxyUrl =
+      runId && scanPageId && projectId
+        ? `/api/projects/${projectId}/snapshot?runId=${encodeURIComponent(runId)}&pageId=${encodeURIComponent(scanPageId)}${
+            storedUrl ? `&url=${encodeURIComponent(storedUrl)}` : ""
+          }`
+        : null;
+
+    return { storedUrl, proxyUrl };
+  }, [state?.selectedScan, projectId, pageId]);
+
   const handleIssueHover = useCallback((selectors: string[] | null) => {
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'a11y-highlight', selectors: selectors || null },
@@ -189,6 +206,12 @@ export default function PageReportDrawer({
     });
     setIsModalOpen(true);
   };
+
+  // Log snapshot debug info to console when no snapshot is available
+  React.useEffect(() => {
+    if (!state?.selectedScan || snapshotWithScript) return;
+    console.log("[PageReportDrawer] No snapshot available. Debug info:", snapshotDebug);
+  }, [state?.selectedScan, snapshotWithScript, snapshotDebug]);
 
   const handleRescan = async () => {
     if (!pageId || rescanning) return;
@@ -495,7 +518,35 @@ export default function PageReportDrawer({
                     sandbox="allow-scripts allow-forms"
                   />
                 ) : state?.selectedScan ? (
-                  <div className="p-6 as-p2-text secondary-text-color">No snapshot available for this scan.</div>
+                  <div className="p-6 as-p2-text secondary-text-color space-y-2">
+                    <div>No snapshot available for this scan.</div>
+                    {snapshotDebug?.storedUrl && (
+                      <div className="text-xs break-all">
+                        Stored snapshot URL:{" "}
+                        <a
+                          href={snapshotDebug.storedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-brand underline"
+                        >
+                          {snapshotDebug.storedUrl}
+                        </a>
+                      </div>
+                    )}
+                    {snapshotDebug?.proxyUrl && (
+                      <div className="text-xs break-all">
+                        Snapshot proxy URL:{" "}
+                        <a
+                          href={snapshotDebug.proxyUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-brand underline"
+                        >
+                          {snapshotDebug.proxyUrl}
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="p-6 as-p2-text secondary-text-color">No scan selected for preview.</div>
                 )}

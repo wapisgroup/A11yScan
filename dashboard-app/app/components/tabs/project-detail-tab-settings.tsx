@@ -5,8 +5,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { doc, updateDoc } from '@/utils/firestore-read-tracker';
-import { db } from "@/utils/firebase";
+import { updateProjectConfig } from "@/actions/projects";
 import { PiCheckCircle, PiWarningCircle, PiInfo } from "react-icons/pi";
 import { PageContainer } from "../molecule/page-container";
 import { LoadingState } from "../atom/LoadingState";
@@ -43,16 +42,14 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Saves a partial config patch to Firestore. Returns error message or null. */
+/** Saves a partial config patch to PostgreSQL via Server Action. Returns error message or null. */
 async function saveConfigPatch(
   projectId: string,
-  existing: ProjectConfig | undefined,
+  _existing: ProjectConfig | undefined,
   patch: Partial<ProjectConfig>
 ): Promise<string | null> {
   try {
-    await updateDoc(doc(db, "projects", projectId), {
-      config: { ...(existing ?? {}), ...patch },
-    });
+    await updateProjectConfig(projectId, patch as Record<string, unknown>);
     return null;
   } catch (err: unknown) {
     return err instanceof Error ? err.message : String(err);

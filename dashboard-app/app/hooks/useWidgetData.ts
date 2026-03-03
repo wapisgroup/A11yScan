@@ -23,7 +23,7 @@ const POLL_INTERVAL_MS = 15_000;
 const ACTIVE_SCANS_POLL_MS = 6_000;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type LoaderFn = (orgId: string, projectId?: string) => Promise<any>;
+type LoaderFn = (orgId?: string, projectId?: string) => Promise<any>;
 
 const WIDGET_LOADERS: Record<string, LoaderFn> = {
   "summary-cards": loadSummaryCards,
@@ -46,11 +46,6 @@ export function useWidgetData<T = unknown>(
   const mountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
-    if (!organisationId) {
-      setLoading(false);
-      return;
-    }
-
     const loader = WIDGET_LOADERS[widgetId];
     if (!loader) {
       // Widgets without loaders (quick-actions, email-delivery) don't need data
@@ -86,7 +81,6 @@ export function useWidgetData<T = unknown>(
 
   // Polling for active-scans widget (faster) and other widgets
   useEffect(() => {
-    if (!organisationId) return;
     if (!WIDGET_LOADERS[widgetId]) return;
 
     const intervalMs = widgetId === "active-scans" ? ACTIVE_SCANS_POLL_MS : POLL_INTERVAL_MS;

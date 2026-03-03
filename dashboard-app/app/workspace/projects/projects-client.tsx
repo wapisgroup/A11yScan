@@ -15,6 +15,7 @@ import dynamic from "next/dynamic";
 import {
   createProject,
   deleteProject,
+  type ProjectCreateLimitInfo,
   updateProject,
   type Project,
 } from "@/actions/projects";
@@ -46,8 +47,10 @@ function toDateString(value: unknown): string {
 
 export function ProjectsPageClient({
   initialProjects,
+  projectLimit,
 }: {
   initialProjects: Project[];
+  projectLimit: ProjectCreateLimitInfo;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -57,6 +60,7 @@ export function ProjectsPageClient({
   const [modal, setModal] = useState<ModalState<Project>>({ open: false });
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
+  const [limitInfo, setLimitInfo] = useState<ProjectCreateLimitInfo>(projectLimit);
 
   // Auto-open the create modal when arriving with ?action=add
   useEffect(() => {
@@ -80,25 +84,27 @@ export function ProjectsPageClient({
     config?: import("@/services/projectsService").ProjectConfig;
   }) => {
     setError("");
-    try {
-      if (!modal.open) return;
+    if (!modal.open) return;
 
-      if (modal.mode === "create") {
-        const created = await createProject({
-          name: values.name || undefined,
-          domain: values.domain,
-        });
-        setProjects((prev) => [created, ...prev]);
-      } else {
-        await updateProject({ id: modal.initial.id, name: values.name || null });
-        // Refresh from server to pick up any DB-side changes
-        router.refresh();
-      }
-
-      closeModal();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+    if (modal.mode === "create") {
+      const created = await createProject({
+        name: values.name || undefined,
+        domain: values.domain,
+        config: values.config,
+      });
+      setProjects((prev) => [created, ...prev]);
+      setLimitInfo((prev) => ({
+        ...prev,
+        current: prev.current + 1,
+        allowed: prev.limit == null ? true : prev.current + 1 < prev.limit,
+      }));
+    } else {
+      await updateProject({ id: modal.initial.id, name: values.name || null });
+      // Refresh from server to pick up any DB-side changes
+      router.refresh();
     }
+
+    closeModal();
   };
 
   const handleRemove = async (p: Project) => {
@@ -120,6 +126,14 @@ export function ProjectsPageClient({
     try {
       await deleteProject(p.id);
       setProjects((prev) => prev.filter((x) => x.id !== p.id));
+      setLimitInfo((prev) => {
+        const nextCurrent = Math.max(0, prev.current - 1);
+        return {
+          ...prev,
+          current: nextCurrent,
+          allowed: prev.limit == null ? true : nextCurrent < prev.limit,
+        };
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -137,13 +151,23 @@ export function ProjectsPageClient({
     []
   );
 
+  const maxLabel = limitInfo.limit == null ? "∞" : String(limitInfo.limit);
+
   const AddButton = () => (
     <DSButton
       onClick={openCreate}
       aria-label="Add project"
       leadingIcon={<FiPlus size={16} />}
+      disabled={!limitInfo.allowed}
+      title={
+        !limitInfo.allowed
+          ? `Project limit reached (${limitInfo.current}/${maxLabel}). Upgrade your plan to add more.`
+          : undefined
+      }
     >
-      Add Project
+      {limitInfo.allowed
+        ? "Add Project"
+        : `Project limit reached (${limitInfo.current}/${maxLabel})`}
     </DSButton>
   );
 

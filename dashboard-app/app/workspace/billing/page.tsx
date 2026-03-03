@@ -1,11 +1,6 @@
 "use client";
 
-import { WorkspaceLayout } from "@/components/organism/workspace-layout";
-import { PrivateRoute } from "@/utils/private-router";
-import { useSubscription } from '../../hooks/use-subscription';
-import { useAuth, db } from '../../utils/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from '@/utils/firestore-read-tracker';
-import { UpdateSubscriptionButton } from '../../components/subscription/update-subscription-button';
+import { useAuth } from '../../utils/firebase';
 import { PaymentMethods } from '../../components/subscription/payment-methods';
 import { ScheduledChangeBanner } from '../../components/subscription/scheduled-change-banner';
 import { CancelScheduledBanner } from '../../components/subscription/cancel-scheduled-banner';
@@ -15,20 +10,27 @@ import { CheckoutModal } from '../../components/subscription/checkout-modal';
 import { Elements } from '@stripe/react-stripe-js';
 import { getStripe } from '../../services/stripeService';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { getUserSubscription, getOrganizationSubscription, getUsageLimits, getTrialDaysRemaining, getStatusMessage } from '../../services/subscriptionService';
 import { getAllPackages, SUBSCRIPTION_PACKAGES } from '../../config/subscriptions';
 import { getInvoices, cancelSubscription } from '../../services/stripeService';
 import { PriceCol } from "@/components/atom/price-col";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
+import { getOrganizationWorkspaceData } from "@/actions/organization";
+import { getProjects } from "@/actions/projects";
 
 function BillingPageContent() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const uid = user?.uid ?? null;
+  const sessionOrgId = (user?.organisationId || (user as any)?.organizationId || null) as string | null;
   const [subscription, setSubscription] = useState<any>(null);
   const [organization, setOrganization] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [usageLimits, setUsageLimits] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [redirecting, setRedirecting] = useState(false);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payment-methods'>('overview');
@@ -81,63 +83,80 @@ function BillingPageContent() {
   };
 
   useEffect(() => {
-    if (!user?.uid) return;
+    let cancelled = false;
 
     const loadSubscription = async () => {
+      if (authLoading) {
+        setLoading(true);
+        return;
+      }
+      if (!uid) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
       try {
-        // First, get user profile to find their organization ID
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (!userDoc.exists()) {
-          console.error('User profile not found');
-          setLoading(false);
-          return;
-        }
-
-        const userData = userDoc.data();
-        setUserProfile(userData);
-
-        const organizationId = userData.organisationId;
+        // Resolve organization ID from session first, fallback to server action (DB user row)
+        let organizationId = sessionOrgId;
         if (!organizationId) {
-          console.error('User has no organization ID');
-          setLoading(false);
-          return;
+          try {
+            const orgData = await getOrganizationWorkspaceData();
+            organizationId = orgData.organizationId;
+          } catch {
+            organizationId = null;
+          }
         }
+        if (cancelled) return;
+
+        setUserProfile({
+          organisationId: organizationId,
+          email: user?.email ?? null,
+        });
 
         // Fetch org owner's subscription (covers all org members' usage)
-        const sub = await getOrganizationSubscription(organizationId)
-          ?? await getUserSubscription(user.uid);
+        const sub = organizationId
+          ? (await getOrganizationSubscription(organizationId)) ?? (await getUserSubscription(uid))
+          : await getUserSubscription(uid);
+        if (cancelled) return;
+
         setSubscription(sub);
+        setOrganization(sub ? { stripeCustomerId: (sub as any).stripeCustomerId || null } : null);
 
-        // Fetch organization data to get stripeCustomerId
-        const orgDoc = await getDoc(doc(db, 'organisations', organizationId));
-        if (orgDoc.exists()) {
-          setOrganization(orgDoc.data());
+        if (!sub) {
+          setRedirecting(true);
+          router.replace('/onboarding');
+          return;
         }
 
-        if (sub) {
-          const packageLimits = getAllPackages().find(p => p.id === sub.packageId)?.limits;
-          const limits = getUsageLimits(sub, packageLimits);
-
-          // Count actual org projects — more reliable than the denormalized counter
-          const projectsSnap = await getDocs(
-            query(collection(db, 'projects'), where('organisationId', '==', organizationId))
-          );
-          const actualProjectCount = projectsSnap.size;
-
-          setUsageLimits({
-            ...limits,
-            activeProjects: { ...limits.activeProjects, used: actualProjectCount },
-          });
-        }
+        const packageLimits = getAllPackages().find(p => p.id === sub.packageId)?.limits;
+        const limits = getUsageLimits(sub, packageLimits);
+        const projects = await getProjects();
+        setUsageLimits({
+          ...limits,
+          activeProjects: {
+            ...limits.activeProjects,
+            used: Array.isArray(projects) ? projects.length : limits.activeProjects.used,
+          },
+        });
       } catch (error) {
-        console.error('Error loading subscription:', error);
+        if (!cancelled) {
+          console.error('Error loading subscription:', error);
+          setRedirecting(true);
+          router.replace('/onboarding');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     loadSubscription();
-  }, [user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, authLoading, sessionOrgId, router, user?.email]);
 
   useEffect(() => {
     if (!organization?.stripeCustomerId) return;
@@ -157,9 +176,16 @@ function BillingPageContent() {
     loadInvoices();
   }, [organization?.stripeCustomerId]);
 
-  const getUsagePercentage = (used: number, limit: number) => {
-    if (limit === -1) return 0; // Unlimited
+  const getUsagePercentage = (used: number, limit: number | 'unlimited' | null) => {
+    if (limit === -1 || limit === 'unlimited' || limit == null) return 0;
+    if (limit <= 0) return 0;
     return Math.round((used / limit) * 100);
+  };
+
+  const formatLimit = (limit: number | 'unlimited' | null) => {
+    if (limit === -1 || limit === 'unlimited') return '∞';
+    if (limit == null) return 'N/A';
+    return String(limit);
   };
 
   const getUsageColor = (percentage: number) => {
@@ -171,7 +197,10 @@ function BillingPageContent() {
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
     try {
-      return new Date(timestamp.toDate()).toLocaleDateString('en-US', {
+      const raw = typeof timestamp?.toDate === 'function' ? timestamp.toDate() : timestamp;
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return 'N/A';
+      return parsed.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
@@ -194,6 +223,14 @@ function BillingPageContent() {
     );
   }
 
+  if (redirecting) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
+
   if (!subscription) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -206,6 +243,7 @@ function BillingPageContent() {
 
   const packageConfig = getAllPackages().find(p => p.id === subscription.packageId);
   const isTrial = trialStatuses.has(String(subscription.status || '').toLowerCase());
+  const billingCycleDisplay = subscription.billingCycle || (isTrial ? 'monthly' : 'N/A');
   const trialDaysRemaining = isTrial ? getTrialDaysRemaining(subscription) : 0;
   const statusMessage = getStatusMessage(subscription);
 
@@ -353,7 +391,7 @@ function BillingPageContent() {
               <div>
                 <p className="text-sm text-gray-600">Billing Cycle</p>
                 <p className="text-sm font-medium text-gray-900 capitalize">
-                  {subscription.billingCycle || 'N/A'}
+                  {billingCycleDisplay}
                 </p>
               </div>
               {isTrial && getTrialEndDisplayValue(subscription) && (
@@ -404,7 +442,7 @@ function BillingPageContent() {
                   <div className="flex justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Active Projects</span>
                     <span className="text-sm text-gray-600">
-                      {usageLimits.activeProjects.used} / {usageLimits.activeProjects.limit === -1 ? '∞' : usageLimits.activeProjects.limit}
+                      {usageLimits.activeProjects.used} / {formatLimit(usageLimits.activeProjects.limit)}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -420,7 +458,7 @@ function BillingPageContent() {
                   <div className="flex justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Scans This Month</span>
                     <span className="text-sm text-gray-600">
-                      {usageLimits.scansThisMonth.used} / {usageLimits.scansThisMonth.limit === -1 ? '∞' : usageLimits.scansThisMonth.limit}
+                      {usageLimits.scansThisMonth.used} / {formatLimit(usageLimits.scansThisMonth.limit)}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -436,7 +474,7 @@ function BillingPageContent() {
                   <div className="flex justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Scheduled Scans</span>
                     <span className="text-sm text-gray-600">
-                      {usageLimits.scheduledScans.used} / {usageLimits.scheduledScans.limit === -1 ? '∞' : usageLimits.scheduledScans.limit}
+                      {usageLimits.scheduledScans.used} / {formatLimit(usageLimits.scheduledScans.limit)}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -452,7 +490,7 @@ function BillingPageContent() {
                   <div className="flex justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">API Calls Today</span>
                     <span className="text-sm text-gray-600">
-                      {usageLimits.apiCallsToday.used} / {usageLimits.apiCallsToday.limit === -1 ? '∞' : usageLimits.apiCallsToday.limit}
+                      {usageLimits.apiCallsToday.used} / {formatLimit(usageLimits.apiCallsToday.limit)}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -466,36 +504,40 @@ function BillingPageContent() {
             </div>
           )}
 
-          {/* Upgrade Options - Only show if on trial or Basic */}
-
+          {/* Plan Options */}
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Upgrade Your Plan</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Plans</h2>
+              <p className="text-sm text-gray-500 mt-1">Upgrade or downgrade at any time. Changes take effect immediately.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {
-                Object.entries(SUBSCRIPTION_PACKAGES).map(([key, config]) => (
-                  <PriceCol
-                    packageKey={key}
-                    key={key}
-                    config={config}
-                    stripeSubscriptionId={subscription?.stripeSubscriptionId || null}
-                    currentPackageId={subscription?.packageId || null}
-                    currentPriceId={subscription?.stripePriceId || null}
-                    hasScheduledChange={!!subscription?.scheduledChange}
-                    hasPaymentMethod={!!subscription?.hasPaymentMethod}
-                    isTrialing={isTrial}
-                    userId={user?.uid}
-                    organizationId={userProfile?.organisationId}
-                    email={user?.email || userProfile?.email || ''}
-                    organizationStripeCustomerId={organization?.stripeCustomerId || subscription?.stripeCustomerId}
-                    onSuccess={(data) => {
-                      console.log('Subscription updated successfully:', data);
-                      window.location.reload();
-                    }}
-                    onCheckout={(pkgName, pkgDisplayName, price, existingSubId) => {
-                      setCheckoutTarget({ packageName: pkgName, packageDisplayName: pkgDisplayName, price, existingSubscriptionId: existingSubId });
-                    }} />
-                ))
+                Object.entries(SUBSCRIPTION_PACKAGES)
+                  .filter(([key]) => key !== 'enterprise')
+                  .map(([key, config]) => (
+                    <PriceCol
+                      packageKey={key}
+                      key={key}
+                      config={config}
+                      stripeSubscriptionId={subscription?.stripeSubscriptionId || null}
+                      currentPackageId={subscription?.packageId || null}
+                      currentPriceId={subscription?.stripePriceId || null}
+                      hasScheduledChange={!!subscription?.scheduledChange}
+                      hasPaymentMethod={!!subscription?.hasPaymentMethod}
+                      isTrialing={isTrial}
+                      userId={user?.uid}
+                      organizationId={userProfile?.organisationId}
+                      email={user?.email || userProfile?.email || ''}
+                      organizationStripeCustomerId={organization?.stripeCustomerId || subscription?.stripeCustomerId}
+                      onSuccess={(data) => {
+                        console.log('Subscription updated successfully:', data);
+                        window.location.reload();
+                      }}
+                      onCheckout={(pkgName, pkgDisplayName, price, existingSubId) => {
+                        setCheckoutTarget({ packageName: pkgName, packageDisplayName: pkgDisplayName, price, existingSubscriptionId: existingSubId });
+                      }} />
+                  ))
               }
             </div>
           </div>
@@ -562,7 +604,7 @@ function BillingPageContent() {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric'
-                        })}s
+                        })}
                       </td>
                       <td className="font-medium">
                         {invoice.number || invoice.id.slice(-8)}

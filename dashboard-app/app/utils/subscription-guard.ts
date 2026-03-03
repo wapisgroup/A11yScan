@@ -1,10 +1,10 @@
 /**
  * Server-side subscription limit checker for API routes.
- * Uses Firebase Admin SDK — safe to use in Next.js API routes.
+ * Uses Prisma (PostgreSQL) — safe to use in Next.js API routes.
  *
  * Org-aware: when the user belongs to an organisation, all limit checks
- * and usage increments are applied against the org owner's subscription doc
- * (subscriptions/{ownerId}), not the individual member's.
+ * and usage increments are applied against the org owner's subscription
+ * (subscriptions.userId = ownerId), not the individual member's.
  *
  * Usage:
  *   const orgId = ...; // from user doc
@@ -12,11 +12,19 @@
  *   if (limitError) return limitError; // 429 with LIMIT_REACHED body
  */
 import { NextResponse } from 'next/server';
-import { adminDB } from '@/utils/firebase-admin';
+import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { SUBSCRIPTION_PACKAGES } from '@/config/subscriptions';
-import { FieldValue } from 'firebase-admin/firestore';
 
 export type LimitType = 'activeProjects' | 'scansThisMonth' | 'scheduledScans';
+
+type SubscriptionRow = {
+  userId: string;
+  status: string | null;
+  packageId: string | null;
+  currentUsage: Record<string, unknown> | null;
+  currentPeriodStart: Date | null;
+};
 
 /** Map usage key → package config limits key (names differ for scans). */
 function packageLimitKey(limitType: LimitType): 'activeProjects' | 'scansPerMonth' | 'scheduledScans' {
@@ -25,26 +33,26 @@ function packageLimitKey(limitType: LimitType): 'activeProjects' | 'scansPerMont
 }
 
 /**
- * Resolve which subscription doc to use for limit checks and usage tracking.
+ * Resolve which subscription to use for limit checks and usage tracking.
  *
- * - Solo user (no org):  subscriptions/{uid}
- * - Org member:          subscriptions/{org.ownerId}
+ * - Solo user (no org):  subscriptions.userId = uid
+ * - Org member:          subscriptions.userId = org.ownerId
  *   (the org owner holds the subscription that covers all members)
  *
- * Falls back to uid if the org doc can't be read.
+ * Falls back to uid if the org row can't be read.
  */
-async function getEffectiveSubscriptionId(
+async function getEffectiveSubscriptionUserId(
   uid: string,
   organisationId?: string | null
 ): Promise<string> {
   if (!organisationId) return uid;
 
   try {
-    const orgSnap = await adminDB.collection('organizations').doc(organisationId).get();
-    if (orgSnap.exists) {
-      const ownerId = orgSnap.data()?.ownerId as string | undefined;
-      if (ownerId) return ownerId;
-    }
+    const org = await prisma.organization.findUnique({
+      where: { id: organisationId },
+      select: { ownerId: true },
+    });
+    if (org?.ownerId) return org.ownerId;
   } catch {
     // Fail open — fall back to uid
   }
@@ -52,30 +60,70 @@ async function getEffectiveSubscriptionId(
   return uid;
 }
 
+async function findSubscriptionByUserId(userId: string): Promise<SubscriptionRow | null> {
+  const rows = await prisma.$queryRaw<SubscriptionRow[]>(
+    Prisma.sql`
+      SELECT
+        "userId",
+        "status",
+        "packageId",
+        "currentUsage",
+        "currentPeriodStart"
+      FROM "subscriptions"
+      WHERE "userId" = ${userId}
+      LIMIT 1
+    `
+  );
+  return rows[0] ?? null;
+}
+
+function toDateOrNull(value: unknown): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizeUsageForCurrentPeriod(
+  currentUsage: Record<string, unknown> | null | undefined,
+  currentPeriodStart: Date | null | undefined
+): Record<string, unknown> {
+  const normalized: Record<string, unknown> = { ...(currentUsage ?? {}) };
+  const cycleStart = toDateOrNull(currentPeriodStart);
+  if (!cycleStart) return normalized;
+
+  const usagePeriodStart = toDateOrNull(normalized.usagePeriodStart);
+  if (!usagePeriodStart || usagePeriodStart < cycleStart) {
+    normalized.scansThisMonth = 0;
+    normalized.usagePeriodStart = cycleStart.toISOString();
+  }
+
+  return normalized;
+}
+
 /**
  * Check whether a user is allowed to perform an action.
  * Pass organisationId when available so the check runs against the org's subscription.
  *
  * Returns null if allowed, or a 429 NextResponse with LIMIT_REACHED body if not.
- * Fails open (returns null) if the subscription doc can't be read.
+ * Fails open (returns null) if the subscription row can't be read.
  */
 export async function checkSubscriptionLimit(
   uid: string,
   limitType: LimitType,
-  organisationId?: string | null
+  organisationId?: string | null,
+  requestedAmount: number = 1
 ): Promise<NextResponse | null> {
   try {
-    const subscriptionId = await getEffectiveSubscriptionId(uid, organisationId);
-    const subSnap = await adminDB.collection('subscriptions').doc(subscriptionId).get();
+    const subscriptionUserId = await getEffectiveSubscriptionUserId(uid, organisationId);
+    const sub = await findSubscriptionByUserId(subscriptionUserId);
 
-    // No subscription doc → treat as basic plan with zero usage
-    const subData = subSnap.exists ? subSnap.data()! : {};
-    const status: string = subData.status ?? 'active';
+    // No subscription row → treat as basic plan with zero usage
+    const status: string = sub?.status ?? 'active';
 
     // Expired / canceled accounts fall back to 'basic' limits
-    const activeStatuses = ['active', 'trialing', 'past_due'];
+    const activeStatuses = ['active', 'trialing', 'trial', 'past_due'];
     const packageId: string = activeStatuses.includes(status)
-      ? (subData.packageId ?? 'basic')
+      ? (sub?.packageId ?? 'basic')
       : 'basic';
 
     const pkg = SUBSCRIPTION_PACKAGES[packageId] ?? SUBSCRIPTION_PACKAGES['basic']!;
@@ -85,16 +133,23 @@ export async function checkSubscriptionLimit(
     // Unlimited means no cap
     if (limit === 'unlimited' || limit === null) return null;
 
-    const currentUsage = (subData.currentUsage ?? {}) as Record<string, number>;
-    const current = Number(currentUsage[limitType] ?? 0);
+    const normalizedUsage = normalizeUsageForCurrentPeriod(
+      sub?.currentUsage,
+      sub?.currentPeriodStart
+    ) as Record<string, number>;
+    const current = Number(normalizedUsage[limitType] ?? 0);
 
-    if (current >= (limit as number)) {
+    const requestedRaw = Number(requestedAmount);
+    const requested = Number.isFinite(requestedRaw) ? Math.max(0, requestedRaw) : 1;
+    if (current + requested > (limit as number)) {
       return NextResponse.json(
         {
           error: 'LIMIT_REACHED',
           limitType,
           limit,
           current,
+          requested,
+          remaining: Math.max(0, (limit as number) - current),
           upgradeUrl: '/workspace/billing',
         },
         { status: 429 }
@@ -103,9 +158,12 @@ export async function checkSubscriptionLimit(
 
     return null;
   } catch (err) {
-    // Fail open — don't block the user if we can't read their subscription
-    console.warn('[subscription-guard] Could not check limit, failing open:', err);
-    return null;
+    // Fail closed for quota checks to avoid unlimited scanning on DB errors.
+    console.warn('[subscription-guard] Could not check limit, failing closed:', err);
+    return NextResponse.json(
+      { error: 'SUBSCRIPTION_CHECK_FAILED', message: 'Could not verify subscription limits.' },
+      { status: 503 }
+    );
   }
 }
 
@@ -118,13 +176,12 @@ export async function getActiveProjectsLimit(
   organisationId?: string | null
 ): Promise<number | null> {
   try {
-    const subscriptionId = await getEffectiveSubscriptionId(uid, organisationId);
-    const subSnap = await adminDB.collection('subscriptions').doc(subscriptionId).get();
-    const subData = subSnap.exists ? subSnap.data()! : {};
-    const status: string = subData.status ?? 'active';
-    const activeStatuses = ['active', 'trialing', 'past_due'];
+    const subscriptionUserId = await getEffectiveSubscriptionUserId(uid, organisationId);
+    const sub = await findSubscriptionByUserId(subscriptionUserId);
+    const status: string = sub?.status ?? 'active';
+    const activeStatuses = ['active', 'trialing', 'trial', 'past_due'];
     const packageId: string = activeStatuses.includes(status)
-      ? (subData.packageId ?? 'basic')
+      ? (sub?.packageId ?? 'basic')
       : 'basic';
     const pkg = SUBSCRIPTION_PACKAGES[packageId] ?? SUBSCRIPTION_PACKAGES['basic']!;
     const limit = pkg.limits.activeProjects;
@@ -138,22 +195,18 @@ export async function getActiveProjectsLimit(
 /**
  * Returns the pagesPerScan cap for the user/org, or null if unlimited.
  * Pass organisationId when available so the cap reflects the org's plan.
- * Fails open (returns null) if the subscription doc can't be read.
+ * Fails open (returns null) if the subscription row can't be read.
  */
 export async function getPagesPerScanLimit(
   uid: string,
   organisationId?: string | null
 ): Promise<number | null> {
   try {
-    const subscriptionId = await getEffectiveSubscriptionId(uid, organisationId);
-    const subSnap = await adminDB.collection('subscriptions').doc(subscriptionId).get();
-
-    // No subscription doc → treat as basic plan
-    const subData = subSnap.exists ? subSnap.data()! : {};
-    const packageId: string = subData.packageId ?? 'basic';
+    const subscriptionUserId = await getEffectiveSubscriptionUserId(uid, organisationId);
+    const sub = await findSubscriptionByUserId(subscriptionUserId);
+    const packageId: string = sub?.packageId ?? 'basic';
     const pkg = SUBSCRIPTION_PACKAGES[packageId] ?? SUBSCRIPTION_PACKAGES['basic']!;
     const limit = pkg.limits.pagesPerScan;
-
     if (limit === 'unlimited') return null;
     return typeof limit === 'number' ? limit : null;
   } catch {
@@ -162,9 +215,8 @@ export async function getPagesPerScanLimit(
 }
 
 /**
- * Atomically increment a usage counter against the correct subscription doc.
+ * Increment a usage counter against the correct subscription row.
  * For org members this increments the org owner's subscription, not the member's.
- * Uses FieldValue.increment so concurrent calls are safe.
  * Fails silently — usage tracking is non-critical.
  */
 export async function incrementSubscriptionUsage(
@@ -174,13 +226,71 @@ export async function incrementSubscriptionUsage(
   organisationId?: string | null
 ): Promise<void> {
   try {
-    const subscriptionId = await getEffectiveSubscriptionId(uid, organisationId);
-    // Use set+merge so the doc is created if it doesn't exist yet,
-    // and FieldValue.increment works correctly on both new and existing fields.
-    await adminDB.collection('subscriptions').doc(subscriptionId).set(
-      { currentUsage: { [field]: FieldValue.increment(delta) } },
-      { merge: true }
-    );
+    const subscriptionUserId = await getEffectiveSubscriptionUserId(uid, organisationId);
+    const increment = Number.isFinite(Number(delta)) ? Math.max(0, Number(delta)) : 0;
+    if (increment <= 0) return;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(
+        Prisma.sql`
+          INSERT INTO "subscriptions" (
+            "id",
+            "userId",
+            "packageId",
+            "status",
+            "currentUsage",
+            "createdAt",
+            "updatedAt"
+          )
+          VALUES (
+            ${crypto.randomUUID().replace(/-/g, '')},
+            ${subscriptionUserId},
+            'basic',
+            'active',
+            '{}'::jsonb,
+            NOW(),
+            NOW()
+          )
+          ON CONFLICT ("userId") DO NOTHING
+        `
+      );
+
+      const rows = await tx.$queryRaw<SubscriptionRow[]>(
+        Prisma.sql`
+          SELECT
+            "userId",
+            "status",
+            "packageId",
+            "currentUsage",
+            "currentPeriodStart"
+          FROM "subscriptions"
+          WHERE "userId" = ${subscriptionUserId}
+          LIMIT 1
+          FOR UPDATE
+        `
+      );
+
+      const sub = rows[0] ?? null;
+      const normalizedUsage = normalizeUsageForCurrentPeriod(
+        sub?.currentUsage,
+        sub?.currentPeriodStart
+      ) as Record<string, number>;
+
+      const updated = {
+        ...normalizedUsage,
+        [field]: (Number(normalizedUsage[field] ?? 0)) + increment,
+      };
+
+      await tx.$executeRaw(
+        Prisma.sql`
+          UPDATE "subscriptions"
+          SET
+            "currentUsage" = ${JSON.stringify(updated)}::jsonb,
+            "updatedAt" = NOW()
+          WHERE "userId" = ${subscriptionUserId}
+        `
+      );
+    });
   } catch (err) {
     console.warn('[subscription-guard] Could not increment usage:', err);
   }

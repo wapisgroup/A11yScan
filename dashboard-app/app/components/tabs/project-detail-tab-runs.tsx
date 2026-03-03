@@ -5,18 +5,19 @@
  * Shared component in tabs/project-detail-tab-runs.tsx.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { RunRow } from "../molecule/project-detail-run-row";
 import { PageContainer } from "../molecule/page-container";
 import { useProjectRunsPageState } from "@/state-services/project-detail-runs-state";
 import { Pagination } from "../molecule/pagination";
-import { Project } from "@/actions/projects";
+import type { Project } from "@/types/project";
 import { RunDoc, runTypesList } from "@/types/run";
 
 import { deleteRun, hideRun, cancelRun } from "@/actions/runs";
 import { useConfirm } from "../providers/window-provider";
 import { RunResultDrawer } from "../modals/run-result-drawer";
 import PageReportDrawer from "../modals/page-report-drawer";
+import { useRunsSse } from "@/hooks/use-runs-sse";
 
 
 type RunsTabProps = {
@@ -28,6 +29,8 @@ export function RunsTab({ project }: RunsTabProps) {
   const confirm = useConfirm();
 
   const state = useProjectRunsPageState(projectId);
+  const sseRuns = useRunsSse(projectId);
+  const lastSseSignatureRef = useRef<string | null>(null);
 
   // Local input state for debounced text filter.
   // Keeps the input snappy while reducing Firestore requests to one per pause.
@@ -55,6 +58,26 @@ export function RunsTab({ project }: RunsTabProps) {
     refresh
   } = state;
   const { totalPages, safePage } = pagination;
+
+  useEffect(() => {
+    const signature = sseRuns
+      .map(
+        (r) =>
+          `${r.id}:${String(r.status ?? "")}:${String(r.startedAt ?? "")}:${String(
+            r.pagesScanned ?? ""
+          )}:${String(r.pagesTotal ?? "")}`
+      )
+      .join("|");
+
+    if (lastSseSignatureRef.current === null) {
+      lastSseSignatureRef.current = signature;
+      return;
+    }
+    if (lastSseSignatureRef.current === signature) return;
+
+    lastSseSignatureRef.current = signature;
+    void refresh();
+  }, [sseRuns, refresh]);
 
   const handleRemoveRun = useCallback(
     async (run: RunDoc) => {

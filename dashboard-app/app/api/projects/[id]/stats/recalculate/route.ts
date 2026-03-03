@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/utils/api-auth";
-import { adminDB } from "@/utils/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 type ProjectStatsAggregate = {
   pagesTotal: number;
@@ -35,34 +35,33 @@ const parseHttpStatus = (value: unknown): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const readSummary = (data: Record<string, unknown>): Record<string, unknown> => {
-  if (data.violationsCount && typeof data.violationsCount === "object") {
-    return data.violationsCount as Record<string, unknown>;
+const addPageToStats = (
+  target: ProjectStatsAggregate,
+  data: {
+    status: string | null;
+    httpStatus: number | null;
+    violationCount:
+      | { critical: number; serious: number; moderate: number; minor: number }
+      | null;
   }
-  if (data.lastStats && typeof data.lastStats === "object") {
-    return data.lastStats as Record<string, unknown>;
-  }
-  const scanSummary =
-    data.lastScan && typeof data.lastScan === "object"
-      ? (data.lastScan as Record<string, unknown>).summary
-      : null;
-  if (scanSummary && typeof scanSummary === "object") {
-    return scanSummary as Record<string, unknown>;
-  }
-  return {};
-};
-
-const addPageToStats = (target: ProjectStatsAggregate, data: Record<string, unknown>) => {
+) => {
   const status = parseHttpStatus(data.httpStatus);
   if (status == null || (status >= 200 && status < 300)) target.pagesTotal += 1;
   else target.pages404 += 1;
 
-  const summary = readSummary(data);
+  const summary = data.violationCount ?? {
+    critical: 0,
+    serious: 0,
+    moderate: 0,
+    minor: 0,
+  };
+
   const hasSummary =
-    summary.critical !== undefined ||
-    summary.serious !== undefined ||
-    summary.moderate !== undefined ||
-    summary.minor !== undefined;
+    summary.critical > 0 ||
+    summary.serious > 0 ||
+    summary.moderate > 0 ||
+    summary.minor > 0;
+
   if (data.status === "scanned" || hasSummary) {
     target.pagesScanned += 1;
   }
@@ -73,41 +72,63 @@ const addPageToStats = (target: ProjectStatsAggregate, data: Record<string, unkn
   target.minor += toSafeNumber(summary.minor);
 };
 
-/**
- * POST /api/projects/[id]/stats/recalculate
- * Rebuilds projectStats from projects/{id}/pages.
- */
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return withAuth(request, async (_req) => {
-    const { id: projectId } = await params;
-    if (!projectId) {
-      return NextResponse.json({ error: "projectId is required" }, { status: 400 });
-    }
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    const projectRef = adminDB.collection("projects").doc(projectId);
-    const projectSnap = await projectRef.get();
-    if (!projectSnap.exists) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    }
+  const { id: projectId } = await params;
+  if (!projectId) {
+    return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+  }
 
-    const pagesSnap = await projectRef.collection("pages").get();
-    const stats = emptyStats();
-    pagesSnap.forEach((doc) => addPageToStats(stats, doc.data() as Record<string, unknown>));
-
-    await projectRef.set(
-      {
-        projectStats: {
-          ...stats,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    return NextResponse.json({ ok: true, stats, pagesCount: pagesSnap.size });
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { ownerId: true, organizationId: true },
   });
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const canAccess =
+    project.ownerId === session.user.id ||
+    (session.user.organizationId && project.organizationId === session.user.organizationId);
+  if (!canAccess) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const pages = await prisma.page.findMany({
+    where: { projectId },
+    select: {
+      status: true,
+      httpStatus: true,
+      violationCount: {
+        select: {
+          critical: true,
+          serious: true,
+          moderate: true,
+          minor: true,
+        },
+      },
+    },
+  });
+
+  const stats = emptyStats();
+  pages.forEach((page) => addPageToStats(stats, page));
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      projectStats: {
+        ...stats,
+        updatedAt: new Date().toISOString(),
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  return NextResponse.json({ ok: true, stats, pagesCount: pages.length });
 }

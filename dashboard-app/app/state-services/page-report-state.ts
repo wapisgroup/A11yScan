@@ -16,12 +16,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ref as storageRef, getDownloadURL } from "firebase/storage";
 
-import { storage, auth } from "@/utils/firebase";
+import { storage } from "@/utils/firebase";
 import { getProject } from "@/actions/projects";
 import { getPage } from "@/actions/pages";
 import { getScansForPage, getScanDetail } from "@/actions/scans";
+import type { ScanDoc } from "@/actions/scans";
 import type { Project } from "@/actions/projects";
 import type { PageDoc } from "@/types/page-types";
+import type { TimestampLike } from "@/types/default";
 
 type ViolationsCount = {
   critical?: number;
@@ -49,16 +51,10 @@ type Issue = {
   [key: string]: unknown;
 };
 
-export type ScanDoc = {
-  id: string;
-  pageId?: string;
-  createdAt?: { toDate: () => Date };
-  type?: string;
-  runId?: string;
-  artifactPath?: string | null;
+export type PageReportScanDoc = ScanDoc & {
+  createdAt?: TimestampLike;
   summary?: ViolationsCount | null;
   issues?: Issue[];
-  [key: string]: unknown;
 };
 
 export type PageReportState = {
@@ -68,8 +64,8 @@ export type PageReportState = {
   // Data
   project: Project | null;
   page: PageDoc | null;
-  scans: ScanDoc[];
-  selectedScan: ScanDoc | null;
+  scans: PageReportScanDoc[];
+  selectedScan: PageReportScanDoc | null;
   downloadUrl: string | null;
   snapshotHtml: string | null;
 
@@ -100,11 +96,11 @@ export const usePageReportState = (
 
   const [project, setProject] = useState<Project | null>(null);
   const [page, setPage] = useState<PageDoc | null>(null);
-  const [scans, setScans] = useState<ScanDoc[]>([]);
+  const [scans, setScans] = useState<PageReportScanDoc[]>([]);
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const selectedScanIdRef = useRef<string | null>(null);
   selectedScanIdRef.current = selectedScanId;
-  const [selectedScan, setSelectedScan] = useState<ScanDoc | null>(null);
+  const [selectedScan, setSelectedScan] = useState<PageReportScanDoc | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [snapshotHtml, setSnapshotHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -158,7 +154,7 @@ export const usePageReportState = (
 
     try {
       const list = await getScansForPage(pageId);
-      setScans(list);
+      setScans(list as unknown as PageReportScanDoc[]);
 
       // Default to the latest scan if nothing is selected yet.
       if (!selectedScanIdRef.current && list.length) {
@@ -184,7 +180,7 @@ export const usePageReportState = (
       if (!selectedScanId) return;
       try {
         const scan = await getScanDetail(selectedScanId);
-        setSelectedScan(scan);
+        setSelectedScan(scan as unknown as PageReportScanDoc | null);
       } catch (err) {
         console.error("Failed to load scan detail", err);
         setSelectedScan(null);
@@ -241,12 +237,8 @@ export const usePageReportState = (
       if (!runId || !scanPageId || !projectId) return;
 
       try {
-        const token = await auth.currentUser?.getIdToken();
         const urlParam = storedUrl ? `&url=${encodeURIComponent(storedUrl)}` : '';
-        const res = await fetch(
-          `/api/projects/${projectId}/snapshot?runId=${runId}&pageId=${scanPageId}${urlParam}`,
-          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-        );
+        const res = await fetch(`/api/projects/${projectId}/snapshot?runId=${runId}&pageId=${scanPageId}${urlParam}`);
         if (res.ok) setSnapshotHtml(await res.text());
       } catch { /* snapshot not available */ }
     }
@@ -278,9 +270,12 @@ export const usePageReportState = (
     }
 
     const map: Record<string, Issue[]> = {};
+    const issues = selectedScan.issues as unknown[];
 
-    selectedScan.issues.forEach((issue) => {
-      const key = issue.ruleId || issue.message || 'unknown';
+    issues.forEach((rawIssue) => {
+      if (!rawIssue || typeof rawIssue !== "object") return;
+      const issue = rawIssue as Issue;
+      const key = issue.ruleId || issue.message || "unknown";
       if (!map[key]) {
         map[key] = [];
       }

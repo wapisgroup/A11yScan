@@ -1,17 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { adminDB } from '@/utils/firebase-admin';
-import { withAuth } from '@/utils/api-auth';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getActiveProjectsLimit, incrementSubscriptionUsage } from '@/utils/subscription-guard';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
-/**
- * Validates a URL string (server-side mirror of client validateUrl).
- */
 function validateUrl(url: string): boolean {
   if (!url?.trim()) return false;
   try {
     const urlToTest =
-      url.startsWith('http://') || url.startsWith('https://')
+      url.startsWith("http://") || url.startsWith("https://")
         ? url
         : `https://${url}`;
     new URL(urlToTest);
@@ -21,133 +17,145 @@ function validateUrl(url: string): boolean {
   }
 }
 
-/**
- * Generates a project name from a URL hostname.
- * Example: "https://sta.ablelytics.com/" → "Sta Ablelytics Com"
- */
 function generateNameFromUrl(url: string): string {
-  if (!url) return '';
+  if (!url) return "";
   try {
     const urlToTest =
-      url.startsWith('http://') || url.startsWith('https://')
+      url.startsWith("http://") || url.startsWith("https://")
         ? url
         : `https://${url}`;
-    const hostname = new URL(urlToTest).hostname.replace(/^www\./, '');
+    const hostname = new URL(urlToTest).hostname.replace(/^www\./, "");
     return hostname
-      .split('.')
+      .split(".")
       .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-      .join(' ');
+      .join(" ");
   } catch {
-    return '';
+    return "";
   }
 }
 
-/**
- * POST /api/projects
- * Creates a new project after checking the activeProjects subscription limit.
- *
- * Body: { name?: string; domain: string; config?: object }
- * Returns: { id: string; name: string | null; domain: string; owner: string }
- */
+export async function GET(_request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { organizationId: true },
+  });
+  const organizationId = dbUser?.organizationId ?? session.user.organizationId ?? null;
+
+  const rows = await prisma.project.findMany({
+    where: organizationId
+      ? { organizationId }
+      : { ownerId: session.user.id },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      domain: true,
+      ownerId: true,
+      organizationId: true,
+      createdAt: true,
+      lastScanAt: true,
+    },
+  });
+
+  return NextResponse.json(
+    rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      domain: row.domain,
+      owner: row.ownerId,
+      organisationId: row.organizationId,
+      organizationId: row.organizationId,
+      createdAt: row.createdAt,
+      lastScanAt: row.lastScanAt,
+    }))
+  );
+}
+
 export async function POST(request: NextRequest) {
-  return withAuth(request, async (req, user) => {
-    try {
-      const body = await req.json();
-      const { name, domain, config } = body as {
-        name?: string;
-        domain?: string;
-        config?: Record<string, unknown>;
-      };
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-      // Validate domain
-      if (!domain) {
-        return NextResponse.json({ error: 'domain is required' }, { status: 400 });
-      }
-      if (!validateUrl(domain)) {
-        return NextResponse.json(
-          { error: 'Invalid URL address. Please provide a valid URL.' },
-          { status: 400 }
-        );
-      }
+  try {
+    const body = await request.json();
+    const { name, domain, config } = body as {
+      name?: string;
+      domain?: string;
+      config?: Record<string, unknown>;
+    };
 
-      // Get organisationId from user doc (needed for limit check, uniqueness check, and payload)
-      let organisationId: string | null = null;
-      try {
-        const userSnap = await adminDB.collection('users').doc(user.uid).get();
-        if (userSnap.exists) {
-          organisationId = (userSnap.data()?.organisationId as string | undefined) ?? null;
-        }
-      } catch {
-        // Non-critical — proceed without organisationId
-      }
-
-      // Fetch all org projects once — used for both the limit check and the uniqueness check.
-      // Counting actual docs is more reliable than a potentially stale usage counter.
-      const existingSnap = await adminDB
-        .collection('projects')
-        .where(organisationId ? 'organisationId' : 'owner', '==', organisationId ?? user.uid)
-        .get();
-
-      // Check active-projects limit against the org's plan using the real count
-      const activeProjectsLimit = await getActiveProjectsLimit(user.uid, organisationId);
-      if (activeProjectsLimit !== null && existingSnap.size >= activeProjectsLimit) {
-        return NextResponse.json(
-          {
-            error: 'LIMIT_REACHED',
-            limitType: 'activeProjects',
-            limit: activeProjectsLimit,
-            current: existingSnap.size,
-            upgradeUrl: '/workspace/billing',
-          },
-          { status: 429 }
-        );
-      }
-
-      // Check URL uniqueness within the same org (or for this user if solo)
-      const normalizedDomain = domain.toLowerCase().trim();
-      const duplicate = existingSnap.docs.some(
-        (d) => String(d.data().domain ?? '').toLowerCase().trim() === normalizedDomain
-      );
-      if (duplicate) {
-        return NextResponse.json(
-          { error: 'A project with this URL already exists in your organisation.' },
-          { status: 409 }
-        );
-      }
-
-      const projectName = name?.trim() || generateNameFromUrl(domain);
-
-      const payload: Record<string, unknown> = {
-        name: projectName || null,
-        domain,
-        owner: user.uid,
-        createdBy: user.uid,
-        organisationId: organisationId ?? null,
-        createdAt: FieldValue.serverTimestamp(),
-        ...(config ? { config } : {}),
-      };
-
-      const ref = await adminDB.collection('projects').add(payload);
-
-      // Increment org-level usage counter server-side (atomic, safe for concurrent requests)
-      await incrementSubscriptionUsage(user.uid, 'activeProjects', 1, organisationId);
-
-      return NextResponse.json({
-        id: ref.id,
-        name: projectName || null,
-        domain,
-        owner: user.uid,
-        organisationId: organisationId ?? null,
-      });
-    } catch (error) {
-      console.error('Error creating project:', error);
+    if (!domain) {
+      return NextResponse.json({ error: "domain is required" }, { status: 400 });
+    }
+    if (!validateUrl(domain)) {
       return NextResponse.json(
-        {
-          error: 'Failed to create project',
-          details: error instanceof Error ? error.message : String(error),
-        },
-        { status: 500 }
+        { error: "Invalid URL address. Please provide a valid URL." },
+        { status: 400 }
       );
     }
-  });
+
+    const normalizedDomain = domain.toLowerCase().trim();
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+    const organizationId = dbUser?.organizationId ?? session.user.organizationId ?? null;
+
+    const duplicate = await prisma.project.findFirst({
+      where: organizationId
+        ? { organizationId, domain: normalizedDomain }
+        : { ownerId: session.user.id, domain: normalizedDomain },
+      select: { id: true },
+    });
+
+    if (duplicate) {
+      return NextResponse.json(
+        { error: "A project with this URL already exists in your organisation." },
+        { status: 409 }
+      );
+    }
+
+    const projectName = name?.trim() || generateNameFromUrl(normalizedDomain) || null;
+
+    const created = await prisma.project.create({
+      data: {
+        name: projectName,
+        domain: normalizedDomain,
+        ownerId: session.user.id,
+        organizationId,
+        config: config ? (config as Prisma.InputJsonValue) : Prisma.DbNull,
+      },
+      select: {
+        id: true,
+        name: true,
+        domain: true,
+        ownerId: true,
+        organizationId: true,
+      },
+    });
+
+    return NextResponse.json({
+      id: created.id,
+      name: created.name,
+      domain: created.domain,
+      owner: created.ownerId,
+      organisationId: created.organizationId,
+      organizationId: created.organizationId,
+    });
+  } catch (error) {
+    console.error("Error creating project:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to create project",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
 }

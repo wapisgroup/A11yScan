@@ -1,5 +1,15 @@
-import { collection, query, where, getDocs, limit, orderBy } from "@/utils/firestore-read-tracker";
-import { db } from "@/utils/firebase";
+"use server";
+
+/**
+ * dashboardService — Phase 9 (PostgreSQL)
+ * All Firestore reads replaced with Prisma queries.
+ * Auth is resolved internally via auth() — callers no longer need to pass
+ * organisationId. The parameter is accepted but ignored so existing call
+ * sites keep compiling without changes.
+ */
+
+import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
 
 export type IssueBreakdown = {
   critical: number;
@@ -62,230 +72,6 @@ export type DashboardData = {
   activeRuns: ActiveRun[];
 };
 
-type SummaryLike = Partial<Record<keyof IssueBreakdown, unknown>>;
-
-const ZERO_ISSUES: IssueBreakdown = {
-  critical: 0,
-  serious: 0,
-  moderate: 0,
-  minor: 0,
-};
-
-// ── Request deduplication + short-lived cache ─────────────────────────────────
-// Prevents multiple simultaneous widget loads from each triggering a full
-// Firestore aggregation. All callers during an in-flight fetch share the same
-// Promise. After resolution, results are served from cache for CACHE_TTL_MS.
-
-const PAGE_AGG_CACHE_TTL_MS = 60_000;  // 1 minute
-const ACTIVE_SCANS_CACHE_TTL_MS = 30_000; // 30 seconds (changes more often)
-
-type CacheEntry<T> = {
-  promise: Promise<T>;
-  resolvedAt: number | null;
-  value: T | null;
-};
-
-const pageAggCache = new Map<string, CacheEntry<PageAggregation>>();
-const activeScansCache = new Map<string, CacheEntry<ActiveRun[]>>();
-
-function cacheKey(organisationId: string, projectId?: string): string {
-  return projectId ? `${organisationId}::${projectId}` : organisationId;
-}
-
-function withCache<T>(
-  cache: Map<string, CacheEntry<T>>,
-  key: string,
-  ttlMs: number,
-  fetcher: () => Promise<T>
-): Promise<T> {
-  const existing = cache.get(key);
-
-  if (existing) {
-    // In-flight — return the same Promise so all callers share one fetch
-    if (existing.resolvedAt === null) return existing.promise;
-    // Fresh cache hit
-    if (Date.now() - existing.resolvedAt < ttlMs) return Promise.resolve(existing.value!);
-  }
-
-  const entry: CacheEntry<T> = { promise: null!, resolvedAt: null, value: null };
-  entry.promise = fetcher()
-    .then((value) => {
-      entry.resolvedAt = Date.now();
-      entry.value = value;
-      return value;
-    })
-    .catch((err) => {
-      cache.delete(key); // Allow retry on error
-      throw err;
-    });
-
-  cache.set(key, entry);
-  return entry.promise;
-}
-
-/**
- * Invalidate cached aggregation for an org (call after a scan completes or
- * a project is created/deleted so the dashboard reflects the latest state).
- */
-export function clearDashboardCache(organisationId: string, projectId?: string): void {
-  pageAggCache.delete(cacheKey(organisationId, projectId));
-  activeScansCache.delete(organisationId);
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function toNumber(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function asDate(value: unknown): Date | null {
-  if (!value) return null;
-
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-
-  if (typeof (value as { toDate?: unknown }).toDate === "function") {
-    const maybe = (value as { toDate: () => Date }).toDate();
-    return maybe instanceof Date && !Number.isNaN(maybe.getTime()) ? maybe : null;
-  }
-
-  const parsed = new Date(String(value));
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function normalizeImpact(impact: unknown): TopIssueRule["impact"] {
-  const value = String(impact ?? "").toLowerCase();
-  if (value === "critical" || value === "serious" || value === "moderate" || value === "minor") {
-    return value;
-  }
-  return "unknown";
-}
-
-function summaryFromObject(summaryLike: SummaryLike | null | undefined): IssueBreakdown {
-  if (!summaryLike) {
-    return { ...ZERO_ISSUES };
-  }
-
-  return {
-    critical: toNumber(summaryLike.critical),
-    serious: toNumber(summaryLike.serious),
-    moderate: toNumber(summaryLike.moderate),
-    minor: toNumber(summaryLike.minor),
-  };
-}
-
-function summaryFromViolations(violations: unknown): IssueBreakdown {
-  const summary = { ...ZERO_ISSUES };
-  if (!Array.isArray(violations)) {
-    return summary;
-  }
-
-  for (const violation of violations) {
-    const impact = normalizeImpact((violation as { impact?: unknown })?.impact);
-    if (impact !== "unknown") {
-      summary[impact] += 1;
-    }
-  }
-
-  return summary;
-}
-
-function hasAnyIssue(summary: IssueBreakdown): boolean {
-  return summary.critical + summary.serious + summary.moderate + summary.minor > 0;
-}
-
-function getPageSummary(pageData: Record<string, unknown>): IssueBreakdown {
-  // Use one source only to avoid double-counting.
-  const fromLastStats = summaryFromObject((pageData.lastStats as SummaryLike | undefined) ?? undefined);
-  if (hasAnyIssue(fromLastStats)) return fromLastStats;
-
-  const violationsCount = pageData.violationsCount;
-  if (violationsCount && typeof violationsCount === "object") {
-    const fromViolationsCount = summaryFromObject(violationsCount as SummaryLike);
-    if (hasAnyIssue(fromViolationsCount)) return fromViolationsCount;
-  }
-
-  const fromSummary = summaryFromObject((pageData.summary as SummaryLike | undefined) ?? undefined);
-  if (hasAnyIssue(fromSummary)) return fromSummary;
-
-  const lastScan = pageData.lastScan;
-  if (lastScan && typeof lastScan === "object") {
-    const fromLastScan = summaryFromObject(((lastScan as Record<string, unknown>).summary as SummaryLike | undefined) ?? undefined);
-    if (hasAnyIssue(fromLastScan)) return fromLastScan;
-  }
-
-  return summaryFromViolations(pageData.violations);
-}
-
-function getLastScannedAt(pageData: Record<string, unknown>): Date | null {
-  const lastScan = pageData.lastScan;
-  if (lastScan && typeof lastScan === "object") {
-    const lastScanObj = lastScan as Record<string, unknown>;
-    return (
-      asDate(lastScanObj.createdAt) ??
-      asDate(lastScanObj.finishedAt) ??
-      asDate(lastScanObj.startedAt) ??
-      asDate(lastScanObj.at)
-    );
-  }
-
-  return asDate(pageData.updatedAt);
-}
-
-function isPageScanned(pageData: Record<string, unknown>, summary: IssueBreakdown, lastScanned: Date | null): boolean {
-  const status = String(pageData.status ?? "").toLowerCase();
-  const scanStatus = String(pageData.scanStatus ?? "").toLowerCase();
-  return (
-    status === "scanned" ||
-    scanStatus === "done" ||
-    scanStatus === "completed" ||
-    hasAnyIssue(summary) ||
-    Boolean(lastScanned)
-  );
-}
-
-function toTopRules(ruleMap: Map<string, TopIssueRule>, maxItems = 8): TopIssueRule[] {
-  return Array.from(ruleMap.values())
-    .sort((a, b) => b.count - a.count)
-    .slice(0, maxItems);
-}
-
-function addRuleCounts(ruleMap: Map<string, TopIssueRule>, violations: unknown): void {
-  if (!Array.isArray(violations)) {
-    return;
-  }
-
-  for (const raw of violations) {
-    const violation = (raw ?? {}) as Record<string, unknown>;
-    const id = String(violation.id ?? violation.ruleId ?? violation.help ?? "unknown-rule");
-    const label = String(violation.help ?? violation.description ?? violation.id ?? "Unknown issue");
-    const impact = normalizeImpact(violation.impact);
-
-    const current = ruleMap.get(id);
-    if (current) {
-      current.count += 1;
-      continue;
-    }
-
-    ruleMap.set(id, {
-      id,
-      label,
-      impact,
-      count: 1,
-    });
-  }
-}
-
-function mergeBreakdown(target: IssueBreakdown, source: IssueBreakdown): void {
-  target.critical += source.critical;
-  target.serious += source.serious;
-  target.moderate += source.moderate;
-  target.minor += source.minor;
-}
-
-// ── Per-widget data types ─────────────────────────────────────────────────────
-
 export type SummaryCardsData = {
   totalProjects: number;
   totalPages: number;
@@ -325,7 +111,127 @@ export type ProblemPagesData = {
   problemPages: ProblemPage[];
 };
 
-// ── Shared internal page aggregation ─────────────────────────────────────────
+// ── Auth helper ───────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the current user's identity from the session.
+ * Returns { uid, orgId, projectFilter } — identical logic to getProjects().
+ */
+async function getAuthFilter() {
+  const session = await auth();
+  const uid = session?.user?.id ?? "";
+  const orgId = session?.user?.organizationId ?? null;
+  const projectFilter: Record<string, string> = orgId
+    ? { organizationId: orgId }
+    : { ownerId: uid };
+  return { uid, orgId, projectFilter };
+}
+
+// ── Request deduplication + short-lived cache ─────────────────────────────────
+
+const PAGE_AGG_CACHE_TTL_MS = 60_000;
+const ACTIVE_SCANS_CACHE_TTL_MS = 30_000;
+
+type CacheEntry<T> = {
+  promise: Promise<T>;
+  resolvedAt: number | null;
+  value: T | null;
+};
+
+const pageAggCache = new Map<string, CacheEntry<PageAggregation>>();
+const activeScansCache = new Map<string, CacheEntry<ActiveRun[]>>();
+
+function cacheKey(base: string, projectId?: string): string {
+  return projectId ? `${base}::${projectId}` : base;
+}
+
+function withCache<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string,
+  ttlMs: number,
+  fetcher: () => Promise<T>
+): Promise<T> {
+  const existing = cache.get(key);
+  if (existing) {
+    if (existing.resolvedAt === null) return existing.promise;
+    if (Date.now() - existing.resolvedAt < ttlMs) return Promise.resolve(existing.value!);
+  }
+
+  const entry: CacheEntry<T> = { promise: null!, resolvedAt: null, value: null };
+  entry.promise = fetcher()
+    .then((value) => {
+      entry.resolvedAt = Date.now();
+      entry.value = value;
+      return value;
+    })
+    .catch((err) => {
+      cache.delete(key);
+      throw err;
+    });
+
+  cache.set(key, entry);
+  return entry.promise;
+}
+
+export async function clearDashboardCache(_organisationId?: string, projectId?: string): Promise<void> {
+  const { uid, orgId } = await getAuthFilter();
+  const base = orgId ?? uid;
+  pageAggCache.delete(cacheKey(base, projectId));
+  activeScansCache.delete(base);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const ZERO_ISSUES: IssueBreakdown = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+
+function toNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function asDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizeImpact(impact: unknown): TopIssueRule["impact"] {
+  const v = String(impact ?? "").toLowerCase();
+  if (v === "critical" || v === "serious" || v === "moderate" || v === "minor") return v;
+  return "unknown";
+}
+
+function mergeBreakdown(target: IssueBreakdown, source: IssueBreakdown): void {
+  target.critical += source.critical;
+  target.serious += source.serious;
+  target.moderate += source.moderate;
+  target.minor += source.minor;
+}
+
+function hasAnyIssue(s: IssueBreakdown): boolean {
+  return s.critical + s.serious + s.moderate + s.minor > 0;
+}
+
+function addRuleCounts(ruleMap: Map<string, TopIssueRule>, violations: unknown): void {
+  if (!Array.isArray(violations)) return;
+  for (const raw of violations) {
+    const v = (raw ?? {}) as Record<string, unknown>;
+    const id = String(v.id ?? v.ruleId ?? v.help ?? "unknown-rule");
+    const label = String(v.help ?? v.description ?? v.id ?? "Unknown issue");
+    const impact = normalizeImpact(v.impact);
+    const current = ruleMap.get(id);
+    if (current) { current.count += 1; continue; }
+    ruleMap.set(id, { id, label, impact, count: 1 });
+  }
+}
+
+function toTopRules(ruleMap: Map<string, TopIssueRule>, maxItems = 8): TopIssueRule[] {
+  return Array.from(ruleMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, maxItems);
+}
+
+// ── Internal aggregation types ─────────────────────────────────────────────────
 
 type PageAggregation = {
   totalProjects: number;
@@ -342,53 +248,56 @@ type PageAggregation = {
   problemPages: ProblemPage[];
 };
 
-/**
- * Core Firestore aggregation — reads all org projects, their pages, and recent
- * scans. Results are cached and deduplicated via `withCache` so multiple
- * simultaneous widget loads share a single fetch.
- */
+// ── Core Prisma aggregation ────────────────────────────────────────────────────
+
 async function fetchPageAggregation(
-  organisationId: string,
+  projectFilter: Record<string, string>,
   projectId?: string
 ): Promise<PageAggregation> {
-  let projectsQuery;
-  if (projectId) {
-    projectsQuery = query(
-      collection(db, "projects"),
-      where("organisationId", "==", organisationId),
-      where("__name__", "==", projectId)
-    );
-  } else {
-    projectsQuery = query(
-      collection(db, "projects"),
-      where("organisationId", "==", organisationId)
-    );
+  const projectWhere = projectId
+    ? { ...projectFilter, id: projectId }
+    : projectFilter;
+
+  const projects = await prisma.project.findMany({
+    where: projectWhere,
+    select: { id: true, name: true },
+  });
+
+  const totalProjects = projects.length;
+  const projectsMap = new Map(projects.map((p) => [p.id, p]));
+  const projectIds = projects.map((p) => p.id);
+
+  if (projectIds.length === 0) {
+    return {
+      totalProjects: 0,
+      totalPages: 0,
+      pagesScanned: 0,
+      pagesUnscanned: 0,
+      failedPages: 0,
+      stalePages: 0,
+      scannedLast7Days: 0,
+      lastScanTime: null,
+      issueBreakdown: { ...ZERO_ISSUES },
+      topIssueRules: [],
+      recentPages: [],
+      problemPages: [],
+    };
   }
 
-  const projectsSnap = await getDocs(projectsQuery);
-  const totalProjects = projectsSnap.size;
-  const projectsMap = new Map<string, Record<string, unknown>>(
-    projectsSnap.docs.map((docSnap) => [
-      docSnap.id,
-      { id: docSnap.id, ...(docSnap.data() as Record<string, unknown>) },
-    ])
-  );
-
-  const projectEntries = Array.from(projectsMap.entries());
-
-  const pageSnapshots = await Promise.all(
-    projectEntries.map(async ([pid]) => {
-      const subcollectionSnap = await getDocs(
-        collection(db, "projects", pid, "pages")
-      );
-      if (!subcollectionSnap.empty) return { projectId: pid, snap: subcollectionSnap };
-
-      const topLevelSnap = await getDocs(
-        query(collection(db, "pages"), where("projectId", "==", pid))
-      );
-      return { projectId: pid, snap: topLevelSnap };
-    })
-  );
+  // Fetch pages with violation counts
+  const pages = await prisma.page.findMany({
+    where: { projectId: { in: projectIds } },
+    select: {
+      id: true,
+      url: true,
+      projectId: true,
+      status: true,
+      updatedAt: true,
+      violationCount: {
+        select: { critical: true, serious: true, moderate: true, minor: true },
+      },
+    },
+  });
 
   let totalPages = 0;
   let pagesScanned = 0;
@@ -401,82 +310,75 @@ async function fetchPageAggregation(
   const issueBreakdownAcc: IssueBreakdown = { ...ZERO_ISSUES };
   const recentPagesAcc: RecentPage[] = [];
   const problemPagesAcc: ProblemPage[] = [];
-  const issueRuleMap = new Map<string, TopIssueRule>();
 
   const now = Date.now();
   const staleThresholdMs = 30 * 24 * 60 * 60 * 1000;
   const recentThresholdMs = 7 * 24 * 60 * 60 * 1000;
 
-  for (const { projectId: pid, snap } of pageSnapshots) {
-    const project = projectsMap.get(pid);
-    const projectName = String(project?.name ?? "Unknown Project");
-    totalPages += snap.size;
+  for (const page of pages) {
+    const project = projectsMap.get(page.projectId);
+    const projectName = project?.name ?? "Unknown Project";
+    totalPages += 1;
 
-    for (const pageDoc of snap.docs) {
-      const pageData = pageDoc.data() as Record<string, unknown>;
-      const summary = getPageSummary(pageData);
-      const lastScanned = getLastScannedAt(pageData);
-      const scanned = isPageScanned(pageData, summary, lastScanned);
+    const vc = page.violationCount;
+    const summary: IssueBreakdown = vc
+      ? { critical: vc.critical, serious: vc.serious, moderate: vc.moderate, minor: vc.minor }
+      : { ...ZERO_ISSUES };
 
-      if (scanned) pagesScanned += 1;
-      else pagesUnscanned += 1;
+    const status = String(page.status ?? "").toLowerCase();
+    const scanned = status === "scanned" || hasAnyIssue(summary);
+    const lastScanned = asDate(page.updatedAt);
 
-      if (lastScanned) {
-        const scanMs = lastScanned.getTime();
-        if (!lastScanTime || scanMs > lastScanTime.getTime()) lastScanTime = lastScanned;
-        if (now - scanMs <= recentThresholdMs) scannedLast7Days += 1;
-        if (now - scanMs > staleThresholdMs) stalePages += 1;
-      }
+    if (scanned) pagesScanned += 1;
+    else pagesUnscanned += 1;
 
-      const status = String(pageData.status ?? "").toLowerCase();
-      const scanStatus = String(pageData.scanStatus ?? "").toLowerCase();
-      if (status === "failed" || scanStatus === "failed") failedPages += 1;
+    if (lastScanned) {
+      const ms = lastScanned.getTime();
+      if (!lastScanTime || ms > lastScanTime.getTime()) lastScanTime = lastScanned;
+      if (now - ms <= recentThresholdMs) scannedLast7Days += 1;
+      if (now - ms > staleThresholdMs) stalePages += 1;
+    }
 
-      mergeBreakdown(issueBreakdownAcc, summary);
+    if (status === "failed") failedPages += 1;
 
-      if (lastScanned) {
-        recentPagesAcc.push({
-          id: pageDoc.id,
-          url: String(pageData.url ?? "Unknown URL"),
-          projectName,
-          projectId: pid,
-          status: status || "scanned",
-          criticalIssues: summary.critical,
-          lastScanned,
-        });
-      }
+    mergeBreakdown(issueBreakdownAcc, summary);
 
-      if (summary.critical > 5) {
-        problemPagesAcc.push({ id: pageDoc.id, url: String(pageData.url ?? "Unknown URL"), projectName, projectId: pid, criticalCount: summary.critical, type: "critical" });
-      } else if (status === "failed" || scanStatus === "failed") {
-        problemPagesAcc.push({ id: pageDoc.id, url: String(pageData.url ?? "Unknown URL"), projectName, projectId: pid, criticalCount: 0, type: "failed" });
-      } else if (lastScanned && now - lastScanned.getTime() > staleThresholdMs) {
-        problemPagesAcc.push({ id: pageDoc.id, url: String(pageData.url ?? "Unknown URL"), projectName, projectId: pid, criticalCount: 0, type: "stale" });
-      }
+    if (lastScanned) {
+      recentPagesAcc.push({
+        id: page.id,
+        url: page.url,
+        projectName,
+        projectId: page.projectId,
+        status: status || "scanned",
+        criticalIssues: summary.critical,
+        lastScanned,
+      });
+    }
+
+    if (summary.critical > 5) {
+      problemPagesAcc.push({ id: page.id, url: page.url, projectName, projectId: page.projectId, criticalCount: summary.critical, type: "critical" });
+    } else if (status === "failed") {
+      problemPagesAcc.push({ id: page.id, url: page.url, projectName, projectId: page.projectId, criticalCount: 0, type: "failed" });
+    } else if (lastScanned && now - lastScanned.getTime() > staleThresholdMs) {
+      problemPagesAcc.push({ id: page.id, url: page.url, projectName, projectId: page.projectId, criticalCount: 0, type: "stale" });
     }
   }
 
-  await Promise.all(
-    projectEntries.map(async ([pid]) => {
-      try {
-        const scansSnap = await getDocs(
-          query(
-            collection(db, "projects", pid, "scans"),
-            orderBy("createdAt", "desc"),
-            limit(30)
-          )
-        );
-        for (const scanDoc of scansSnap.docs) {
-          const scanData = scanDoc.data() as Record<string, unknown>;
-          addRuleCounts(issueRuleMap, scanData.issues);
-        }
-      } catch {
-        // Scans subcollection may not exist or lack the index — skip silently.
-      }
-    })
-  );
+  // Top issue rules from recent scans
+  const issueRuleMap = new Map<string, TopIssueRule>();
+  const recentScans = await prisma.scan.findMany({
+    where: { projectId: { in: projectIds } },
+    orderBy: { createdAt: "desc" },
+    take: 30 * Math.max(1, projectIds.length),
+    select: { issues: true },
+  });
+  for (const scan of recentScans) {
+    addRuleCounts(issueRuleMap, scan.issues);
+  }
 
-  recentPagesAcc.sort((a, b) => (b.lastScanned?.getTime() ?? 0) - (a.lastScanned?.getTime() ?? 0));
+  recentPagesAcc.sort(
+    (a, b) => (b.lastScanned?.getTime() ?? 0) - (a.lastScanned?.getTime() ?? 0)
+  );
 
   return {
     totalProjects,
@@ -494,112 +396,58 @@ async function fetchPageAggregation(
   };
 }
 
-/** Cached wrapper — all callers within the TTL window share one fetch. */
-function loadPageAggregation(organisationId: string, projectId?: string): Promise<PageAggregation> {
+async function loadPageAggregation(projectId?: string): Promise<PageAggregation> {
+  const { uid, orgId, projectFilter } = await getAuthFilter();
+  const key = cacheKey(orgId ?? uid, projectId);
   return withCache(
     pageAggCache,
-    cacheKey(organisationId, projectId),
+    key,
     PAGE_AGG_CACHE_TTL_MS,
-    () => fetchPageAggregation(organisationId, projectId)
+    () => fetchPageAggregation(projectFilter, projectId)
   );
 }
 
-// ── Active scans (separate cache, shorter TTL) ────────────────────────────────
+// ── Active scans ───────────────────────────────────────────────────────────────
 
-/**
- * Load active/running scans from Firestore.
- * Prefers top-level `runs` (fast path); falls back to project subcollections.
- */
-async function fetchActiveScans(organisationId: string): Promise<ActiveRun[]> {
-  const projectsSnap = await getDocs(
-    query(collection(db, "projects"), where("organisationId", "==", organisationId))
-  );
+async function fetchActiveScans(projectFilter: Record<string, string>): Promise<ActiveRun[]> {
+  const runs = await prisma.run.findMany({
+    where: {
+      status: { in: ["queued", "running"] },
+      project: projectFilter,
+    },
+    include: { project: { select: { id: true, name: true } } },
+    take: 50,
+  });
 
-  const projectsMap = new Map(
-    projectsSnap.docs.map((docSnap) => [docSnap.id, docSnap.data() as Record<string, unknown>])
-  );
-
-  if (projectsMap.size === 0) return [];
-
-  const runs: ActiveRun[] = [];
-
-  // Fast path: top-level runs collection
-  try {
-    const topRunsSnap = await getDocs(
-      query(collection(db, "runs"), where("status", "in", ["queued", "running"]), limit(50))
-    );
-
-    for (const runDoc of topRunsSnap.docs) {
-      const data = runDoc.data() as Record<string, unknown>;
-      const projectId = String(data.projectId ?? "");
-      const project = projectsMap.get(projectId);
-      if (!project) continue;
-
-      runs.push({
-        id: runDoc.id,
-        projectId,
-        projectName: String(project.name ?? "Unknown Project"),
-        status: (String(data.status ?? "queued") as ActiveRun["status"]),
-        pagesScanned: toNumber(data.pagesScanned),
-        pagesTotal: toNumber(data.pagesTotal),
-        startedAt: asDate(data.startedAt) ?? asDate(data.createdAt) ?? undefined,
-        runType: String(data.runType ?? data.type ?? "full-scan"),
-      });
-    }
-  } catch {
-    // Ignore and use fallback below.
-  }
-
-  if (runs.length > 0) return runs;
-
-  // Fallback: subcollections per project
-  const projectEntries = Array.from(projectsMap.entries());
-  const perProjectRuns = await Promise.all(
-    projectEntries.map(async ([projectId, projectData]) => {
-      const snap = await getDocs(
-        query(
-          collection(db, "projects", projectId, "runs"),
-          where("status", "in", ["queued", "running"]),
-          limit(8)
-        )
-      );
-
-      return snap.docs.map((runDoc) => {
-        const data = runDoc.data() as Record<string, unknown>;
-        return {
-          id: `${projectId}:${runDoc.id}`,
-          projectId,
-          projectName: String(projectData.name ?? "Unknown Project"),
-          status: (String(data.status ?? "queued") as ActiveRun["status"]),
-          pagesScanned: toNumber(data.pagesScanned),
-          pagesTotal: toNumber(data.pagesTotal),
-          startedAt: asDate(data.startedAt) ?? asDate(data.createdAt) ?? undefined,
-          runType: String(data.runType ?? data.type ?? "full-scan"),
-        } as ActiveRun;
-      });
-    })
-  );
-
-  return perProjectRuns.flat();
+  return runs.map((run) => ({
+    id: run.id,
+    projectId: run.projectId,
+    projectName: run.project?.name ?? "Unknown Project",
+    status: (run.status ?? "queued") as ActiveRun["status"],
+    pagesScanned: toNumber(run.pagesScanned),
+    pagesTotal: toNumber(run.pagesTotal),
+    startedAt: asDate(run.startedAt) ?? asDate(run.createdAt) ?? undefined,
+    runType: run.type ?? "full_scan",
+  }));
 }
 
-export async function loadActiveScans(organisationId: string): Promise<ActiveRun[]> {
+export async function loadActiveScans(_organisationId?: string): Promise<ActiveRun[]> {
+  const { uid, orgId, projectFilter } = await getAuthFilter();
   return withCache(
     activeScansCache,
-    organisationId,
+    orgId ?? uid,
     ACTIVE_SCANS_CACHE_TTL_MS,
-    () => fetchActiveScans(organisationId)
+    () => fetchActiveScans(projectFilter)
   );
 }
 
 // ── Per-widget public loaders ─────────────────────────────────────────────────
-// Each slices the shared cached aggregation — no extra Firestore reads.
 
 export async function loadSummaryCards(
-  organisationId: string,
+  _organisationId?: string,
   projectId?: string
 ): Promise<SummaryCardsData> {
-  const agg = await loadPageAggregation(organisationId, projectId);
+  const agg = await loadPageAggregation(projectId);
   return {
     totalProjects: agg.totalProjects,
     totalPages: agg.totalPages,
@@ -611,41 +459,41 @@ export async function loadSummaryCards(
 }
 
 export async function loadActiveScansData(
-  organisationId: string
+  _organisationId?: string
 ): Promise<ActiveScansData> {
-  const activeRuns = await loadActiveScans(organisationId);
+  const activeRuns = await loadActiveScans();
   return { activeRuns, activeScans: activeRuns.length };
 }
 
 export async function loadRecentPagesData(
-  organisationId: string,
+  _organisationId?: string,
   projectId?: string
 ): Promise<RecentPagesData> {
-  const agg = await loadPageAggregation(organisationId, projectId);
+  const agg = await loadPageAggregation(projectId);
   return { recentPages: agg.recentPages };
 }
 
 export async function loadViolationOverview(
-  organisationId: string,
+  _organisationId?: string,
   projectId?: string
 ): Promise<ViolationOverviewData> {
-  const agg = await loadPageAggregation(organisationId, projectId);
+  const agg = await loadPageAggregation(projectId);
   return { issueBreakdown: agg.issueBreakdown };
 }
 
 export async function loadTopIssuesData(
-  organisationId: string,
+  _organisationId?: string,
   projectId?: string
 ): Promise<TopIssuesData> {
-  const agg = await loadPageAggregation(organisationId, projectId);
+  const agg = await loadPageAggregation(projectId);
   return { topIssueRules: agg.topIssueRules };
 }
 
 export async function loadHealthSnapshot(
-  organisationId: string,
+  _organisationId?: string,
   projectId?: string
 ): Promise<HealthSnapshotData> {
-  const agg = await loadPageAggregation(organisationId, projectId);
+  const agg = await loadPageAggregation(projectId);
   const totalIssues =
     agg.issueBreakdown.critical +
     agg.issueBreakdown.serious +
@@ -662,23 +510,18 @@ export async function loadHealthSnapshot(
 }
 
 export async function loadProblemPagesData(
-  organisationId: string,
+  _organisationId?: string,
   projectId?: string
 ): Promise<ProblemPagesData> {
-  const agg = await loadPageAggregation(organisationId, projectId);
+  const agg = await loadPageAggregation(projectId);
   return { problemPages: agg.problemPages };
 }
 
-/**
- * Load all dashboard data in one shot — reuses the same cached aggregation
- * as the individual widget loaders so calling this alongside widgets does
- * not cause duplicate Firestore reads.
- */
-export async function loadDashboardData(organisationId: string): Promise<DashboardData> {
+export async function loadDashboardData(_organisationId?: string): Promise<DashboardData> {
   try {
     const [agg, activeRuns] = await Promise.all([
-      loadPageAggregation(organisationId),
-      loadActiveScans(organisationId),
+      loadPageAggregation(),
+      loadActiveScans(),
     ]);
 
     return {

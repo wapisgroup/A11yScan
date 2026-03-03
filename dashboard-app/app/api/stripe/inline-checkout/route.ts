@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { STRIPE_CONFIG, getStripePriceId } from '@/config/stripe';
-import { adminDB } from '@/utils/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { prisma } from '@/lib/db';
 
 const stripe = new Stripe(STRIPE_CONFIG.secretKey, {
   apiVersion: '2026-01-28.clover',
@@ -41,15 +40,10 @@ export async function POST(request: NextRequest) {
 
     const priceId = getStripePriceId(packageName, billingCycle);
     if (!priceId) {
-      return NextResponse.json(
-        { message: 'Invalid package or billing cycle' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'Invalid package or billing cycle' }, { status: 400 });
     }
 
     // Resolve the Stripe customer ID.
-    // For trial upgrades, derive it from the existing subscription so we never
-    // attach the payment method to the wrong customer.
     let customerId: string | undefined;
 
     if (existingSubscriptionId) {
@@ -60,8 +54,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (!customerId) {
-      const orgDoc = await adminDB.collection('organisations').doc(organizationId).get();
-      customerId = orgDoc.data()?.stripeCustomerId;
+      // Look up from PostgreSQL subscription record for this org
+      const existingSub = await prisma.subscription.findFirst({
+        where: { organizationId },
+        select: { stripeCustomerId: true },
+      });
+      customerId = existingSub?.stripeCustomerId ?? undefined;
     }
 
     if (!customerId) {
@@ -70,22 +68,13 @@ export async function POST(request: NextRequest) {
         metadata: { userId, organizationId },
       });
       customerId = customer.id;
-
-      await adminDB.collection('organisations').doc(organizationId).set({
-        stripeCustomerId: customerId,
-        updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
     }
 
     // Attach payment method to customer (handle "already attached" gracefully)
     try {
       await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
     } catch (attachErr: any) {
-      // If already attached to this customer, that's fine — continue.
-      // Any other error should bubble up.
-      if (attachErr?.code !== 'resource_already_exists') {
-        throw attachErr;
-      }
+      if (attachErr?.code !== 'resource_already_exists') throw attachErr;
       console.log('Payment method already attached to customer, continuing.');
     }
 
@@ -105,7 +94,7 @@ export async function POST(request: NextRequest) {
       } : {}),
     });
 
-    // Add tax ID if provided (e.g. EU VAT) — don't fail checkout for this
+    // Add tax ID if provided
     if (taxId && taxIdType) {
       try {
         await stripe.customers.createTaxId(customerId, {
@@ -120,39 +109,24 @@ export async function POST(request: NextRequest) {
     let subscription: Stripe.Subscription;
 
     if (existingSubscriptionId) {
-      // Upgrading from trial: end trial and change plan.
-      // The customer's invoice_settings already has the default payment method,
-      // so the subscription will use it automatically.
       const existingSub = await stripe.subscriptions.retrieve(existingSubscriptionId);
       const currentItemId = existingSub.items.data[0]?.id;
 
       subscription = await stripe.subscriptions.update(existingSubscriptionId, {
         trial_end: 'now',
         items: currentItemId ? [{ id: currentItemId, price: priceId }] : undefined,
-        metadata: {
-          ...existingSub.metadata,
-          packageName,
-          billingCycle,
-        },
+        metadata: { ...existingSub.metadata, packageName, billingCycle },
         expand: ['latest_invoice.payment_intent'],
       });
     } else {
-      // New subscription — the customer's invoice_settings default payment
-      // method will be used for invoices automatically.
       subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
-        metadata: {
-          userId,
-          organizationId,
-          packageName,
-          billingCycle,
-        },
+        metadata: { userId, organizationId, packageName, billingCycle },
         expand: ['latest_invoice.payment_intent'],
       });
     }
 
-    // Check if payment requires additional confirmation (3D Secure)
     const latestInvoice = subscription.latest_invoice;
     const paymentIntent = typeof latestInvoice === 'object'
       ? (latestInvoice as any)?.payment_intent
@@ -163,23 +137,30 @@ export async function POST(request: NextRequest) {
     const requiresAction = typeof paymentIntent === 'object'
       && paymentIntent?.status === 'requires_action';
 
-    // Write subscription doc so the client can navigate immediately
-    await adminDB.collection('subscriptions').doc(userId).set({
-      userId,
-      organizationId,
-      stripeSubscriptionId: subscription.id,
-      stripeCustomerId: customerId,
-      status: subscription.status,
-      packageId: packageName,
-      packageName,
-      billingCycle,
-      stripePriceId: priceId,
-      hasPaymentMethod: true,
-      convertedFromTrial: !!existingSubscriptionId,
-      ...(existingSubscriptionId ? { convertedAt: FieldValue.serverTimestamp() } : {}),
-      updatedAt: FieldValue.serverTimestamp(),
-      ...(!existingSubscriptionId ? { createdAt: FieldValue.serverTimestamp() } : {}),
-    }, { merge: true });
+    // Write subscription record to PostgreSQL
+    await prisma.subscription.upsert({
+      where: { userId },
+      create: {
+        userId,
+        organizationId,
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId: customerId,
+        status: subscription.status,
+        packageId: packageName,
+        currentUsage: {
+          activeProjects: 0,
+          scansThisMonth: 0,
+          apiCallsToday: 0,
+          scheduledScans: 0,
+        },
+      },
+      update: {
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId: customerId,
+        status: subscription.status,
+        packageId: packageName,
+      },
+    });
 
     return NextResponse.json({
       success: true,

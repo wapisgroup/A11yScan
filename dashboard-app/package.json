@@ -12,11 +12,16 @@
     "export:main": "next build",
     "export:public": "cd public-website && npm run export",
     "start": "next start",
+    "studio": "bash -lc 'set -a && [ -f .env ] && source .env; [ -f .env.local ] && source .env.local; set +a && prisma studio --schema prisma/schema.prisma --port 5557'",
+    "prisma:studio": "bash -lc 'set -a && [ -f .env ] && source .env; [ -f .env.local ] && source .env.local; set +a && prisma studio --schema prisma/schema.prisma --port 5557'",
+    "prisma:generate": "bash -lc 'set -a && [ -f .env ] && source .env; [ -f .env.local ] && source .env.local; set +a && prisma generate --schema prisma/schema.prisma'",
     "dev:emulators": "firebase emulators:start --only firestore,storage,functions,auth --import=./emulator-data --export-on-exit=./emulator-data",
     "deploy:main": "npm run export:main && firebase deploy --only hosting:main-app",
     "deploy:public": "npm run export:public && firebase deploy --only hosting:public-website",
     "deploy:backend": "firebase deploy --only functions,firestore:rules,storage:rules",
-    "deploy:all": "npm run export:main && npm run export:public && firebase deploy"
+    "deploy:all": "npm run export:main && npm run export:public && firebase deploy",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -62,6 +67,7 @@
     "npm-run-all": "^4.1.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.8"
   }
 }

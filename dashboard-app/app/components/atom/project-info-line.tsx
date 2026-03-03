@@ -20,7 +20,10 @@ const STATUS_EXPLANATIONS: Record<string, string> = {
     "Page discovered by the crawler (or added). No scans have been run for this page yet.",
   queued:
     "A scan for this page is queued or currently running — results will appear when complete.",
+  running:
+    "A scan is currently running for this page — progress is being updated.",
   scanned: "This page has been scanned and results are available.",
+  failed: "The most recent scan failed for this page.",
 };
 
 export const ProjectInfoLine = ({status, totalIssues, page}:ProjectInfoLineProps) => {

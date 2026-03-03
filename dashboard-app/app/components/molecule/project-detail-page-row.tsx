@@ -57,12 +57,15 @@ export function PageRow({ projectId, page, activeRun = null, onScan, onOpen, onD
     const runStatus = statusFromRun(referencingRun);
     const pageStatus = normalizeStatus(page.status);
 
-    // Prefer page-level status so we don't mark all queued pages as "in progress".
+    // Active run should dominate while work is in progress (or has just failed).
+    if (referencingRun && ["queued", "running", "pending", "failed"].includes(runStatus)) {
+      return runStatus;
+    }
+
     if (["queued", "running", "pending", "scanned", "failed"].includes(pageStatus)) {
       return pageStatus;
     }
 
-    // Fall back to run-derived status only for finished states.
     if (referencingRun && runStatus === "scanned") {
       return "scanned";
     }

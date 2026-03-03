@@ -6,7 +6,7 @@
  * Phase 5: replaces Firestore subscribeProjectRuns / onSnapshot.
  *
  * Opens an EventSource to /api/sse/runs/[projectId] and returns the latest
- * run list (refreshed every 5 s by the server).
+ * run list (refreshed by the server poll loop).
  *
  * Mirrors the onSnapshot cleanup pattern: the EventSource is closed on unmount
  * and the state is reset when projectId changes.

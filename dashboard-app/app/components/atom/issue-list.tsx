@@ -45,7 +45,7 @@ export type IssuesListProps = {
   nodes?: HighlightNode[];
 
   /** Iframe ref used to send highlight messages. */
-  iframeRef: RefObject<HTMLIFrameElement>;
+  iframeRef: RefObject<HTMLIFrameElement | null>;
 
   /** Optional callback fired when an issue is selected. */
   onSelect?: (node: HighlightNode, index: number) => void;

@@ -1,55 +1,103 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { adminDB } from '@/utils/firebase-admin';
-import { withAuth } from '@/utils/api-auth';
-import { getStorage } from 'firebase-admin/storage';
-import { getApp } from 'firebase-admin/app';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { getStorage } from "firebase-admin/storage";
+import { getApp } from "firebase-admin/app";
 
-/**
- * DELETE /api/projects/[id]
- * Deletes a project and all associated Storage files.
- *
- * Storage paths cleaned up:
- *   - scans/{projectId}/**  (scan artifacts, snapshots)
- *
- * Firestore cleaned up:
- *   - projects/{projectId}  (the project document itself)
- *
- * Sub-collections (pages, runs, scans) are NOT deleted here because
- * Firestore does not support recursive deletes from a client or simple
- * Admin SDK call without a loop. They will be orphaned but invisible.
- * Use a Cloud Function / background task for full cleanup if needed.
- */
 export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: projectId } = await params;
+  if (!projectId) {
+    return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { ownerId: true, organizationId: true },
+  });
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const canAccess =
+    project.ownerId === session.user.id ||
+    (session.user.organizationId && project.organizationId === session.user.organizationId);
+  if (!canAccess) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const storageBucket =
+      process.env.FIREBASE_STORAGE_BUCKET ||
+      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+      "accessibilitychecker-c6585.firebasestorage.app";
+
+    const bucket = getStorage(getApp()).bucket(storageBucket);
+    const [files] = await bucket.getFiles({ prefix: `scans/${projectId}/` });
+    if (files.length > 0) {
+      await Promise.all(
+        files.map((f) =>
+          f.delete().catch(() => {
+            return undefined;
+          })
+        )
+      );
+    }
+  } catch (storageErr) {
+    console.warn("[deleteProject] Storage cleanup error:", storageErr);
+  }
+
+  await prisma.project.delete({ where: { id: projectId } });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  return withAuth(request, async (_req, _user) => {
-    const { id: projectId } = await params;
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    if (!projectId) {
-      return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
-    }
+  const { id: projectId } = await params;
+  const body = (await request.json()) as { name?: unknown };
+  const nextName = String(body?.name ?? "").trim();
 
-    // Delete Storage files under scans/{projectId}/
-    try {
-      const storageBucket = process.env.FIREBASE_STORAGE_BUCKET ||
-        process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
-        'accessibilitychecker-c6585.firebasestorage.app';
+  if (!projectId) {
+    return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+  }
+  if (!nextName) {
+    return NextResponse.json({ error: "Project name cannot be empty." }, { status: 400 });
+  }
 
-      const bucket = getStorage(getApp()).bucket(storageBucket);
-      const [files] = await bucket.getFiles({ prefix: `scans/${projectId}/` });
-
-      if (files.length > 0) {
-        await Promise.all(files.map((f) => f.delete().catch(() => { /* ignore individual failures */ })));
-      }
-    } catch (storageErr) {
-      // Log but don't fail — storage may be empty or unreachable in dev
-      console.warn('[deleteProject] Storage cleanup error:', storageErr);
-    }
-
-    // Delete the Firestore project document
-    await adminDB.collection('projects').doc(projectId).delete();
-
-    return NextResponse.json({ ok: true });
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { ownerId: true, organizationId: true },
   });
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const canAccess =
+    project.ownerId === session.user.id ||
+    (session.user.organizationId && project.organizationId === session.user.organizationId);
+  if (!canAccess) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { name: nextName },
+  });
+
+  return NextResponse.json({ ok: true });
 }

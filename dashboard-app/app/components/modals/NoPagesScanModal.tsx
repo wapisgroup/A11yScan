@@ -6,8 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { Popup } from "@/components/molecule/popup";
+import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { UIButton } from "@/components/ui/ui-button";
 
 type ScanOption = "discover-and-test" | "discover-and-choose" | "add-manually";
@@ -37,10 +36,7 @@ const OPTIONS: { value: ScanOption; label: string; description: string }[] = [
 ];
 
 export default function NoPagesScanModal({ open, onClose, onSubmit }: Props) {
-  const [mounted, setMounted] = useState(false);
   const [selectedOption, setSelectedOption] = useState<ScanOption>("discover-and-test");
-
-  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (open) setSelectedOption("discover-and-test");
@@ -56,45 +52,51 @@ export default function NoPagesScanModal({ open, onClose, onSubmit }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, onSubmit, selectedOption]);
 
-  const body = open ? (
-    <Popup title="No Pages Found" onClose={onClose} size="md">
-      <p className="as-p2-text secondary-text-color">
-        This project has no pages yet. How would you like to proceed?
-      </p>
+  return (
+    <DSDrawerShell
+      open={open}
+      title="No Pages Found"
+      subtitle="Start full scan now"
+      widthClassName="w-[480px]"
+      onClose={onClose}
+      footer={
+        <div className="flex justify-end gap-3">
+          <UIButton variant="outline" onClick={onClose}>Cancel</UIButton>
+          <UIButton onClick={() => onSubmit(selectedOption)}>Continue</UIButton>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-[var(--spacing-s)] p-6 overflow-y-auto h-full">
+        <p className="as-p2-text secondary-text-color">
+          This project has no pages yet. How would you like to proceed?
+        </p>
 
-      <div className="flex flex-col gap-[var(--spacing-s)]">
-        {OPTIONS.map((opt) => (
-          <label
-            key={opt.value}
-            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-              selectedOption === opt.value
-                ? "border-[var(--color-primary)] bg-[var(--color-primary-light)]"
-                : "border-[var(--color-border-light)] hover:border-[var(--color-border-medium)] hover:bg-[var(--color-bg-light)]"
-            }`}
-          >
-            <input
-              type="radio"
-              name="scan-option"
-              value={opt.value}
-              checked={selectedOption === opt.value}
-              onChange={() => setSelectedOption(opt.value)}
-              className="mt-0.5 accent-[var(--color-primary)]"
-            />
-            <div>
-              <p className="as-b2-text primary-text-color">{opt.label}</p>
-              <p className="as-p3-text secondary-text-color mt-0.5">{opt.description}</p>
-            </div>
-          </label>
-        ))}
+        <div className="flex flex-col gap-[var(--spacing-s)]">
+          {OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
+                selectedOption === opt.value
+                  ? "border-[var(--color-primary)] bg-[var(--color-primary-light)]"
+                  : "border-[var(--color-border-light)] hover:border-[var(--color-border-medium)] hover:bg-[var(--color-bg-light)]"
+              }`}
+            >
+              <input
+                type="radio"
+                name="scan-option"
+                value={opt.value}
+                checked={selectedOption === opt.value}
+                onChange={() => setSelectedOption(opt.value)}
+                className="mt-0.5 accent-[var(--color-primary)]"
+              />
+              <div>
+                <p className="as-b2-text primary-text-color">{opt.label}</p>
+                <p className="as-p3-text secondary-text-color mt-0.5">{opt.description}</p>
+              </div>
+            </label>
+          ))}
+        </div>
       </div>
-
-      <div className="flex justify-end gap-3 pt-2">
-        <UIButton variant="outline" onClick={onClose}>Cancel</UIButton>
-        <UIButton onClick={() => onSubmit(selectedOption)}>Continue</UIButton>
-      </div>
-    </Popup>
-  ) : null;
-
-  if (!mounted) return null;
-  return createPortal(body, document.body);
+    </DSDrawerShell>
+  );
 }

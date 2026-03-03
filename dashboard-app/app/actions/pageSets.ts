@@ -63,8 +63,8 @@ function toPageSetTDO(row: PageSetWithRelations): PageSetTDO {
     rules,
     pageIds: row.pageSetPages.map((p) => p.pageId),
     owner: row.owner,
-    created: { toDate: () => row.createdAt },
-    updated: { toDate: () => row.updatedAt },
+    created: row.createdAt,
+    updated: row.updatedAt,
   };
 }
 

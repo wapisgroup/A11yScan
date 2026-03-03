@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { WorkspaceLayout } from "@/components/organism/workspace-layout";
-import { PrivateRoute } from "@/utils/private-router";
-import { useAuth, db } from "@/utils/firebase";
+import { useState, useEffect, type FormEvent } from "react";
+import { useAuth } from "@/utils/firebase";
 import { PageContainer } from "@/components/molecule/page-container";
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from '@/utils/firestore-read-tracker';
 import { PageWrapper } from "@/components/molecule/page-wrapper";
 import { DSTabs } from "@/components/molecule/ds-tabs";
 import { OrganisationSettingsTab } from "@/components/tabs/organisation-settings-tab";
 import { MembersTab } from "@/components/tabs/organisation-members-tab";
 import { BrandingTab } from "@/components/tabs/organisation-branding-tab";
 import { OrganisationIntegrationsTab } from "@/components/tabs/organisation-integrations-tab";
+import {
+  getOrganizationWorkspaceData,
+  updateOrganizationGeneral,
+  updateOrganizationBranding,
+  updateOrganizationIntegrations,
+} from "@/actions/organization";
 
 type TabType = "settings" | "members" | "whitelabel" | "integrations";
 
@@ -39,7 +42,8 @@ type Member = {
 };
 
 export default function OrganisationPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const uid = user?.uid ?? null;
   const [activeTab, setActiveTab] = useState<TabType>("settings");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,82 +76,60 @@ export default function OrganisationPage() {
   });
 
   useEffect(() => {
-    loadOrganisationData();
-  }, [user]);
+    let cancelled = false;
 
-  const loadOrganisationData = async () => {
-    if (!user?.organisationId) {
-      setLoading(false);
-      return;
-    }
+    const loadOrganisationData = async () => {
+      if (authLoading) {
+        setLoading(true);
+        return;
+      }
 
-    try {
-      const orgRef = doc(db, "organisations", user.organisationId);
-      const orgSnap = await getDoc(orgRef);
+      if (!uid) {
+        setOrganisationId(null);
+        setLoading(false);
+        return;
+      }
 
-      if (orgSnap.exists()) {
-        const data = orgSnap.data();
-        setOrganisationId(orgSnap.id);
+      setLoading(true);
+      setError("");
+      try {
+        const data = await getOrganizationWorkspaceData();
+        if (cancelled) return;
+        setOrganisationId(data.organizationId);
         setOrgData({
           name: data.name || "",
-          language: data.language || "en",
-          industry: data.industry || "",
-          vatNumber: data.vatNumber || "",
-          ipRestrictions: Array.isArray(data.ipRestrictions) ? data.ipRestrictions : [],
+          language: data.settings.language || "en",
+          industry: data.settings.industry || "",
+          vatNumber: data.settings.vatNumber || "",
+          ipRestrictions: Array.isArray(data.settings.ipRestrictions)
+            ? data.settings.ipRestrictions
+            : [],
         });
-        setPrimaryColor(data.primaryColor || "#3B82F6");
-        setSecondaryColor(data.secondaryColor || "#10B981");
-        setCustomLogo(data.customLogo || "");
-        const slackData = data.integrations?.slack || {};
+        setPrimaryColor(data.settings.primaryColor || "#3B82F6");
+        setSecondaryColor(data.settings.secondaryColor || "#10B981");
+        setCustomLogo(data.settings.customLogo || "");
         setSlackIntegration({
-          enabled: Boolean(slackData.enabled),
-          webhookUrl: slackData.webhookUrl || "",
-          channel: slackData.channel || "#ablelytics",
+          enabled: Boolean(data.settings.integrations?.slack?.enabled),
+          webhookUrl: data.settings.integrations?.slack?.webhookUrl || "",
+          channel: data.settings.integrations?.slack?.channel || "#ablelytics",
         });
+        setMembers(data.members as Member[]);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Load organisation error:", err);
+        setError(err instanceof Error ? err.message : "Failed to load organisation data");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
+    };
 
-      // Load members - including the current user
-      const usersQuery = query(
-        collection(db, "users"),
-        where("organisationId", "==", user.organisationId)
-      );
-      const usersSnap = await getDocs(usersQuery);
+    loadOrganisationData();
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, authLoading]);
 
-      // If no members found, add current user manually
-      if (usersSnap.empty && user) {
-        setMembers([{
-          id: user.uid,
-          firstName: user.firstName || "",
-          lastName: user.lastName || "",
-          email: user.email || "",
-          accountType: "Account owner",
-          status: "Active",
-          lastLogin: null,
-        }]);
-      } else {
-        const membersList: Member[] = usersSnap.docs.map((docSnap) => {
-          const data = docSnap.data();
-          return {
-            id: docSnap.id,
-            firstName: data.firstName || "",
-            lastName: data.lastName || "",
-            email: data.email || "",
-            accountType: docSnap.id === user.uid ? "Account owner" : "User",
-            status: "Active",
-            lastLogin: data.lastLogin ? data.lastLogin.toDate() : null,
-          };
-        });
-        setMembers(membersList);
-      }
-    } catch (err) {
-      console.error("Load organisation error:", err);
-      setError(err instanceof Error ? err.message : "Failed to load organisation data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveSettings = async (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: FormEvent) => {
     e.preventDefault();
     if (!organisationId) return;
 
@@ -156,8 +138,8 @@ export default function OrganisationPage() {
     setSuccess("");
 
     try {
-      const orgRef = doc(db, "organisations", organisationId);
-      await updateDoc(orgRef, {
+      await updateOrganizationGeneral({
+        organizationId: organisationId,
         name: orgData.name,
         language: orgData.language,
         industry: orgData.industry,
@@ -173,7 +155,7 @@ export default function OrganisationPage() {
     }
   };
 
-  const handleSaveWhiteLabel = async (e: React.FormEvent) => {
+  const handleSaveWhiteLabel = async (e: FormEvent) => {
     e.preventDefault();
     if (!organisationId) return;
 
@@ -182,8 +164,8 @@ export default function OrganisationPage() {
     setSuccess("");
 
     try {
-      const orgRef = doc(db, "organisations", organisationId);
-      await updateDoc(orgRef, {
+      await updateOrganizationBranding({
+        organizationId: organisationId,
         primaryColor,
         secondaryColor,
         customLogo,
@@ -197,7 +179,7 @@ export default function OrganisationPage() {
     }
   };
 
-  const handleSaveIntegrations = async (e: React.FormEvent) => {
+  const handleSaveIntegrations = async (e: FormEvent) => {
     e.preventDefault();
     if (!organisationId) return;
 
@@ -206,14 +188,12 @@ export default function OrganisationPage() {
     setSuccess("");
 
     try {
-      const orgRef = doc(db, "organisations", organisationId);
-      await updateDoc(orgRef, {
-        integrations: {
-          slack: {
-            enabled: slackIntegration.enabled,
-            webhookUrl: slackIntegration.webhookUrl,
-            channel: slackIntegration.channel,
-          },
+      await updateOrganizationIntegrations({
+        organizationId: organisationId,
+        slack: {
+          enabled: slackIntegration.enabled,
+          webhookUrl: slackIntegration.webhookUrl,
+          channel: slackIntegration.channel,
         },
       });
       setSuccess("Integrations saved successfully!");
@@ -226,21 +206,21 @@ export default function OrganisationPage() {
   };
 
   return (
-
-        <PageWrapper title="Organisation Settings">
-          {loading ? (
-            <PageContainer title="">
-              <div className="flex items-center justify-center min-h-[300px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600" />
-              </div>
-            </PageContainer>
-          ) : !user?.organisationId ? (
-            <PageContainer title="">
-              <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-                No organisation found for this account.
-              </div>
-            </PageContainer>
-          ) : <>
+    <PageWrapper title="Organisation Settings">
+      {loading ? (
+        <PageContainer title="">
+          <div className="flex items-center justify-center min-h-[300px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600" />
+          </div>
+        </PageContainer>
+      ) : !organisationId ? (
+        <PageContainer title="">
+          <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+            No organisation found for this account.
+          </div>
+        </PageContainer>
+      ) : (
+        <>
             {/* Alerts */}
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -303,7 +283,8 @@ export default function OrganisationPage() {
                 onSave={handleSaveIntegrations}
               />
             )}
-          </>}
-        </PageWrapper>
+        </>
+      )}
+    </PageWrapper>
   );
 }

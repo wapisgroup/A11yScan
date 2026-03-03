@@ -18,7 +18,7 @@
 
 require('dotenv').config({ path: '.env.local' });
 
-const { getJobs, updateJob } = require('./helpers/api-client');
+const { getJobs, updateJob, getRun } = require('./helpers/api-client');
 const { handlePageCollectionJob } = require('./handlers/pageCollection');
 const { handleScanPages }          = require('./handlers/scanPages');
 const { handlePagesToSitemapJob }  = require('./handlers/pagesToSitemap');
@@ -35,6 +35,42 @@ let activeJobs = 0;
 async function processJob(job) {
     const { id, projectId, runId, action } = job;
     console.log(`[worker] Job ${id}: action=${action} project=${projectId} run=${runId}`);
+
+    const actionsRequiringRun = new Set([
+        'page_collection',
+        'scan_pages',
+        'pages_to_sitemap',
+        'generate_report',
+    ]);
+
+    if (actionsRequiringRun.has(action)) {
+        if (!runId) {
+            const msg = `Missing runId for action=${action}`;
+            console.warn(`[worker] Job ${id} skipped: ${msg}`);
+            await updateJob(id, {
+                status: 'failed',
+                doneAt: new Date().toISOString(),
+                error: msg,
+            });
+            return;
+        }
+        try {
+            await getRun(runId);
+        } catch (err) {
+            const message = err && err.message ? err.message : String(err);
+            if (message.includes('HTTP 404')) {
+                const msg = `Run not found: ${runId}`;
+                console.warn(`[worker] Job ${id} skipped: ${msg}`);
+                await updateJob(id, {
+                    status: 'failed',
+                    doneAt: new Date().toISOString(),
+                    error: msg,
+                });
+                return;
+            }
+            throw err;
+        }
+    }
 
     // Mark job as processing immediately
     try {
@@ -98,11 +134,17 @@ async function poll() {
     }
 }
 
-// ─── Start ────────────────────────────────────────────────────────────────────
+if (require.main === module) {
+    // ─── Start ────────────────────────────────────────────────────────────────
+    console.log('[worker] Starting — dashboard:', process.env.DASHBOARD_API_URL || 'http://localhost:3000');
+    console.log('[worker] Poll interval:', POLL_INTERVAL_MS, 'ms | concurrency:', POLL_CONCURRENCY);
 
-console.log('[worker] Starting — dashboard:', process.env.DASHBOARD_API_URL || 'http://localhost:3000');
-console.log('[worker] Poll interval:', POLL_INTERVAL_MS, 'ms | concurrency:', POLL_CONCURRENCY);
+    // Run immediately, then on interval
+    poll();
+    setInterval(poll, POLL_INTERVAL_MS);
+}
 
-// Run immediately, then on interval
-poll();
-setInterval(poll, POLL_INTERVAL_MS);
+module.exports = {
+    processJob,
+    poll,
+};

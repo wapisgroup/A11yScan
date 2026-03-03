@@ -11,11 +11,14 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { checkSubscriptionLimit } from "@/utils/subscription-guard";
 
 export type TriggerResult = {
   title: string;
   message: string;
   noPages?: boolean;
+  runId?: string;
+  code?: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -75,6 +78,11 @@ async function createRunAndJob(
     },
   });
 
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { lastScanAt: new Date() },
+  });
+
   return run;
 }
 
@@ -87,14 +95,14 @@ export async function startPageCollection(
   if (!projectId) return { title: "Error", message: "Unknown project id" };
   try {
     const session = await getSessionOrThrow();
-    await createRunAndJob(
+    const run = await createRunAndJob(
       projectId,
       session.user.id,
       session.user.organizationId,
       { type: "page_collection" },
       "page_collection"
     );
-    return { title: "Information", message: "Page collection started" };
+    return { title: "Information", message: "Page collection started", runId: run.id };
   } catch (err) {
     return {
       title: "Error",
@@ -111,6 +119,11 @@ export async function startFullScan(
   if (!projectId) return { title: "Error", message: "Unknown project id" };
   try {
     const session = await getSessionOrThrow();
+    const projectMeta = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+    const organizationId = projectMeta?.organizationId ?? session.user.organizationId ?? null;
 
     // Check whether the project has any pages to scan
     const pageCount = await prisma.page.count({ where: { projectId } });
@@ -119,6 +132,35 @@ export async function startFullScan(
         title: "No pages",
         message: "No pages found for this project. Collect pages first.",
         noPages: true,
+      };
+    }
+
+    const limitError = await checkSubscriptionLimit(
+      session.user.id,
+      "scansThisMonth",
+      organizationId,
+      pageCount
+    );
+    if (limitError) {
+      let payload: any = null;
+      try {
+        payload = await limitError.json();
+      } catch {
+        payload = null;
+      }
+      if (payload?.error === "LIMIT_REACHED") {
+        const limit = Number(payload.limit ?? 0);
+        const remaining = Number(payload.remaining ?? 0);
+        return {
+          title: "Error",
+          code: "LIMIT_REACHED",
+          message: `Scan budget exceeded. Requested ${pageCount} pages, ${remaining} page scans remaining out of ${limit}.`,
+        };
+      }
+      return {
+        title: "Error",
+        code: payload?.error ?? "SUBSCRIPTION_CHECK_FAILED",
+        message: payload?.message ?? "Could not verify subscription limits.",
       };
     }
 
@@ -136,7 +178,7 @@ export async function startFullScan(
       pipelineId = collectionRun.id;
     }
 
-    await createRunAndJob(
+    const run = await createRunAndJob(
       projectId,
       session.user.id,
       session.user.organizationId,
@@ -144,7 +186,7 @@ export async function startFullScan(
       "scan_pages"
     );
 
-    return { title: "Information", message: "Full scan started" };
+    return { title: "Information", message: "Full scan started", runId: run.id };
   } catch (err) {
     return {
       title: "Error",
@@ -160,14 +202,14 @@ export async function startSitemap(
   if (!projectId) return { title: "Error", message: "Unknown project id" };
   try {
     const session = await getSessionOrThrow();
-    await createRunAndJob(
+    const run = await createRunAndJob(
       projectId,
       session.user.id,
       session.user.organizationId,
       { type: "pages_to_sitemap" },
       "pages_to_sitemap"
     );
-    return { title: "Information", message: "Sitemap generation started" };
+    return { title: "Information", message: "Sitemap generation started", runId: run.id };
   } catch (err) {
     return {
       title: "Error",
@@ -185,15 +227,51 @@ export async function startScanPages(
   if (!pageIds.length) return { title: "Error", message: "No pages specified" };
   try {
     const session = await getSessionOrThrow();
-    await createRunAndJob(
+    const projectMeta = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+    const organizationId = projectMeta?.organizationId ?? session.user.organizationId ?? null;
+
+    const limitError = await checkSubscriptionLimit(
+      session.user.id,
+      "scansThisMonth",
+      organizationId,
+      pageIds.length
+    );
+    if (limitError) {
+      let payload: any = null;
+      try {
+        payload = await limitError.json();
+      } catch {
+        payload = null;
+      }
+      if (payload?.error === "LIMIT_REACHED") {
+        const limit = Number(payload.limit ?? 0);
+        const remaining = Number(payload.remaining ?? 0);
+        return {
+          title: "Error",
+          code: "LIMIT_REACHED",
+          message: `Scan budget exceeded. Requested ${pageIds.length} pages, ${remaining} page scans remaining out of ${limit}.`,
+        };
+      }
+      return {
+        title: "Error",
+        code: payload?.error ?? "SUBSCRIPTION_CHECK_FAILED",
+        message: payload?.message ?? "Could not verify subscription limits.",
+      };
+    }
+
+    const run = await createRunAndJob(
       projectId,
       session.user.id,
-      session.user.organizationId,
+      organizationId,
       { type: "scan_pages" },
       "scan_pages",
       pageIds
     );
-    return { title: "Information", message: "Page scan queued" };
+
+    return { title: "Information", message: "Page scan queued", runId: run.id };
   } catch (err) {
     return {
       title: "Error",

@@ -27,8 +27,7 @@ import { useProjectPagesPageState } from "@/state-services/project-detail-pages-
 import { Pagination } from "../molecule/pagination";
 import type { PageDoc } from "@/types/page-types";
 import { runSelectedPages } from "@/services/projectPagesService";
-import { scanSinglePage } from "@/services/projectDetailService";
-import { auth } from "@/utils/firebase";
+import { scanSinglePage, startPageCollection } from "@/services/projectDetailService";
 import { useRunsSse } from "@/hooks/use-runs-sse";
 import { EmptyState } from "../atom/EmptyState";
 
@@ -124,6 +123,7 @@ export function PagesTab({ project }: PagesTabProps) {
 
   // Phase 5: SSE subscription replaces Firestore onSnapshot for per-page run status
   const sseRuns = useRunsSse(projectId);
+  const lastSseSignatureRef = useRef<string | null>(null);
   const activeRunsByPage = useMemo(() => {
     const map = new Map<string, RunDoc>();
     // Runs are already ordered startedAt desc from the server; iterate in order so
@@ -165,6 +165,26 @@ export function PagesTab({ project }: PagesTabProps) {
     setOnlyWithIssues,
     refresh,
   } = state;
+
+  useEffect(() => {
+    const signature = sseRuns
+      .map(
+        (r) =>
+          `${r.id}:${String(r.status ?? "")}:${String(r.startedAt ?? "")}:${String(
+            r.pagesScanned ?? ""
+          )}:${String(r.pagesTotal ?? "")}`
+      )
+      .join("|");
+
+    if (lastSseSignatureRef.current === null) {
+      lastSseSignatureRef.current = signature;
+      return;
+    }
+    if (lastSseSignatureRef.current === signature) return;
+
+    lastSseSignatureRef.current = signature;
+    void refresh();
+  }, [sseRuns, refresh]);
 
   // Non-2xx items from current page
   const filtered404Items = allItems.filter((page) => {
@@ -435,7 +455,7 @@ export function PagesTab({ project }: PagesTabProps) {
     [projectId, alert, refresh]
   );
 
-  // Collect from website — still uses Firebase API route (worker integration, Phase 7)
+  // Collect from website — PostgreSQL job trigger path
   const handleCollectFromWebsite = useCallback(async () => {
     const ok = await confirm({
       title: "Collect from website",
@@ -447,24 +467,10 @@ export function PagesTab({ project }: PagesTabProps) {
     if (!ok) return;
 
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error("User not authenticated");
-      const token = await currentUser.getIdToken();
-
-      const response = await fetch("/api/page-collection/start", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ projectId }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to start page collection");
+      const result = await startPageCollection(projectId);
+      if (result?.title === "Error") {
+        throw new Error(result.message || "Failed to start page collection");
       }
-
       setAddDrawerOpen(false);
       await alert({
         title: "Collection Started",

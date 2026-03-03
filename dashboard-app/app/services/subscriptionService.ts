@@ -1,86 +1,70 @@
-import { db } from '../utils/firebase';
+/**
+ * subscriptionService — Phase 9 (PostgreSQL)
+ * DB operations now delegate to server actions.
+ * Pure helper functions (hasFeature, canPerformAction, etc.) are unchanged.
+ */
 import {
-  doc,
-  getDoc,
-  updateDoc,
-  Timestamp,
-  increment,
-} from '@/utils/firestore-read-tracker';
-import { 
-  Subscription, 
+  getUserSubscriptionAction,
+  getOrgSubscriptionAction,
+  incrementUsageAction,
+} from "@/actions/subscription";
+import {
+  Subscription,
   PackageConfig,
   UsageLimits,
-  SubscriptionStatus,
-} from '../types/subscription';
-import { SUBSCRIPTION_PACKAGES, TRIAL_CONFIG } from '../config/subscriptions';
+} from "../types/subscription";
+import { SUBSCRIPTION_PACKAGES, TRIAL_CONFIG } from "../config/subscriptions";
+
+function toDateOrNull(value: unknown): Date | null {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function getNormalizedCurrentUsage(subscription: Subscription | null): Record<string, number> {
+  const raw = ((subscription?.currentUsage ?? {}) as Record<string, unknown>);
+  const normalized: Record<string, number> = {
+    activeProjects: Number(raw.activeProjects ?? 0),
+    scansThisMonth: Number(raw.scansThisMonth ?? 0),
+    apiCallsToday: Number(raw.apiCallsToday ?? 0),
+    scheduledScans: Number(raw.scheduledScans ?? 0),
+  };
+
+  const cycleStart = toDateOrNull((subscription as any)?.currentPeriodStart);
+  if (!cycleStart) return normalized;
+
+  const usagePeriodStart = toDateOrNull(raw.usagePeriodStart);
+  if (!usagePeriodStart || usagePeriodStart < cycleStart) {
+    normalized.scansThisMonth = 0;
+  }
+
+  return normalized;
+}
+
+// ─── DB-backed operations ─────────────────────────────────────────────────────
 
 /**
- * Get user's current subscription
+ * Get user's current subscription from PostgreSQL.
  */
 export async function getUserSubscription(userId: string): Promise<Subscription | null> {
-  try {
-    const subscriptionRef = doc(db, 'subscriptions', userId);
-    const subscriptionDoc = await getDoc(subscriptionRef);
-    
-    if (!subscriptionDoc.exists()) {
-      return null;
-    }
-    
-    return subscriptionDoc.data() as Subscription;
-  } catch (error) {
-    console.error('Error fetching subscription:', error);
-    throw error;
-  }
+  const row = await getUserSubscriptionAction(userId);
+  if (!row) return null;
+  // Shape matches the Subscription interface well enough for UI consumption.
+  return row as unknown as Subscription;
 }
 
 /**
- * Get organization's subscription with possible overrides
+ * Get organisation's subscription (via owner) from PostgreSQL.
  */
 export async function getOrganizationSubscription(organizationId: string): Promise<Subscription | null> {
-  try {
-    const orgRef = doc(db, 'organizations', organizationId);
-    const orgDoc = await getDoc(orgRef);
-    
-    if (!orgDoc.exists()) {
-      return null;
-    }
-    
-    const orgData = orgDoc.data();
-    const ownerId = orgData.ownerId;
-    
-    if (!ownerId) {
-      return null;
-    }
-    
-    // Get owner's subscription
-    const subscription = await getUserSubscription(ownerId);
-    
-    if (!subscription) {
-      return null;
-    }
-    
-    // Apply organization-specific overrides if they exist
-    const overrideRef = doc(db, 'organizationSubscriptionOverrides', organizationId);
-    const overrideDoc = await getDoc(overrideRef);
-    
-    if (overrideDoc.exists()) {
-      const override = overrideDoc.data();
-      return {
-        ...subscription,
-        limits: override.customLimits || subscription.limits,
-        features: { ...subscription.features, ...override.customFeatures },
-      };
-    }
-    
-    return subscription;
-  } catch (error) {
-    console.error('Error fetching organization subscription:', error);
-    throw error;
-  }
+  const row = await getOrgSubscriptionAction(organizationId);
+  if (!row) return null;
+  return row as unknown as Subscription;
 }
 
 /**
- * Create a trial subscription for new user via Stripe
+ * Create a trial subscription for a new user via Stripe.
+ * This calls the API route which writes to PostgreSQL.
  */
 export async function createTrialSubscription(
   userId: string,
@@ -88,84 +72,68 @@ export async function createTrialSubscription(
   email: string,
   packageName: string = TRIAL_CONFIG.DEFAULT_PACKAGE
 ): Promise<{ subscriptionId: string; customerId: string; trialEnd: number }> {
-  try {
-    const response = await fetch('/api/stripe/create-trial', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, organizationId, email, packageName }),
-    });
+  const response = await fetch('/api/stripe/create-trial', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, organizationId, email, packageName }),
+  });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create trial subscription');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error creating trial subscription:', error);
-    throw error;
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to create trial subscription');
   }
+
+  return response.json();
 }
 
 /**
- * Get package configuration by name
+ * Increment (or decrement) a usage counter on the user's subscription.
+ * Handles monthly reset logic server-side.
  */
+export async function incrementUsage(
+  userId: string,
+  usageType: keyof Subscription['currentUsage'],
+  amount = 1
+): Promise<void> {
+  await incrementUsageAction(userId, usageType as string, amount);
+}
+
+// ─── Pure helpers (no Firestore / DB dependency) ──────────────────────────────
+
 export function getPackageConfig(packageName: string): PackageConfig | null {
   return SUBSCRIPTION_PACKAGES[packageName] || null;
 }
 
-/**
- * Get all available packages sorted by display order
- */
 export function getAllPackages(): PackageConfig[] {
   return Object.values(SUBSCRIPTION_PACKAGES)
     .filter(pkg => pkg.isActive)
     .sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
-/**
- * Check if user has access to a specific feature
- */
 export function hasFeature(
-  subscription: Subscription | null, 
+  subscription: Subscription | null,
   featureKey: keyof PackageConfig['features']
 ): boolean {
-
   const packageId = subscription?.packageId;
   const packageConfig = getPackageConfig(packageId || '');
-
   if (!packageConfig?.features) return false;
-
   return packageConfig.features[featureKey] || false;
 }
 
-
-/**
- * Check if user can perform an action based on limits
- */
 export function canPerformAction(
   subscription: Subscription | null,
   action: keyof UsageLimits
 ): boolean {
   if (!subscription) return false;
-
-  const packageId = subscription.packageId;
-  const packageConfig = getPackageConfig(packageId);
-
+  const packageConfig = getPackageConfig(subscription.packageId);
   if (!packageConfig) return false;
-  const limit = packageConfig.limits[action];
-  const usage = subscription.currentUsage[action] || 0;
-  
-  // If limit is 'unlimited' or null, allow action
-  if (limit === 'unlimited' || limit === null) return true;
-  
-  // Check if under limit
-  return usage < (limit as number);
+  const lim = packageConfig.limits[action];
+  const normalizedUsage = getNormalizedCurrentUsage(subscription);
+  const usage = normalizedUsage[action as keyof typeof normalizedUsage] || 0;
+  if (lim === 'unlimited' || lim === null) return true;
+  return (usage as number) < (lim as number);
 }
 
-/**
- * Get usage limits for display
- */
 export function getUsageLimits(subscription: Subscription | null, limits: any): {
   activeProjects: { used: number; limit: number | 'unlimited' | null };
   scansThisMonth: { used: number; limit: number | 'unlimited' | null };
@@ -180,154 +148,59 @@ export function getUsageLimits(subscription: Subscription | null, limits: any): 
       scheduledScans: { used: 0, limit: 0 },
     };
   }
-
+  const normalizedUsage = getNormalizedCurrentUsage(subscription);
   return {
     activeProjects: {
-      used: subscription.currentUsage?.activeProjects || 0,
-      limit: limits?.activeProjects || 0,
+      used: normalizedUsage.activeProjects || 0,
+      limit: limits?.activeProjects ?? 0,
     },
     scansThisMonth: {
-      used: subscription.currentUsage?.scansThisMonth || 0,
-      limit: limits?.scansPerMonth || 0,
+      used: normalizedUsage.scansThisMonth || 0,
+      limit: limits?.scansPerMonth ?? 0,
     },
     apiCallsToday: {
-      used: subscription.currentUsage?.apiCallsToday || 0,
-      limit: limits?.apiCallsPerDay || 0,
+      used: normalizedUsage.apiCallsToday || 0,
+      limit: limits?.apiCallsPerDay ?? null,
     },
     scheduledScans: {
-      used: subscription.currentUsage?.scheduledScans || 0,
-      limit: limits?.scheduledScans || 0,
+      used: normalizedUsage.scheduledScans || 0,
+      limit: limits?.scheduledScans ?? 0,
     },
   };
 }
 
-/**
- * Increment usage counter
- * Automatically resets monthly counters if we're in a new billing period
- */
-export async function incrementUsage(
-  userId: string,
-  usageType: keyof Subscription['currentUsage'],
-  amount: number = 1
-): Promise<void> {
-  try {
-    const subscriptionRef = doc(db, 'subscriptions', userId);
-    const subscriptionSnap = await getDoc(subscriptionRef);
-    
-    if (!subscriptionSnap.exists()) {
-      console.warn('Subscription not found for user:', userId);
-      return;
-    }
-    
-    const subscription = subscriptionSnap.data() as Subscription;
-    const now = new Date();
-    
-    // Check if we need to reset monthly counters
-    const needsReset = shouldResetUsageCounters(subscription, now);
-    
-    if (needsReset) {
-      // Reset monthly counters (scansThisMonth, apiCallsToday)
-      await updateDoc(subscriptionRef, {
-        'currentUsage.scansThisMonth': usageType === 'scansThisMonth' ? amount : 0,
-        'currentUsage.apiCallsToday': usageType === 'apiCallsToday' ? amount : 0,
-        'currentUsage.usagePeriodStart': Timestamp.fromDate(now),
-        updatedAt: Timestamp.now(),
-      });
-    } else {
-      // Normal increment
-      await updateDoc(subscriptionRef, {
-        [`currentUsage.${usageType}`]: increment(amount),
-        updatedAt: Timestamp.now(),
-      });
-    }
-  } catch (error) {
-    console.error('Error incrementing usage:', error);
-    throw error;
-  }
-}
-
-/**
- * Check if usage counters should be reset based on billing period
- */
-function shouldResetUsageCounters(subscription: Subscription, now: Date): boolean {
-  // If no usage period start is set, we should reset
-  if (!subscription.currentUsage?.usagePeriodStart) {
-    return true;
-  }
-  
-  const periodStart = subscription.currentUsage.usagePeriodStart.toDate();
-  const currentPeriodStart = subscription.currentPeriodStart?.toDate();
-  
-  // If we have a current period start from Stripe and it's different from our usage period, reset
-  if (currentPeriodStart && periodStart < currentPeriodStart) {
-    return true;
-  }
-  
-  // For daily counters (apiCallsToday), reset if it's a new day
-  const periodStartDay = new Date(periodStart).setHours(0, 0, 0, 0);
-  const nowDay = new Date(now).setHours(0, 0, 0, 0);
-  
-  if (periodStartDay < nowDay) {
-    return true;
-  }
-  
-  return false;
-}
-
-/**
- * Calculate days remaining in trial
- */
 export function getTrialDaysRemaining(subscription: Subscription): number {
   const status = String(subscription.status || '').toLowerCase();
-  if (status !== 'trial' && status !== 'trialing') {
-    return 0;
-  }
+  if (status !== 'trial' && status !== 'trialing') return 0;
 
-  // Support multiple field names for trial end date
   const trialEnd = (subscription as any).trialEndDate
     || subscription.trialEnd
     || (subscription as any).trialEndsAt;
   if (!trialEnd) return 0;
 
   const now = new Date();
-  const endDate = typeof trialEnd.toDate === 'function' ? trialEnd.toDate() : new Date(trialEnd);
+  const endDate = typeof (trialEnd as any).toDate === 'function'
+    ? (trialEnd as any).toDate()
+    : new Date(trialEnd as string | Date);
   const diffTime = endDate.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  return Math.max(0, diffDays);
+  return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 }
 
-/**
- * Check if subscription is in grace period
- */
 export function isInGracePeriod(subscription: Subscription): boolean {
-  return subscription.status === 'past_due' || subscription.status === 'grace_period';
+  const s = String(subscription.status ?? '');
+  return s === 'past_due' || s === 'grace_period';
 }
 
-/**
- * Check if subscription needs upgrade prompt
- */
 export function needsUpgrade(subscription: Subscription | null): boolean {
   if (!subscription) return true;
-  
-  return (
-    subscription.status === 'trial' ||
-    subscription.status === 'trialing' ||
-    subscription.status === 'past_due' ||
-    subscription.status === 'grace_period' ||
-    subscription.status === 'suspended'
-  );
+  const s = String(subscription.status ?? '');
+  return s === 'trial' || s === 'trialing' || s === 'past_due' || s === 'grace_period' || s === 'suspended';
 }
 
-/**
- * Get subscription status message for display
- */
 export function getStatusMessage(subscription: Subscription | null): string {
-  if (!subscription) {
-    return 'No active subscription';
-  }
-  
-  switch (subscription.status) {
+  if (!subscription) return 'No active subscription';
+  const s = String(subscription.status ?? '');
+  switch (s) {
     case 'trial':
     case 'trialing': {
       const daysRemaining = getTrialDaysRemaining(subscription);

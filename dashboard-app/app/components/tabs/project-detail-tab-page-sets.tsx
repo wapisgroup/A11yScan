@@ -23,7 +23,6 @@ import { ProjectDetailPageSetsTabState } from "@/state-services/project-detail-p
 import { runSelectedPages } from "@/services/projectPagesService";
 import { isLikelyScanned, resolvePageSetPages } from "@/services/pageSetResolver";
 import { createReport } from "@/services/reportService";
-import { auth } from "@/utils/firebase";
 import { EmptyState } from "../atom/EmptyState";
 import { PiFileText, PiPlus } from "react-icons/pi";
 
@@ -142,15 +141,6 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
   };
 
   const createPageSetReport = async (setDoc: PageSetTDO) => {
-    const userId = auth.currentUser?.uid || null;
-    if (!userId) {
-      await alert({
-        title: "System exception",
-        message: "You need to be signed in to generate report.",
-      });
-      return;
-    }
-
     const resolved = resolvePageSetPages(allPages, setDoc).filter((p) =>
       isLikelyScanned(p)
     );
@@ -167,8 +157,6 @@ export function PageSetsTab({ project }: PageSetsTabProps) {
       type: "pageset",
       title: `${setDoc.name} - Accessibility Report`,
       pageSetId: String(setDoc.id || ""),
-      pageIds: resolved.map((p) => String(p.id)),
-      createdBy: userId,
     });
 
     await alert({

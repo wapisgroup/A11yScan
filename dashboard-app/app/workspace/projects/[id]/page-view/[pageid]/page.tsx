@@ -6,22 +6,21 @@
  * Displays a saved page snapshot in an iframe and overlays accessibility issue highlights.
  *
  * Data source:
- * - Firestore document: projects/{projectId}/scans/{scanId}
+ * - PostgreSQL scan record fetched via server action
  *
  * Behavior:
- * - Loads the scan document in realtime using `onSnapshot`.
+ * - Polls the scan document periodically while the view is open.
  * - Injects a small script into the iframe HTML to receive highlight data via postMessage.
  * - Sends node highlight data to the iframe once the iframe reports it is ready.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { doc, onSnapshot, type DocumentData, type Unsubscribe } from '@/utils/firestore-read-tracker';
 import { useParams } from "next/navigation";
 
-import { db } from "@/utils/firebase";
 import { PrivateRoute } from "@/utils/private-router";
 import IssuesList from "@/components/atom/issue-list";
 import IssueDetailModal, { type IssueData } from "@/components/modals/issue-detail-modal";
+import { getScanDetail } from "@/actions/scans";
 
 /** Next.js route params for `/workspace/projects/[id]/page-view/[pageid]` */
 type ParamsShape = {
@@ -100,28 +99,33 @@ export default function PageViewer(): React.JSX.Element {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [iframeReady, setIframeReady] = useState(false);
 
-  // Subscribe to the scan document in realtime.
+  // Poll scan details while this viewer is open.
   useEffect(() => {
     if (!projectId || !scanId) {
       setScan(null);
       return;
     }
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const scanRef = doc(db, "projects", projectId, "scans", scanId);
-
-    const unsub: Unsubscribe = onSnapshot(
-      scanRef,
-      (snap) => {
-        setScan(snap.exists() ? ({ id: snap.id, ...(snap.data() as DocumentData) } as ScanDoc) : null);
-      },
-      (err) => {
-        // eslint-disable-next-line no-console
-        console.error("scan snapshot error", err);
-        setScan(null);
+    const load = async () => {
+      try {
+        const row = await getScanDetail(scanId);
+        if (!stopped) setScan((row as ScanDoc | null) ?? null);
+      } catch (err) {
+        console.error("scan load error", err);
+        if (!stopped) setScan(null);
+      } finally {
+        if (!stopped) timer = setTimeout(load, 5_000);
       }
-    );
+    };
 
-    return () => unsub();
+    void load();
+
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [projectId, scanId]);
 
   /** Prefer nested pageInfo.nodeInfo when available. */

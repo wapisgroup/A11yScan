@@ -1,53 +1,17 @@
-
 /**
  * projectsService
  * --------------
- * Service layer for Project CRUD operations.
- *
- * Responsibilities:
- * - Load projects (one-time fetch)
- * - Subscribe to projects (realtime updates)
- * - Create / update / delete projects
- * - Start project scans via Cloud Functions (through utils/firebase)
- *
- * Notes:
- * - Firestore reads in this file use the client SDK.
- * - Realtime subscriptions return an `Unsubscribe` function; callers must call it on unmount.
+ * Client-facing service for project CRUD and scan trigger operations.
+ * Uses PostgreSQL-backed API routes (Auth.js session cookie auth).
  */
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  onSnapshot,
-  where,
-  type DocumentData,
-  type Timestamp,
-  type Unsubscribe,
-  type QuerySnapshot,
-} from "@/utils/firestore-read-tracker";
-import { onAuthStateChanged } from "firebase/auth";
 
-import { auth, db } from "@/utils/firebase";
-import { callServerFunction } from "@/services/serverService";
-
-/**
- * Validates a URL string.
- * Accepts URLs with or without protocol.
- */
 export function validateUrl(url: string): boolean {
   if (!url || !url.trim()) return false;
-  
   try {
-    // Add https:// if no protocol specified
-    const urlToTest = url.startsWith("http://") || url.startsWith("https://") 
-      ? url 
-      : `https://${url}`;
+    const urlToTest =
+      url.startsWith("http://") || url.startsWith("https://")
+        ? url
+        : `https://${url}`;
     new URL(urlToTest);
     return true;
   } catch {
@@ -55,59 +19,21 @@ export function validateUrl(url: string): boolean {
   }
 }
 
-/**
- * Generates a project name from a URL.
- * Example: "https://sta.ablelytics.com/" -> "Sta Ablelytics Com"
- */
 export function generateNameFromUrl(url: string): string {
   if (!url) return "";
-  
   try {
-    // Add https:// if no protocol specified
-    const urlToTest = url.startsWith("http://") || url.startsWith("https://") 
-      ? url 
-      : `https://${url}`;
-    const urlObj = new URL(urlToTest);
-    const hostname = urlObj.hostname;
-    
-    // Remove www. prefix
-    const withoutWww = hostname.replace(/^www\./, "");
-    
-    // Split by dots and capitalize each part
-    const parts = withoutWww.split(".");
-    const capitalized = parts
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    const urlToTest =
+      url.startsWith("http://") || url.startsWith("https://")
+        ? url
+        : `https://${url}`;
+    const hostname = new URL(urlToTest).hostname.replace(/^www\./, "");
+    return hostname
+      .split(".")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
-    
-    return capitalized;
   } catch {
     return "";
   }
-}
-
-/**
- * Checks if a URL is already used by the current user.
- */
-export async function isUrlUnique(url: string, excludeProjectId?: string): Promise<boolean> {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return true; // If not authenticated, let it pass (will fail later)
-  
-  // Normalize URL for comparison
-  const normalizedUrl = url.toLowerCase().trim();
-  
-  const q = query(
-    collection(db, "projects"),
-    where("owner", "==", uid)
-  );
-  
-  const snap = await getDocs(q);
-  
-  return !snap.docs.some(doc => {
-    if (excludeProjectId && doc.id === excludeProjectId) return false;
-    const data = doc.data();
-    const existingUrl = String(data.domain ?? "").toLowerCase().trim();
-    return existingUrl === normalizedUrl;
-  });
 }
 
 export type Project = {
@@ -116,8 +42,8 @@ export type Project = {
   domain: string;
   owner: string | null;
   organisationId?: string | null;
-  createdAt?: Timestamp | Date | null;
-  lastScanAt?: Timestamp | Date | null;
+  createdAt?: Date | null;
+  lastScanAt?: Date | null;
 };
 
 export type ProjectConfig = {
@@ -140,161 +66,123 @@ export type UpdateProjectInput = {
   domain: string;
 };
 
-export async function loadProjects(): Promise<Project[]> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    return [];
-  }
+type Unsubscribe = () => void;
 
-  // Prefer querying by organisationId so team members see shared projects.
-  // Fall back to owner when the user is not part of an organisation.
-  let organisationId: string | null = null;
-  try {
-    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-    if (userSnap.exists()) {
-      organisationId = (userSnap.data().organisationId as string | undefined) ?? null;
-    }
-  } catch { /* non-critical — fall back to owner query */ }
-
-  const q = organisationId
-    ? query(collection(db, "projects"), where("organisationId", "==", organisationId), orderBy("createdAt", "desc"))
-    : query(collection(db, "projects"), where("owner", "==", currentUser.uid), orderBy("createdAt", "desc"));
-
-  const snap = await getDocs(q);
-
-  return snap.docs.map((d) => {
-    const data = d.data() as DocumentData;
-    return {
-      id: d.id,
-      name: (data.name ?? null) as string | null,
-      domain: String(data.domain ?? ""),
-      owner: (data.owner ?? null) as string | null,
-      organisationId: (data.organisationId ?? null) as string | null,
-      createdAt: (data.createdAt ?? null) as Timestamp | Date | null,
-      lastScanAt: (data.lastScanAt ?? null) as Timestamp | Date | null,
-    };
-  });
+function mapProject(data: {
+  id: string;
+  name: string | null;
+  domain: string;
+  owner: string | null;
+  organisationId?: string | null;
+  createdAt?: string | Date | null;
+  lastScanAt?: string | Date | null;
+}): Project {
+  return {
+    id: data.id,
+    name: data.name,
+    domain: data.domain,
+    owner: data.owner,
+    organisationId: data.organisationId ?? null,
+    createdAt: data.createdAt ? new Date(data.createdAt) : null,
+    lastScanAt: data.lastScanAt ? new Date(data.lastScanAt) : null,
+  };
 }
 
-/**
- * subscribeProjects
- * -----------------
- * Realtime subscription to the `projects` collection.
- *
- * Use this when the UI should automatically reflect changes made by:
- * - this client (create/update/delete)
- * - other clients
- * - background workers writing to Firestore
- *
- * Ordering:
- * - Projects are ordered by `createdAt` descending (newest first).
- *
- * @param onNext  Callback invoked on every snapshot with the full, mapped list of projects.
- * @param onError Optional callback invoked when the subscription errors.
- *
- * @returns Firestore `Unsubscribe` function. Call it to stop listening.
- */
-function toProject(d: { id: string; data: () => DocumentData }): Project {
-  const data = d.data() as DocumentData;
-  return {
-    id: d.id,
-    name: (data.name ?? null) as string | null,
-    domain: String(data.domain ?? ""),
-    owner: (data.owner ?? null) as string | null,
-    organisationId: (data.organisationId ?? null) as string | null,
-    createdAt: (data.createdAt ?? null) as Timestamp | Date | null,
-    lastScanAt: (data.lastScanAt ?? null) as Timestamp | Date | null,
-  };
+export async function loadProjects(): Promise<Project[]> {
+  const response = await fetch("/api/projects", {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (response.status === 401) return [];
+  if (!response.ok) {
+    const err = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    throw new Error((err.error as string) || `Failed to load projects (${response.status})`);
+  }
+
+  const rows = (await response.json()) as Array<{
+    id: string;
+    name: string | null;
+    domain: string;
+    owner: string | null;
+    organisationId?: string | null;
+    createdAt?: string | Date | null;
+    lastScanAt?: string | Date | null;
+  }>;
+
+  return rows.map(mapProject);
+}
+
+export async function isUrlUnique(url: string, excludeProjectId?: string): Promise<boolean> {
+  const normalizedUrl = url.toLowerCase().trim();
+  const projects = await loadProjects();
+
+  return !projects.some((project) => {
+    if (excludeProjectId && project.id === excludeProjectId) return false;
+    return String(project.domain ?? "").toLowerCase().trim() === normalizedUrl;
+  });
 }
 
 export function subscribeProjects(
   onNext: (projects: Project[]) => void,
   onError?: (err: unknown) => void,
-  organisationId?: string | null,
+  _organisationId?: string | null
 ): Unsubscribe {
-  // Fast path: organisationId already known — skip auth/user-doc lookup entirely.
-  // This avoids onAuthStateChanged double-firing (local cache → server validation)
-  // which would otherwise cause duplicate Firestore reads.
-  if (organisationId !== undefined) {
-    if (!organisationId) { onNext([]); return () => {}; }
-    const q = query(
-      collection(db, "projects"),
-      where("organisationId", "==", organisationId),
-      orderBy("createdAt", "desc")
-    );
-    return onSnapshot(
-      q,
-      (snap: QuerySnapshot<DocumentData>) => onNext(snap.docs.map(toProject)),
-      (err: Error) => onError?.(err)
-    );
-  }
+  let stopped = false;
+  let timer: ReturnType<typeof setInterval> | null = null;
 
-  // Slow path: resolve organisationId from user doc (backwards compat / fallback).
-  let unsubscribeSnapshot: Unsubscribe | null = null;
-
-  const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-    if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-    if (!user) { onNext([]); return; }
-
-    let orgId: string | null = null;
+  const emit = async () => {
+    if (stopped) return;
     try {
-      const userSnap = await getDoc(doc(db, "users", user.uid));
-      if (userSnap.exists()) {
-        orgId = (userSnap.data().organisationId as string | undefined) ?? null;
-      }
-    } catch { /* non-critical — fall back to owner query */ }
+      const projects = await loadProjects();
+      if (!stopped) onNext(projects);
+    } catch (error) {
+      if (!stopped && onError) onError(error);
+    }
+  };
 
-    const q = orgId
-      ? query(collection(db, "projects"), where("organisationId", "==", orgId), orderBy("createdAt", "desc"))
-      : query(collection(db, "projects"), where("owner", "==", user.uid), orderBy("createdAt", "desc"));
-
-    unsubscribeSnapshot = onSnapshot(
-      q,
-      (snap: QuerySnapshot<DocumentData>) => onNext(snap.docs.map(toProject)),
-      (err: Error) => onError?.(err)
-    );
-  });
+  void emit();
+  timer = setInterval(() => {
+    void emit();
+  }, 10_000);
 
   return () => {
-    unsubscribeAuth();
-    if (unsubscribeSnapshot) unsubscribeSnapshot();
+    stopped = true;
+    if (timer) clearInterval(timer);
   };
 }
 
 export async function createProject({ name, domain, config }: CreateProjectInput): Promise<Project> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error("Not authenticated");
-
-  // Client-side validation (fast feedback before hitting the API)
   if (!validateUrl(domain)) {
     throw new Error("Invalid URL address. Please provide a valid URL.");
   }
 
-  const token = await currentUser.getIdToken();
-  const response = await fetch('/api/projects', {
-    method: 'POST',
+  const response = await fetch("/api/projects", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ name, domain, config }),
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({})) as Record<string, unknown>;
+    const err = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
-    if (err.error === 'LIMIT_REACHED') {
-      const limit = err.limit as number;
+    if (response.status === 401) {
+      throw new Error("Not authenticated");
+    }
+
+    if (err.error === "LIMIT_REACHED") {
+      const limit = Number(err.limit ?? 0);
       throw new Error(
-        `You've reached your plan's limit of ${limit} active project${limit === 1 ? '' : 's'}. ` +
-        `Upgrade your plan to create more projects.`
+        `You've reached your plan's limit of ${limit} active project${limit === 1 ? "" : "s"}. Upgrade your plan to create more projects.`
       );
     }
 
     throw new Error((err.error as string) || `Failed to create project (${response.status})`);
   }
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     id: string;
     name: string | null;
     domain: string;
@@ -314,76 +202,51 @@ export async function createProject({ name, domain, config }: CreateProjectInput
 
 export async function updateProject(project: UpdateProjectInput): Promise<void> {
   if (!project?.id) throw new Error("project.id required");
-
-  // Validate name is not empty
   if (!project.name?.trim()) {
     throw new Error("Project name cannot be empty.");
   }
 
-  // Only update name - domain is locked after creation
-  await updateDoc(doc(db, "projects", project.id), {
-    name: project.name.trim(),
+  const response = await fetch(`/api/projects/${project.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: project.name.trim() }),
   });
+
+  if (!response.ok) {
+    const err = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    throw new Error((err.error as string) || `Failed to update project (${response.status})`);
+  }
 }
 
 export async function deleteProject(id: string): Promise<void> {
   if (!id) throw new Error("id required");
 
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error("Not authenticated");
-  const token = await currentUser.getIdToken();
-
   const response = await fetch(`/api/projects/${id}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error((err as any).error || `Failed to delete project (${response.status})`);
+    const err = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    throw new Error((err.error as string) || `Failed to delete project (${response.status})`);
   }
 }
 
 export async function startProjectScan(project: Pick<Project, "id" | "domain">): Promise<string> {
   if (!project?.id) throw new Error("project.id required");
 
-  // Use startPageCollection API route to crawl and collect pages
-  try {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error('User not authenticated');
-    }
-    
-    const token = await currentUser.getIdToken();
+  const response = await fetch("/api/page-collection/start", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ projectId: project.id }),
+  });
 
-    const response = await fetch('/api/page-collection/start', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ projectId: project.id }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to start page collection');
-    }
-
-    const result = await response.json();
-    const runId = result.runId || "unknown";
-
-    // Denormalize scan start time onto the project so the projects list
-    // can show it without extra queries.
-    try {
-      await updateDoc(doc(db, "projects", project.id), { lastScanAt: serverTimestamp() });
-    } catch {
-      // Non-critical — don't fail the scan trigger if this write fails.
-    }
-
-    return runId;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error("Failed to start page collection: " + msg);
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    throw new Error((error.message as string) || `Failed to start page collection (${response.status})`);
   }
+
+  const result = (await response.json()) as { runId?: string | null };
+  return result.runId ?? "unknown";
 }

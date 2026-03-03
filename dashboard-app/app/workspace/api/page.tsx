@@ -10,8 +10,8 @@ import { PageDataLoading } from "@/components/molecule/page-data-loading";
 import { DSEmptyState } from "@/components/molecule/ds-empty-state";
 import { Pagination } from "@/components/molecule/pagination";
 import { PiCode, PiArrowsClockwise } from "react-icons/pi";
-import { loadApiLogs, ApiLogEntry } from "@/services/apiLogsService";
-import { QueryDocumentSnapshot, DocumentData } from '@/utils/firestore-read-tracker';
+import { loadApiLogs } from "@/services/apiLogsService";
+import type { ApiLogEntry } from "@/services/apiLogsService";
 
 const PAGE_SIZE = 25;
 
@@ -22,7 +22,8 @@ export default function ApiLogsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "success" | "error">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [pageCache, setPageCache] = useState<Map<number, { entries: ApiLogEntry[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }>>(new Map());
+  // cursor-based: map from page number → cursor string (id of last entry on that page)
+  const [pageCache, setPageCache] = useState<Map<number, { entries: ApiLogEntry[]; cursor: string | null }>>(new Map());
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -31,24 +32,23 @@ export default function ApiLogsPage() {
     setLoading(true);
 
     try {
-      // For page 1, no afterDoc needed
-      let afterDoc: QueryDocumentSnapshot<DocumentData> | null = null;
+      let cursor: string | null = null;
       if (page > 1) {
         const prevPage = pageCache.get(page - 1);
-        afterDoc = prevPage?.lastDoc || null;
+        cursor = prevPage?.cursor ?? null;
       }
 
       const result = await loadApiLogs(user.uid, {
         pageSize: PAGE_SIZE,
-        afterDoc,
-        statusFilter: filter as any,
+        cursor,
+        statusFilter: filter as "all" | "success" | "error",
       });
 
       setEntries(result.entries);
       setTotalCount(result.totalCount);
       setPageCache((prev) => {
         const next = new Map(prev);
-        next.set(page, { entries: result.entries, lastDoc: result.lastDoc });
+        next.set(page, { entries: result.entries, cursor: result.cursor });
         return next;
       });
     } catch (err) {
@@ -144,7 +144,7 @@ export default function ApiLogsPage() {
                 <span className="as-p2-text primary-text-color">Status:</span>
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  onChange={(e) => setStatusFilter(e.target.value as "all" | "success" | "error")}
                   className="px-4 py-2 border border-[var(--color-border-light)] rounded-lg as-p2-text primary-text-color bg-[var(--color-bg)] hover:border-brand input-focus"
                 >
                   <option value="all">All</option>

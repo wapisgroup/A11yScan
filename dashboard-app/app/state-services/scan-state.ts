@@ -67,10 +67,10 @@ export const useScansPageState = (
 
   // Load function for base state
   const load = useCallback(async (): Promise<PageReport[]> => {
-    if (!organisationId) return [];
-    
+    // Session-scoped server action handles org/user filtering.
+    // Keep organisationId only as cache key input.
     const { reports, projects: projectsList } = await loadPageReports(
-      organisationId,
+      organisationId || "__session__",
       projectIdFilter
     );
     

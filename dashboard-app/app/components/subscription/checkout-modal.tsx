@@ -49,8 +49,6 @@ export function CheckoutModal({
   const [taxId, setTaxId] = useState('');
   const [taxIdType, setTaxIdType] = useState('eu_vat');
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -150,52 +148,66 @@ export function CheckoutModal({
     { value: 'sg_gst', label: 'SG GST' },
   ];
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
-        {success ? (
-          <div className="text-center py-4">
-            <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Subscription Active!</h3>
-            <p className="text-gray-600 mb-4">
-              You are now subscribed to the <strong>{packageDisplayName}</strong> plan.
-            </p>
-            <button
-              onClick={onClose}
-              className="px-6 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
-            >
-              Done
-            </button>
+      {/* Drawer */}
+      <section className="fixed inset-y-0 right-0 z-50 w-[480px] bg-white shadow-2xl border-l border-gray-200 flex flex-col">
+        {/* Drawer header */}
+        <header className="px-6 py-5 border-b border-gray-200 flex items-start justify-between gap-4">
+          <div>
+            {success ? (
+              <h3 className="text-lg font-semibold text-gray-900">Subscription Active!</h3>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900">Subscribe to {packageDisplayName}</h3>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  ${price}/{billingCycle === 'monthly' ? 'month' : 'year'}
+                  {existingSubscriptionId && ' — your trial will end and billing starts now'}
+                </p>
+              </>
+            )}
           </div>
-        ) : (
-          <>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              Subscribe to {packageDisplayName}
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              ${price}/{billingCycle === 'monthly' ? 'month' : 'year'}
-              {existingSubscriptionId && ' — your trial will end and billing starts now'}
-            </p>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex-shrink-0"
+            aria-label="Close"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
 
-            <form onSubmit={handleSubmit}>
+        {/* Drawer body */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          {success ? (
+            <div className="text-center py-8">
+              <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-gray-600 mb-6">
+                You are now subscribed to the <strong>{packageDisplayName}</strong> plan.
+              </p>
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
               {/* Card Details */}
-              <div className="mb-4">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Card Details
                 </label>
-                <div className="border border-gray-300 rounded-lg p-3">
+                <div className="border border-gray-300 rounded-lg p-3 bg-white">
                   <CardElement
                     options={{
                       style: {
@@ -211,7 +223,7 @@ export function CheckoutModal({
               </div>
 
               {/* Business / VAT toggle */}
-              <div className="mb-4">
+              <div>
                 <button
                   type="button"
                   onClick={() => setShowBusinessFields(!showBusinessFields)}
@@ -228,7 +240,7 @@ export function CheckoutModal({
               </div>
 
               {showBusinessFields && (
-                <div className="mb-4 space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
                   {/* Business Name */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
@@ -241,7 +253,6 @@ export function CheckoutModal({
                     />
                   </div>
 
-                  {/* Address */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
                     <input
@@ -308,7 +319,6 @@ export function CheckoutModal({
                     </div>
                   </div>
 
-                  {/* Tax ID */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="col-span-1">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Tax ID Type</label>
@@ -337,21 +347,21 @@ export function CheckoutModal({
               )}
 
               {error && (
-                <p className="mb-4 text-sm text-red-600">{error}</p>
+                <p className="text-sm text-red-600">{error}</p>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading || !stripe}
-                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center">
@@ -367,9 +377,9 @@ export function CheckoutModal({
                 </button>
               </div>
             </form>
-          </>
-        )}
-      </div>
-    </div>
+          )}
+        </div>
+      </section>
+    </>
   );
 }

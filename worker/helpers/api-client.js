@@ -9,10 +9,15 @@
  */
 
 const BASE_URL = process.env.DASHBOARD_API_URL || 'http://localhost:3000';
-const TOKEN    = process.env.WORKER_API_TOKEN;
+const TOKEN = (
+    process.env.WORKER_API_TOKEN ||
+    process.env.DASHBOARD_API_TOKEN ||
+    process.env.API_TOKEN ||
+    ''
+).trim();
 
 if (!TOKEN) {
-    console.warn('[api-client] WORKER_API_TOKEN is not set — all requests will be rejected as 401');
+    console.warn('[api-client] No worker token set (WORKER_API_TOKEN / DASHBOARD_API_TOKEN / API_TOKEN) — requests will fail with 401');
 }
 
 /**
@@ -23,6 +28,10 @@ if (!TOKEN) {
  * @returns {Promise<any>} parsed JSON response
  */
 async function request(method, path, body) {
+    if (!TOKEN) {
+        throw new Error('Missing worker API token. Set WORKER_API_TOKEN (or DASHBOARD_API_TOKEN/API_TOKEN).');
+    }
+
     const url = `${BASE_URL}${path}`;
     const init = {
         method,
@@ -118,7 +127,7 @@ function getRun(runId) {
 
 /**
  * Update a run.
- * Accepts: status, startedAt, finishedAt, pagesTotal, pagesScanned, stats, hidden
+ * Accepts: status, startedAt, finishedAt, pagesTotal, pagesScanned, usageIncrementScans, stats, hidden
  */
 function updateRun(runId, data) {
     return request('PATCH', `/api/v2/runs/${runId}`, data);

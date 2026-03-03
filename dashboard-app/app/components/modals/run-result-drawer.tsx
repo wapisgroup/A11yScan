@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { collection, getDocs } from '@/utils/firestore-read-tracker';
-import { db, auth } from "@/utils/firebase";
 import { DSDrawerShell } from "@/components/organism/ds-drawer-shell";
 import { SitemapTree, type SitemapNode } from "@/components/organism/sitemap-tree";
 import { TableErrorBadge } from "@/components/atom/table-error-badge";
 import { RunDoc, runTypesList } from "@/types/run";
 import { PiGlobe } from "react-icons/pi";
+import { getRunPageSummaries } from "@/actions/runs";
 
 type PageSummary = {
   id: string;
@@ -53,10 +52,7 @@ export function RunResultDrawer({
       setLoading(true);
       (async () => {
         try {
-          const token = await auth.currentUser?.getIdToken();
-          const res = await fetch(`/api/projects/${projectId}/sitemap-tree`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
+          const res = await fetch(`/api/projects/${projectId}/sitemap-tree`);
           if (res.status === 404) {
             setError("No sitemap available yet for this project.");
             return;
@@ -75,63 +71,12 @@ export function RunResultDrawer({
 
     if (isScanRun) {
       setLoading(true);
-      const pagesIds: string[] = Array.isArray(run.pagesIds) ? (run.pagesIds as string[]) : [];
-
-      if (pagesIds.length === 0) {
-        // Fall back to loading all pages for the project
-        getDocs(collection(db, "projects", projectId, "pages"))
-          .then((snap) => {
-            const result: PageSummary[] = snap.docs.map((d) => {
-              const data = d.data();
-              const stats = data.lastStats ?? data.violationsCount ?? {};
-              return {
-                id: d.id,
-                url: data.url ?? null,
-                title: data.title ?? null,
-                critical: Number(stats.critical ?? 0),
-                serious: Number(stats.serious ?? 0),
-                moderate: Number(stats.moderate ?? 0),
-                minor: Number(stats.minor ?? 0),
-              };
-            });
-            setPages(result);
-          })
-          .catch((err) => setError(err instanceof Error ? err.message : "Failed to load pages"))
-          .finally(() => setLoading(false));
-      } else {
-        // Load only the pages in this run
-        Promise.all(
-          pagesIds.map((pageId) =>
-            getDocs(collection(db, "projects", projectId, "pages"))
-              .then((snap) => snap.docs.find((d) => d.id === pageId))
-          )
-        )
-          .then(async () => {
-            // Fetch all pages and filter
-            const snap = await getDocs(collection(db, "projects", projectId, "pages"));
-            const idSet = new Set(pagesIds);
-            const result: PageSummary[] = snap.docs
-              .filter((d) => idSet.has(d.id))
-              .map((d) => {
-                const data = d.data();
-                const stats = data.lastStats ?? data.violationsCount ?? {};
-                return {
-                  id: d.id,
-                  url: data.url ?? null,
-                  title: data.title ?? null,
-                  critical: Number(stats.critical ?? 0),
-                  serious: Number(stats.serious ?? 0),
-                  moderate: Number(stats.moderate ?? 0),
-                  minor: Number(stats.minor ?? 0),
-                };
-              });
-            setPages(result);
-          })
-          .catch((err) => setError(err instanceof Error ? err.message : "Failed to load pages"))
-          .finally(() => setLoading(false));
-      }
+      getRunPageSummaries(projectId, run.id)
+        .then((rows) => setPages(rows))
+        .catch((err) => setError(err instanceof Error ? err.message : "Failed to load pages"))
+        .finally(() => setLoading(false));
     }
-  }, [open, run?.id, projectId]);
+  }, [open, run?.id, projectId, isPageCollection, isScanRun]);
 
   if (!open || !run) return null;
 

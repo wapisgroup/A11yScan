@@ -2,7 +2,6 @@
 
 import React, { useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { collection, addDoc } from '@/utils/firestore-read-tracker';
 import {
   PiArrowLeft,
   PiFilePdf,
@@ -19,16 +18,18 @@ import {
   PiSpinner
 } from "react-icons/pi";
 
-import { db, useAuth } from "@/utils/firebase";
 import { formatDate } from "@/ui-helpers/default";
 import { PrivateRoute } from "@/utils/private-router";
 import { WorkspaceLayout } from "@/components/organism/workspace-layout";
 import { PageContainer } from "@/components/molecule/page-container";
 import { DSButton } from "@/components/atom/ds-button";
 import { createReport } from "@/services/reportService";
+import { startScanPages } from "@/actions/job-triggers";
+import type { TimestampLike } from "@/types/default";
+import { toDateSafe } from "@/ui-helpers/default";
 import IssueDetailModal, { type IssueData } from "@/components/modals/issue-detail-modal";
 import { PageWrapper } from "@/components/molecule/page-wrapper";
-import { usePageReportState, type ScanDoc } from "@/state-services/page-report-state";
+import { usePageReportState } from "@/state-services/page-report-state";
 
 // PageReport
 // ----------
@@ -63,7 +64,6 @@ type Issue = {
 export default function PageReport(): React.JSX.Element {
   const params = useParams() as ParamsShape;
   const router = useRouter();
-  const { user } = useAuth();
 
   const projectId = params?.id;
   const pageId = params?.pageid;
@@ -104,6 +104,20 @@ export default function PageReport(): React.JSX.Element {
     allIssues: issues,
   })) : [];
 
+  const selectedScanCreatedAt = state?.selectedScan?.createdAt
+    ? toDateSafe(state.selectedScan.createdAt)
+    : null;
+  const pageLastScanCreatedAt = (() => {
+    const lastScan = (state?.page?.lastScan as { createdAt?: unknown } | null | undefined) ?? null;
+    const raw = lastScan?.createdAt;
+    if (!raw) return null;
+    if (raw instanceof Date) return raw;
+    if (typeof raw === "object" && raw && "toDate" in raw && typeof (raw as { toDate?: unknown }).toDate === "function") {
+      return (raw as { toDate: () => Date }).toDate();
+    }
+    return null;
+  })();
+
   function downloadArtifact() {
     if (!state?.downloadUrl) return;
     window.open(state.downloadUrl, "_blank", "noopener,noreferrer");
@@ -120,7 +134,7 @@ export default function PageReport(): React.JSX.Element {
   }
 
   async function generatePageReport() {
-    if (!projectId || !pageId || !user) return;
+    if (!projectId || !pageId) return;
 
     try {
       setGeneratingReport(true);
@@ -130,7 +144,6 @@ export default function PageReport(): React.JSX.Element {
         type: 'individual',
         title: `${state?.page?.url || 'Page'} - Accessibility Report`,
         pageIds: [pageId],
-        createdBy: user.uid,
       });
 
       if (result.success) {
@@ -147,22 +160,17 @@ export default function PageReport(): React.JSX.Element {
   }
 
   async function retestPage() {
-    if (!projectId || !pageId || !user) return;
+    if (!projectId || !pageId) return;
 
     try {
       setRetesting(true);
 
-      // Create a new run with just this page
-      const runsCol = collection(db, "projects", projectId, "runs");
-      const newRun = await addDoc(runsCol, {
-        pagesIds: [pageId],
-        status: 'pending',
-        createdAt: new Date(),
-        createdBy: user.uid,
-        type: 'manual-retest',
-      });
-
-      alert(`Re-test started! Run ID: ${newRun.id}. The page will be scanned shortly.`);
+      const result = await startScanPages(projectId, [pageId]);
+      if (result.title === "Error") {
+        alert(`Failed to trigger re-test: ${result.message}`);
+        return;
+      }
+      alert("Re-test started. The page will be scanned shortly.");
     } catch (err) {
       console.error('Failed to trigger retest:', err);
       alert('Failed to trigger re-test');
@@ -255,9 +263,9 @@ export default function PageReport(): React.JSX.Element {
                     {String(state.page?.url || "")}
                   </div>
                   <div className="flex items-center gap-4 as-p3-text secondary-text-color">
-                    <span>Project: {String(state.page?.projectName || projectId || "")}</span>
+                    <span>Project: {String(state.project?.name || projectId || "")}</span>
                     <span>•</span>
-                    <span>Generated: {state.selectedScan?.createdAt && formatDate(state.selectedScan.createdAt) || state.page?.lastScan?.createdAt && formatDate(state.page.lastScan.createdAt) || 'N/A'}</span>
+                    <span>Generated: {selectedScanCreatedAt ? formatDate(selectedScanCreatedAt as unknown as TimestampLike) : pageLastScanCreatedAt ? formatDate(pageLastScanCreatedAt as unknown as TimestampLike) : 'N/A'}</span>
                   </div>
                 </div>
               </div>}

@@ -1,21 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   PiFileText, PiGlobe, PiCalendar, PiNotepadLight,
   PiArrowClockwise, PiSpinner
 } from "react-icons/pi";
-import {
-  collection, query, where, orderBy, limit, onSnapshot,
-  type Unsubscribe
-} from '@/utils/firestore-read-tracker';
-
 import { PageContainer } from "@/components/molecule/page-container";
 import { Pagination } from "@/components/molecule/pagination";
 import { useAuth } from "@/utils/firebase";
-import { db } from "@/utils/firebase";
 import { StatPill } from "@/components/atom/stat-pill";
 import { useScansPageState } from "@/state-services/scan-state";
 import { formatTimeAgo } from "@/ui-helpers/default";
@@ -40,7 +34,8 @@ export default function Scans() {
   const [selectedScan, setSelectedScan] = useState<PageReport | null>(null);
   const [drawerTab, setDrawerTab] = useState<"report" | "preview">("report");
   const [rescanningIds, setRescanningIds] = useState<Set<string>>(new Set());
-  const rescanWatchersRef = useRef<Map<string, Unsubscribe>>(new Map());
+  const rescanTimersRef = useRef<Map<string, number>>(new Map());
+  const scansRef = useRef<PageReport[]>([]);
 
   const {
     pagedItems: pagedScans,
@@ -55,17 +50,29 @@ export default function Scans() {
     projectFilter,
     setProjectFilter,
     refresh,
-  } = useScansPageState(user?.organisationId, projectIdFilter, 20);
+  } = useScansPageState(user?.organisationId ?? undefined, projectIdFilter, 20);
+  const showInitialLoading = loading && scans.length === 0;
 
   const clearRescan = useCallback((pageId: string) => {
-    const unsub = rescanWatchersRef.current.get(pageId);
-    unsub?.();
-    rescanWatchersRef.current.delete(pageId);
+    const timer = rescanTimersRef.current.get(pageId);
+    if (timer) window.clearInterval(timer);
+    rescanTimersRef.current.delete(pageId);
     setRescanningIds((prev) => {
       const next = new Set(prev);
       next.delete(pageId);
       return next;
     });
+  }, []);
+
+  useEffect(() => {
+    scansRef.current = scans;
+  }, [scans]);
+
+  useEffect(() => {
+    return () => {
+      rescanTimersRef.current.forEach((id) => window.clearInterval(id));
+      rescanTimersRef.current.clear();
+    };
   }, []);
 
   const handleRescan = useCallback(async (scan: PageReport) => {
@@ -74,40 +81,32 @@ export default function Scans() {
 
     setRescanningIds((prev) => new Set([...prev, pageId]));
 
+    const initialScanId = scan.scanId || "";
     const triggerTime = Date.now();
-    let sawActive = false;
-
-    // Watch the most-recent run for this page; clear when a new run completes
-    const runsQuery = query(
-      collection(db, "projects", scan.projectId, "runs"),
-      where("pagesIds", "array-contains", pageId),
-      orderBy("startedAt", "desc"),
-      limit(1)
-    );
-
-    const unsub = onSnapshot(runsQuery, (snap) => {
-      if (!snap.docs.length) return;
-      const data = snap.docs[0].data() as Record<string, any>;
-      const status = String(data.status ?? "").toLowerCase();
-      const startedMs: number =
-        data.startedAt?.toMillis?.() ??
-        (data.startedAt instanceof Date ? data.startedAt.getTime() : 0);
-
-      const isNew = startedMs === 0 || startedMs >= triggerTime - 10_000;
-      const isActive = ["queued", "running", "pending"].includes(status);
-      const isDone = ["scanned", "completed", "done", "failed"].includes(status);
-
-      if (isNew && isActive) sawActive = true;
-      if ((sawActive || isNew) && isDone) {
-        clearRescan(pageId);
-        void refresh();
-      }
-    });
-
-    rescanWatchersRef.current.set(pageId, unsub);
 
     try {
       await scanSinglePage(scan.projectId, { id: pageId, url: scan.url });
+      const timer = window.setInterval(() => {
+        void (async () => {
+          await refresh();
+          const latest = scansRef.current.find((s) => s.id === pageId);
+          if (!latest) return;
+          const changedScan =
+            Boolean(latest.scanId) && latest.scanId !== initialScanId;
+          const refreshedAfterTrigger =
+            latest.lastScanned instanceof Date &&
+            latest.lastScanned.getTime() >= triggerTime;
+
+          if (changedScan || refreshedAfterTrigger) {
+            clearRescan(pageId);
+          }
+        })();
+      }, 1000);
+
+      rescanTimersRef.current.set(pageId, timer);
+
+      // Safety timeout
+      window.setTimeout(() => clearRescan(pageId), 120000);
     } catch {
       clearRescan(pageId);
     }
@@ -117,7 +116,7 @@ export default function Scans() {
     <>
       <PageWrapper title="Scans">
         <PageContainer title="Page Scans" excludePadding description="View and manage all your page scans. Filter by project or severity to find specific results.">
-            {loading ? (
+            {showInitialLoading ? (
               <PageDataLoading>Loading scans...</PageDataLoading>
             ) : <>
             {error && <div className="text-red-600 mb-4">{error}</div>}

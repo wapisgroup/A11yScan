@@ -1,92 +1,131 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { adminDB } from '@/utils/firebase-admin';
-import { withAuth } from '@/utils/api-auth';
-import { FieldValue } from 'firebase-admin/firestore';
-import crypto from 'crypto';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
-/**
- * POST /api/pages/upload-sitemap
- * Batch-adds pages from a parsed sitemap URL list.
- * Replaces: callServerFunction("uploadSitemap", { projectId, urls })
- */
+function getStatsNumber(stats: Record<string, unknown> | null, key: string): number {
+  const value = stats?.[key];
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+async function applyProjectPagesTotalDelta(
+  tx: Prisma.TransactionClient,
+  projectId: string,
+  pagesTotalDelta: number
+) {
+  if (pagesTotalDelta === 0) return;
+
+  const project = await tx.project.findUnique({
+    where: { id: projectId },
+    select: { projectStats: true },
+  });
+  const existing = (project?.projectStats as Record<string, unknown> | null) ?? null;
+
+  const next = {
+    pagesTotal: Math.max(0, getStatsNumber(existing, "pagesTotal") + pagesTotalDelta),
+    pagesScanned: getStatsNumber(existing, "pagesScanned"),
+    pages404: getStatsNumber(existing, "pages404"),
+    critical: getStatsNumber(existing, "critical"),
+    serious: getStatsNumber(existing, "serious"),
+    moderate: getStatsNumber(existing, "moderate"),
+    minor: getStatsNumber(existing, "minor"),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await tx.project.update({
+    where: { id: projectId },
+    data: { projectStats: next as Prisma.InputJsonValue },
+  });
+}
+
 export async function POST(request: NextRequest) {
-  return withAuth(request, async (req, user) => {
-    try {
-      const body = await req.json();
-      const { projectId, urls } = body;
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-      if (!projectId || !Array.isArray(urls) || urls.length === 0) {
-        return NextResponse.json(
-          { error: 'projectId and urls (non-empty array) are required' },
-          { status: 400 }
-        );
-      }
+  try {
+    const body = (await request.json()) as {
+      projectId?: unknown;
+      urls?: unknown[];
+    };
+    const projectId = String(body?.projectId ?? "");
+    const urlsRaw: unknown[] = Array.isArray(body?.urls) ? body.urls : [];
 
-      const projectRef = adminDB.collection('projects').doc(projectId);
-
-      // Firestore batch writes are limited to 500 ops — chunk if needed
-      const BATCH_SIZE = 400;
-      let added = 0;
-      const normalizedUniqueUrls = Array.from(
-        new Set(
-          urls
-            .filter((value): value is string => typeof value === 'string')
-            .map((value) => value.trim())
-            .filter(Boolean)
-        )
-      );
-
-      for (let i = 0; i < normalizedUniqueUrls.length; i += BATCH_SIZE) {
-        const chunk = normalizedUniqueUrls.slice(i, i + BATCH_SIZE);
-        const batch = adminDB.batch();
-        const refs = chunk.map((url) => {
-          const pageId = crypto.createHash('sha256').update(url).digest('hex');
-          return projectRef.collection('pages').doc(pageId);
-        });
-        const existingSnaps = refs.length ? await adminDB.getAll(...refs) : [];
-        let chunkWrites = 0;
-
-        for (let idx = 0; idx < chunk.length; idx++) {
-          if (existingSnaps[idx]?.exists) continue;
-          const normalized = chunk[idx];
-          const pageRef = refs[idx];
-          batch.set(
-            pageRef,
-            {
-              url: normalized,
-              status: 'discovered',
-              createdAt: FieldValue.serverTimestamp(),
-              createdBy: user.uid,
-            },
-            { merge: false }
-          );
-          chunkWrites++;
-          added++;
-        }
-
-        if (chunkWrites > 0) {
-          await batch.commit();
-        }
-      }
-
-      if (added > 0) {
-        await projectRef.set({
-          projectStats: {
-            pagesTotal: FieldValue.increment(added),
-            pages404: FieldValue.increment(0),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-      }
-
-      return NextResponse.json({ ok: true, added });
-    } catch (error) {
-      console.error('Error uploading sitemap:', error);
+    if (!projectId || urlsRaw.length === 0) {
       return NextResponse.json(
-        { error: 'Failed to upload sitemap', details: error instanceof Error ? error.message : String(error) },
-        { status: 500 }
+        { error: "projectId and urls (non-empty array) are required" },
+        { status: 400 }
       );
     }
-  });
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { ownerId: true, organizationId: true },
+    });
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    const canAccess =
+      project.ownerId === session.user.id ||
+      (session.user.organizationId && project.organizationId === session.user.organizationId);
+    if (!canAccess) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const normalizedUniqueUrls: string[] = Array.from(
+      new Set(
+        urlsRaw
+          .filter((value): value is string => typeof value === "string")
+          .map((value) => value.trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (normalizedUniqueUrls.length === 0) {
+      return NextResponse.json({ ok: true, added: 0 });
+    }
+
+    const existing = await prisma.page.findMany({
+      where: { projectId, url: { in: normalizedUniqueUrls } },
+      select: { url: true },
+    });
+    const existingSet = new Set(existing.map((r) => r.url));
+
+    const toCreate = normalizedUniqueUrls.filter((url) => !existingSet.has(url));
+    let added = 0;
+
+    if (toCreate.length > 0) {
+      const result = await prisma.$transaction(async (tx) => {
+        const created = await tx.page.createMany({
+          data: toCreate.map((url) => ({
+            projectId,
+            url,
+            status: "discovered",
+            createdAt: new Date(),
+          })),
+          skipDuplicates: true,
+        });
+
+        await applyProjectPagesTotalDelta(tx, projectId, created.count);
+
+        return created.count;
+      });
+
+      added = result;
+    }
+
+    return NextResponse.json({ ok: true, added });
+  } catch (error) {
+    console.error("Error uploading sitemap:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to upload sitemap",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
 }

@@ -1,5 +1,8 @@
-import { collection, query, onSnapshot, orderBy, where, limit } from '@/utils/firestore-read-tracker';
-import { db } from "@/utils/firebase";
+/**
+ * jobsService — Phase 9 (SSE)
+ * Firestore dependency removed entirely.
+ * Both subscribeToJobsWithToasts and subscribeToJobs now use EventSource.
+ */
 import type { ToastOptions } from "@/components/providers/window-provider";
 
 export type JobStatus = "queued" | "processing" | "completed" | "failed";
@@ -14,9 +17,24 @@ export type JobChangeEvent = {
 export type JobChangeCallback = (event: JobChangeEvent) => void;
 export type ToastFunction = (options: ToastOptions) => string;
 
+// ── Session-storage keys for deduplication (preserved from original) ──────────
+
 const LAST_TOAST_TS_KEY = "a11yscan.jobs.lastToastTs";
 const JOB_STATUS_MAP_KEY = "a11yscan.jobs.statusMap";
 const MAX_STATUS_MAP_ENTRIES = 500;
+
+type SseJob = {
+  id: string;
+  action: string | null;
+  status: string;
+  projectId: string | null;
+  runId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  doneAt: string | null;
+  error: string | null;
+};
 
 function normalizeJobStatus(raw: unknown): JobStatus | null {
   const value = String(raw ?? "").toLowerCase();
@@ -44,85 +62,43 @@ function writeStatusMapToSession(map: Map<string, JobStatus>): void {
   if (typeof window === "undefined") return;
   try {
     const entries = Array.from(map.entries()).slice(-MAX_STATUS_MAP_ENTRIES);
-    const payload = Object.fromEntries(entries);
-    window.sessionStorage.setItem(JOB_STATUS_MAP_KEY, JSON.stringify(payload));
+    window.sessionStorage.setItem(JOB_STATUS_MAP_KEY, JSON.stringify(Object.fromEntries(entries)));
   } catch {
     // ignore session storage errors
   }
 }
 
-function shouldToastTransition(
+const STATUS_RANK: Record<JobStatus, number> = {
+  queued: 1,
+  processing: 2,
+  completed: 3,
+  failed: 3,
+};
+
+function isForwardTransition(
   prev: JobStatus | undefined,
-  next: JobStatus,
-  changeType: "added" | "modified",
-  isInitialLoad: boolean
+  next: JobStatus
 ): boolean {
-  if (isInitialLoad) return false;
-  if (!prev) return next === "queued" && changeType === "added";
-  if (prev === next) return false;
-
-  const rank: Record<JobStatus, number> = {
-    queued: 1,
-    processing: 2,
-    completed: 3,
-    failed: 3,
-  };
-
-  // Ignore backwards transitions/reconnect noise.
-  return rank[next] >= rank[prev];
+  if (!prev || prev === next) return false;
+  return (STATUS_RANK[next] ?? 0) > (STATUS_RANK[prev] ?? 0);
 }
 
-/**
- * Maps job status to appropriate toast configuration.
- */
-function getStatusToastConfig(status: JobStatus): { title: string; tone: "success" | "info" | "danger" | "default" } {
-  const statusMessages = {
+function getStatusToastConfig(status: JobStatus): {
+  title: string;
+  tone: "success" | "info" | "danger" | "default";
+} {
+  const map = {
     processing: { title: "Job Started", tone: "info" as const },
     completed: { title: "Job Completed", tone: "success" as const },
     failed: { title: "Job Failed", tone: "danger" as const },
     queued: { title: "Job Queued", tone: "info" as const },
   };
-
-  return statusMessages[status] || { title: "Job Updated", tone: "info" as const };
+  return map[status] || { title: "Job Updated", tone: "info" as const };
 }
 
 /**
- * Handles toast notifications for job events.
- */
-function handleJobToast(
-  event: JobChangeEvent,
-  toast: ToastFunction,
-  isInitialLoad: boolean
-): void {
-  const { type, status, action } = event;
-
-  if (type === "added") {
-    if (isInitialLoad) return;
-    if (status !== "queued") return;
-    toast({
-      title: "New Job Created",
-      message: `${action} job has been queued`,
-      tone: "info",
-      durationMs: 3500,
-    });
-  } else if (type === "modified") {
-    // Job status changed
-    const statusInfo = getStatusToastConfig(status);
-    toast({
-      title: statusInfo.title,
-      message: `${action} job status: ${status}`,
-      tone: statusInfo.tone,
-      durationMs: 3500,
-    });
-  }
-}
-
-/**
- * Subscribe to jobs collection with automatic toast notifications.
- * 
- * @param toast - Toast function from useToast hook
- * @param options - Configuration options
- * @returns Unsubscribe function
+ * Subscribe to the job SSE stream with automatic toast notifications.
+ * Deduplication logic (statusMap, lastToastTs) is preserved from Phase 1.
  */
 export function subscribeToJobsWithToasts(
   toast: ToastFunction,
@@ -142,120 +118,125 @@ export function subscribeToJobsWithToasts(
     if (Number.isFinite(parsed) && parsed > 0) lastToastTs = parsed;
   }
 
-  const limitCount = Math.max(1, Math.min(Number(options?.limitCount ?? 5), 25));
+  const es = new EventSource("/api/sse/jobs");
 
-  // Filter at query level when userId is known — avoids reading every job in the collection.
-  // Requires a composite index: jobs(createdBy ASC, createdAt DESC).
-  const jobsQuery = options?.userId
-    ? query(collection(db, "jobs"), where("createdBy", "==", options.userId), orderBy("createdAt", "desc"), limit(limitCount))
-    : query(collection(db, "jobs"), orderBy("createdAt", "desc"), limit(limitCount));
+  es.onmessage = (event) => {
+    try {
+      const jobs = JSON.parse(event.data as string) as SseJob[];
 
-  const unsubscribe = onSnapshot(
-    jobsQuery,
-    (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added" || change.type === "modified") {
-          const jobData = change.doc.data();
-          const createdBy = (jobData.createdBy ?? null) as string | null;
-          if (options?.userId && createdBy !== options.userId) return;
+      for (const job of jobs) {
+        // If userId filter is provided, skip jobs from other users
+        if (options?.userId && job.createdBy !== options.userId) continue;
 
-          const normalizedStatus = normalizeJobStatus(jobData.status);
-          if (!normalizedStatus) return;
+        const normalizedStatus = normalizeJobStatus(job.status);
+        if (!normalizedStatus) continue;
 
-          const changedAtRaw = jobData.doneAt ?? jobData.startedAt ?? jobData.createdAt ?? null;
-          const changedAtMs =
-            typeof changedAtRaw?.toMillis === "function"
-              ? changedAtRaw.toMillis()
-              : Date.now();
+        const changedAtMs = job.doneAt
+          ? new Date(job.doneAt).getTime()
+          : job.startedAt
+          ? new Date(job.startedAt).getTime()
+          : new Date(job.createdAt).getTime();
 
-          // Prevent replaying old status toasts when remounting listeners on navigation.
-          if (changedAtMs <= lastToastTs) return;
+        if (changedAtMs <= lastToastTs) continue;
 
-          const prevStatus = statusMap.get(change.doc.id);
-          if (!shouldToastTransition(prevStatus, normalizedStatus, change.type, isInitialLoad)) {
-            statusMap.set(change.doc.id, normalizedStatus);
-            return;
-          }
-          
-          const event: JobChangeEvent = {
-            type: change.type,
-            jobId: change.doc.id,
-            status: normalizedStatus,
-            action: jobData.action || "job",
-          };
+        const prevStatus = statusMap.get(job.id);
 
-          handleJobToast(event, toast, isInitialLoad);
-          statusMap.set(change.doc.id, normalizedStatus);
-          writeStatusMapToSession(statusMap);
-
-          lastToastTs = Math.max(lastToastTs, changedAtMs);
-          if (typeof window !== "undefined") {
-            window.sessionStorage.setItem(LAST_TOAST_TS_KEY, String(lastToastTs));
-          }
+        if (isInitialLoad) {
+          // Baseline — just record status, no toast
+          statusMap.set(job.id, normalizedStatus);
+          continue;
         }
-      });
-    },
-    (error) => {
-      if (options?.onError) {
-        options.onError(error);
-      } else {
-        console.error("Error subscribing to jobs:", error);
+
+        if (!isForwardTransition(prevStatus, normalizedStatus)) {
+          statusMap.set(job.id, normalizedStatus);
+          continue;
+        }
+
+        const { title, tone } = getStatusToastConfig(normalizedStatus);
+        toast({
+          title,
+          message: `${job.action ?? "job"} job status: ${normalizedStatus}`,
+          tone,
+          durationMs: 3500,
+        });
+
+        statusMap.set(job.id, normalizedStatus);
+        writeStatusMapToSession(statusMap);
+
+        lastToastTs = Math.max(lastToastTs, changedAtMs);
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(LAST_TOAST_TS_KEY, String(lastToastTs));
+        }
       }
+
+      isInitialLoad = false;
+    } catch {
+      // ignore malformed payloads
     }
-  );
+  };
+
+  es.onerror = (err) => {
+    if (options?.onError) options.onError(err);
+  };
 
   // Mark initial load as complete after first snapshot
   const timer = setTimeout(() => {
     isInitialLoad = false;
   }, 500);
 
-  // Return enhanced unsubscribe that cleans up everything
   return () => {
     clearTimeout(timer);
-    unsubscribe();
+    es.close();
     writeStatusMapToSession(statusMap);
   };
 }
 
 /**
- * Subscribe to jobs collection and get notified of new jobs and status changes.
- * 
- * @param onJobChange - Callback fired when a job is added or modified
- * @param onError - Optional error handler
- * @returns Unsubscribe function
+ * Subscribe to job changes and call onJobChange for each event.
  */
 export function subscribeToJobs(
   onJobChange: JobChangeCallback,
   onError?: (error: unknown) => void
 ): () => void {
-  const jobsQuery = query(collection(db, "jobs"), orderBy("createdAt", "desc"));
+  const seenStatuses = new Map<string, JobStatus>();
+  let isInitial = true;
 
-  const unsubscribe = onSnapshot(
-    jobsQuery,
-    (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added" || change.type === "modified") {
-          const jobData = change.doc.data();
-          const normalizedStatus = normalizeJobStatus(jobData.status);
-          if (!normalizedStatus) return;
-          
-          onJobChange({
-            type: change.type,
-            jobId: change.doc.id,
-            status: normalizedStatus,
-            action: jobData.action || "job",
-          });
+  const es = new EventSource("/api/sse/jobs");
+
+  es.onmessage = (event) => {
+    try {
+      const jobs = JSON.parse(event.data as string) as SseJob[];
+
+      for (const job of jobs) {
+        const normalizedStatus = normalizeJobStatus(job.status);
+        if (!normalizedStatus) continue;
+
+        const prevStatus = seenStatuses.get(job.id);
+        const changeType = prevStatus === undefined ? "added" : "modified";
+
+        if (!isInitial) {
+          if (prevStatus !== normalizedStatus) {
+            onJobChange({
+              type: changeType,
+              jobId: job.id,
+              status: normalizedStatus,
+              action: job.action ?? "job",
+            });
+          }
         }
-      });
-    },
-    (error) => {
-      if (onError) {
-        onError(error);
-      } else {
-        console.error("Error subscribing to jobs:", error);
-      }
-    }
-  );
 
-  return unsubscribe;
+        seenStatuses.set(job.id, normalizedStatus);
+      }
+
+      isInitial = false;
+    } catch {
+      // ignore malformed payloads
+    }
+  };
+
+  es.onerror = (err) => {
+    if (onError) onError(err);
+  };
+
+  return () => es.close();
 }
