@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getStorage } from "firebase-admin/storage";
-import { getApp } from "firebase-admin/app";
 import { auth } from "@/lib/auth";
 
 export async function GET(
@@ -17,7 +15,7 @@ export async function GET(
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true, organizationId: true, sitemapTreeUrl: true },
+    select: { ownerId: true, organizationId: true, sitemapTreeUrl: true, sitemapTree: true },
   });
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -30,37 +28,20 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const sitemapTreeUrl = project.sitemapTreeUrl;
-  if (!sitemapTreeUrl) {
-    return NextResponse.json({ error: "No sitemap tree available" }, { status: 404 });
+  // Prefer DB-stored tree (always available, no external dependency)
+  if (project.sitemapTree) {
+    return NextResponse.json(project.sitemapTree);
   }
 
-  try {
-    const url = new URL(sitemapTreeUrl);
-    const pathMatch = url.pathname.match(/\/v0\/b\/[^/]+\/o\/(.+)$/);
-    if (pathMatch) {
-      const storagePath = decodeURIComponent(pathMatch[1]);
-      const storageBucket =
-        process.env.FIREBASE_STORAGE_BUCKET ||
-        process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
-        "accessibilitychecker-c6585.firebasestorage.app";
-
-      const [fileContents] = await getStorage(getApp())
-        .bucket(storageBucket)
-        .file(storagePath)
-        .download();
-
-      const json = JSON.parse(fileContents.toString("utf8"));
-      return NextResponse.json(json);
+  // Fall back to external URL (legacy / production storage URL)
+  if (project.sitemapTreeUrl) {
+    const res = await fetch(project.sitemapTreeUrl);
+    if (!res.ok) {
+      return NextResponse.json({ error: "Failed to fetch sitemap tree" }, { status: 502 });
     }
-  } catch {
-    // Fallback below
+    const json = await res.json();
+    return NextResponse.json(json);
   }
 
-  const res = await fetch(sitemapTreeUrl);
-  if (!res.ok) {
-    return NextResponse.json({ error: "Failed to fetch sitemap tree" }, { status: 502 });
-  }
-  const json = await res.json();
-  return NextResponse.json(json);
+  return NextResponse.json({ error: "No sitemap tree available" }, { status: 404 });
 }

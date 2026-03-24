@@ -24,6 +24,7 @@ type SseRun = {
   pagesTotal: number | null;
   pagesScanned: number | null;
   pipelineId: string | null;
+  stats: Record<string, unknown> | null;
   /** Page IDs associated with this run (from run_pages junction). */
   pagesIds: string[];
 };
@@ -36,6 +37,7 @@ function toSseRun(row: {
   pagesTotal: number | null;
   pagesScanned: number | null;
   pipelineId: string | null;
+  stats: unknown;
   runPages: { pageId: string }[];
 }): SseRun {
   return {
@@ -46,6 +48,7 @@ function toSseRun(row: {
     pagesTotal: row.pagesTotal,
     pagesScanned: row.pagesScanned,
     pipelineId: row.pipelineId,
+    stats: (row.stats && typeof row.stats === "object" ? row.stats : null) as Record<string, unknown> | null,
     pagesIds: row.runPages.map((rp) => rp.pageId),
   };
 }
@@ -113,6 +116,7 @@ export async function GET(
             pagesTotal: number | null;
             pagesScanned: number | null;
             pipelineId: string | null;
+            stats: unknown;
             runPages: { pageId: string }[];
           }>;
           payload = rows.map(toSseRun);
@@ -126,6 +130,7 @@ export async function GET(
               pagesTotal: number | null;
               pagesScanned: number | null;
               pipelineId: string | null;
+              stats: unknown;
               pagesIds: string[] | null;
             }>
           >(
@@ -138,12 +143,13 @@ export async function GET(
                 r."pagesTotal",
                 r."pagesScanned",
                 r."pipelineId",
+                r."stats",
                 COALESCE(array_agg(rp."pageId") FILTER (WHERE rp."pageId" IS NOT NULL), ARRAY[]::text[]) AS "pagesIds"
               FROM "runs" r
               LEFT JOIN "run_pages" rp ON rp."runId" = r."id"
               WHERE r."projectId" = ${projectId}
                 AND r."hidden" = false
-              GROUP BY r."id", r."type", r."status", r."startedAt", r."pagesTotal", r."pagesScanned", r."pipelineId"
+              GROUP BY r."id", r."type", r."status", r."startedAt", r."pagesTotal", r."pagesScanned", r."pipelineId", r."stats"
               ORDER BY r."startedAt" DESC NULLS LAST
               LIMIT 50
             `
@@ -157,6 +163,7 @@ export async function GET(
             pagesTotal: row.pagesTotal,
             pagesScanned: row.pagesScanned,
             pipelineId: row.pipelineId,
+            stats: (row.stats && typeof row.stats === "object" ? row.stats : null) as Record<string, unknown> | null,
             pagesIds: Array.isArray(row.pagesIds) ? row.pagesIds : [],
           }));
         }

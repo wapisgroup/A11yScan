@@ -5,15 +5,16 @@
  * Shared component in tabs/project-detail-tab-reports.tsx.
  */
 
-import { useState } from "react";
-import { 
-  PiFileText, 
-  PiPlus, 
-  PiDownloadSimple, 
-  PiSpinner, 
+import { useState, useCallback } from "react";
+import {
+  PiFileText,
+  PiPlus,
+  PiDownloadSimple,
+  PiSpinner,
   PiCheckCircle,
   PiWarningCircle,
-  PiCalendar
+  PiCalendar,
+  PiTrash,
 } from "react-icons/pi";
 import type { Report } from "@/services/reportService";
 import { formatTimeAgo } from "@/ui-helpers/default";
@@ -24,6 +25,8 @@ import { PageContainer } from "../molecule/page-container";
 import { EmptyState } from "../atom/EmptyState";
 import { LoadingState } from "../atom/LoadingState";
 import { useProjectReportsPageState } from "@/state-services/project-detail-reports-state";
+import { deleteReport } from "@/actions/reports";
+import { useConfirm } from "../providers/window-provider";
 
 type ReportsTabProps = {
   projectId: string;
@@ -32,13 +35,27 @@ type ReportsTabProps = {
 export function ReportsTab({ projectId }: ReportsTabProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterText, setFilterText] = useState('');
+  const confirm = useConfirm();
 
-  // Use reports page state hook with real-time subscription
   const {
     pagedItems: reports,
     loading,
     error,
+    refresh,
   } = useProjectReportsPageState(projectId, 50);
+
+  const handleDelete = useCallback(async (report: Report) => {
+    const ok = await confirm({
+      title: "Delete report",
+      message: `Delete "${report.title}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      tone: "danger",
+    });
+    if (!ok) return;
+    await deleteReport(report.id);
+    await refresh();
+  }, [confirm, refresh]);
 
   const getStatusBadge = (status: Report['status']) => {
     switch (status) {
@@ -189,18 +206,12 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
                       onClick={() => window.open(report.pdfUrl, '_blank')}
                     />
                   )}
-                  {report.status === 'failed' && (
-                    <DSButton
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // TODO: Implement retry logic
-                        console.log("Retry report generation");
-                      }}
-                    >
-                      Retry
-                    </DSButton>
-                  )}
+                  <DSIconButton
+                    variant="danger"
+                    icon={<PiTrash size={18} />}
+                    label="Delete report"
+                    onClick={() => void handleDelete(report)}
+                  />
                 </div>
               </div>
             ))}
@@ -212,7 +223,10 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
           open={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           projectId={projectId}
-          onSuccess={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            void refresh();
+          }}
         />
       </div>
     </PageContainer>

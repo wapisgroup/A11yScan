@@ -63,6 +63,7 @@ export async function PATCH(
     sitemapUrl?: string | null;
     sitemapTreeUrl?: string | null;
     sitemapGraphUrl?: string | null;
+    sitemapTree?: Record<string, unknown> | null;
     lastScanAt?: string | null;
     projectStats?: Record<string, unknown> | null;
     config?: Record<string, unknown> | null;
@@ -72,6 +73,8 @@ export async function PATCH(
   if (body.sitemapUrl !== undefined) updateData.sitemapUrl = body.sitemapUrl;
   if (body.sitemapTreeUrl !== undefined) updateData.sitemapTreeUrl = body.sitemapTreeUrl;
   if (body.sitemapGraphUrl !== undefined) updateData.sitemapGraphUrl = body.sitemapGraphUrl;
+  if (body.sitemapTree !== undefined)
+    updateData.sitemapTree = (body.sitemapTree as Prisma.InputJsonValue) ?? Prisma.DbNull;
   if (body.lastScanAt !== undefined)
     updateData.lastScanAt = body.lastScanAt ? new Date(body.lastScanAt) : null;
   if (body.projectStats !== undefined)
@@ -79,7 +82,12 @@ export async function PATCH(
   if (body.config !== undefined)
     updateData.config = (body.config as Prisma.InputJsonValue) ?? Prisma.DbNull;
 
-  const updated = await prisma.project.update({ where: { id }, data: updateData });
-
-  return Response.json(updated);
+  try {
+    const updated = await prisma.project.update({ where: { id }, data: updateData });
+    return Response.json(updated);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[PATCH /api/v2/projects/:id] Prisma error:", message);
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

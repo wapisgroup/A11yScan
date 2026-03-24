@@ -23,6 +23,7 @@ type SseRun = {
   pagesTotal: number | null;
   pagesScanned: number | null;
   pipelineId: string | null;
+  stats: Record<string, unknown> | null;
   pagesIds: string[];
 };
 
@@ -36,6 +37,7 @@ function toRunDoc(r: SseRun): RunDoc {
     pagesTotal: r.pagesTotal,
     pagesScanned: r.pagesScanned,
     pipelineId: r.pipelineId,
+    stats: r.stats ?? null,
     pagesIds: r.pagesIds.length > 0 ? r.pagesIds : null,
     groupedRuns: null,
   };

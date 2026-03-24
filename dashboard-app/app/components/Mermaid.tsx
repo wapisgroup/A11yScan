@@ -52,7 +52,7 @@ export function Mermaid({ chart }: MermaidProps) {
           activationBkgColor: "#dbeafe",
           sequenceNumberColor: "#ffffff",
         },
-        securityLevel: "loose",
+        securityLevel: "antiscript",
         flowchart: {
           htmlLabels: true,
           curve: "basis",
@@ -131,9 +131,12 @@ export function Mermaid({ chart }: MermaidProps) {
         } catch (error) {
           console.error("Mermaid rendering error:", error);
           if (ref.current) {
-            ref.current.innerHTML = `<pre class="text-red-600 bg-red-50 p-4 rounded">Error rendering diagram: ${
+            const pre = document.createElement("pre");
+            pre.className = "text-red-600 bg-red-50 p-4 rounded";
+            pre.textContent = `Error rendering diagram: ${
               error instanceof Error ? error.message : "Unknown error"
-            }</pre>`;
+            }`;
+            ref.current.replaceChildren(pre);
           }
         }
       }

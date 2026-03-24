@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation';
 import { WorkspaceLayout } from '@/components/organism/workspace-layout';
 import { PageContainer } from '@/components/molecule/page-container';
 import { PrivateRoute } from '@/utils/private-router';
-import { loadProject } from '@/services/projectDetailService';
 import { SitemapTree, type SitemapNode } from '@/components/organism/sitemap-tree';
 
 export default function SitemapPage() {
@@ -21,15 +20,13 @@ export default function SitemapPage() {
         async function loadSitemap() {
             try {
                 setLoading(true);
-                const project = await loadProject(projectId);
-                if (!project.sitemapTreeUrl) {
+                const response = await fetch(`/api/projects/${projectId}/sitemap-tree`);
+                if (response.status === 404) {
                     setError('No sitemap available for this project. Generate a sitemap first.');
-                    setLoading(false);
                     return;
                 }
-                const response = await fetch(project.sitemapTreeUrl);
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch sitemap: ${response.statusText}`);
+                    throw new Error(`Failed to fetch sitemap (${response.status})`);
                 }
                 const data = await response.json();
                 setTree(data);

@@ -13,6 +13,7 @@ export type RunDoc = {
   pagesIds?: string[] | null;
   pipelineId?: string | null;
   groupedRuns?: RunDoc[] | null;
+  stats?: Record<string, unknown> | null;
 };
 
 /**

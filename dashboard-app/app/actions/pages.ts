@@ -72,14 +72,24 @@ export async function getPages(
     page?: number;
     pageSize?: number;
     onlyWithIssues?: boolean;
+    onlyNon2xx?: boolean;
   }
-): Promise<{ pages: PageDoc[]; total: number }> {
+): Promise<{ pages: PageDoc[]; total: number; non2xxTotal: number }> {
   await getAuthenticatedUser();
 
   const pageSize = opts?.pageSize ?? 10;
   const page = Math.max(1, opts?.page ?? 1);
   const offset = (page - 1) * pageSize;
   const search = opts?.search?.trim() ?? "";
+
+  const non2xxWhere: Prisma.PageWhereInput = {
+    NOT: {
+      OR: [
+        { httpStatus: null },
+        { httpStatus: { gte: 200, lte: 299 } },
+      ],
+    },
+  };
 
   const baseWhere: Prisma.PageWhereInput = {
     projectId,
@@ -101,9 +111,10 @@ export async function getPages(
           ],
         }
       : {}),
+    ...(opts?.onlyNon2xx ? non2xxWhere : {}),
   };
 
-  const [rows, total] = await Promise.all([
+  const [rows, total, non2xxTotal] = await Promise.all([
     prisma.page.findMany({
       where: baseWhere,
       include: { violationCount: true },
@@ -112,9 +123,10 @@ export async function getPages(
       take: pageSize,
     }),
     prisma.page.count({ where: baseWhere }),
+    prisma.page.count({ where: { projectId, ...non2xxWhere } }),
   ]);
 
-  return { pages: rows.map(toPageDoc), total };
+  return { pages: rows.map(toPageDoc), total, non2xxTotal };
 }
 
 /**
@@ -122,7 +134,8 @@ export async function getPages(
  * Used by page set resolution and bulk operations.
  */
 export async function getAllPages(projectId: string): Promise<PageDoc[]> {
-  await getAuthenticatedUser();
+  const user = await getAuthenticatedUser();
+  await requireProjectAccess(projectId, user.id, user.organizationId);
 
   const rows = await prisma.page.findMany({
     where: { projectId },
@@ -137,15 +150,23 @@ export async function getAllPages(projectId: string): Promise<PageDoc[]> {
 
 /**
  * Returns a single page by id, or null if not found.
+ * Verifies the authenticated user has access to the page's project.
  */
 export async function getPage(pageId: string): Promise<PageDoc | null> {
-  await getAuthenticatedUser();
+  const user = await getAuthenticatedUser();
 
   const row = await prisma.page.findUnique({
     where: { id: pageId },
     include: { violationCount: true },
   });
   if (!row) return null;
+
+  // Verify access to the project that contains this page
+  try {
+    await requireProjectAccess(row.projectId, user.id, user.organizationId);
+  } catch {
+    return null; // Access denied — return null rather than throw
+  }
 
   return toPageDoc(row);
 }

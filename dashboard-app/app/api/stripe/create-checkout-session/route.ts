@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { STRIPE_CONFIG, getStripePriceId } from '@/config/stripe';
+import { requireSession } from '@/lib/stripe-auth';
 
 const stripe = new Stripe(STRIPE_CONFIG.secretKey, {
   apiVersion: '2026-01-28.clover',
 });
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireSession();
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const body = await request.json();
     const {
@@ -26,6 +30,11 @@ export async function POST(request: NextRequest) {
         { message: 'Missing required fields' },
         { status: 400 }
       );
+    }
+
+    // Prevent creating checkout sessions for other users
+    if (userId !== authResult.userId) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
     // Get Stripe Price ID

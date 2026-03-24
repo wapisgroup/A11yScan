@@ -59,6 +59,7 @@ function toRunDoc(row: {
   pagesTotal: number | null;
   pagesScanned: number | null;
   pipelineId: string | null;
+  stats?: unknown;
 }): RunDoc {
   return {
     id: row.id,
@@ -68,6 +69,7 @@ function toRunDoc(row: {
     pagesTotal: row.pagesTotal ?? null,
     pagesScanned: row.pagesScanned ?? null,
     pipelineId: row.pipelineId ?? null,
+    stats: (row.stats && typeof row.stats === "object" ? row.stats : null) as Record<string, unknown> | null,
     // pagesIds not stored in DB — populated by worker
     pagesIds: null,
     groupedRuns: null,
@@ -98,6 +100,7 @@ export async function getRuns(
 
   const where = {
     projectId,
+    hidden: false,
     ...(opts?.type ? { type: opts.type } : {}),
   };
 
@@ -118,6 +121,7 @@ export async function getRuns(
           pagesTotal: true,
           pagesScanned: true,
           pipelineId: true,
+          stats: true,
         },
       }) as Promise<
         Array<{
@@ -128,6 +132,7 @@ export async function getRuns(
           pagesTotal: number | null;
           pagesScanned: number | null;
           pipelineId: string | null;
+          stats?: unknown;
         }>
       >,
       run.count({ where }) as Promise<number>,
@@ -148,12 +153,14 @@ export async function getRuns(
       pagesTotal: number | null;
       pagesScanned: number | null;
       pipelineId: string | null;
+      stats?: unknown;
     }>
   >(
     Prisma.sql`
-      SELECT "id", "type", "status", "startedAt", "pagesTotal", "pagesScanned", "pipelineId"
+      SELECT "id", "type", "status", "startedAt", "pagesTotal", "pagesScanned", "pipelineId", "stats"
       FROM "runs"
       WHERE "projectId" = ${projectId}
+        AND "hidden" = false
       ${typeFilter}
       ORDER BY "startedAt" DESC NULLS LAST
       OFFSET ${offset}
@@ -166,6 +173,7 @@ export async function getRuns(
       SELECT COUNT(*)::bigint AS count
       FROM "runs"
       WHERE "projectId" = ${projectId}
+        AND "hidden" = false
       ${typeFilter}
     `
   );

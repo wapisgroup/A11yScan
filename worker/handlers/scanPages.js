@@ -317,6 +317,11 @@ async function handleScanPages(projectId, runId) {
     const runData = await getRun(runId);
     if (!runData) throw new Error('Run not found: ' + runId);
     const pagesIds = runData.pageIds || [];
+    const limitReached = !!runData.limitReached;
+    const limitError = runData.limitError || null;
+    if (limitReached) {
+        console.log(`[scan] Run ${runId} — partial budget: scanning ${pagesIds.length} pages (${runData.pagesSkipped ?? 0} skipped). Will finalize as failed.`);
+    }
 
     if (pagesIds.length === 0) {
         console.log('[scan] No pages to scan for run', runId);
@@ -372,6 +377,7 @@ async function handleScanPages(projectId, runId) {
     const progressUpdateIntervalMs = Number(process.env.SCAN_PROGRESS_UPDATE_MS) || 1000;
     let lastProgressUpdateAt = 0;
     let progressUpdateChain = Promise.resolve();
+    let isCancelled = false;
 
     const maybePushRunProgress = async (force = false) => {
         const now = Date.now();
@@ -381,11 +387,16 @@ async function handleScanPages(projectId, runId) {
         // Serialize progress writes to avoid racing PATCH calls from concurrent page workers.
         progressUpdateChain = progressUpdateChain
             .then(async () => {
-                await updateRun(runId, {
+                const updatedRun = await updateRun(runId, {
                     status: 'running',
                     pagesTotal: pagesIds.length,
                     pagesScanned: completedCount,
                 });
+                // Detect user-initiated cancellation via the PATCH response
+                if (updatedRun && updatedRun.status === 'cancelled') {
+                    isCancelled = true;
+                    console.log(`[scan] Run ${runId} cancelled by user — stopping remaining pages`);
+                }
             })
             .catch((e) => {
                 console.warn('[scan] Failed to push run progress for', runId, e && e.message ? e.message : e);
@@ -418,6 +429,13 @@ async function handleScanPages(projectId, runId) {
 
     // === Per-page scan ===
     await Promise.all(pagesIds.map(pageId => limit(async () => {
+        // Respect cancellation — skip pages queued after the user cancelled
+        if (isCancelled) {
+            console.log(`[scan] Skipping page ${pageId} — run ${runId} cancelled`);
+            completedCount++;
+            return;
+        }
+
         const pageScanStartedAt = new Date();
         try {
             const pageInfo = {};
@@ -1299,10 +1317,12 @@ async function handleScanPages(projectId, runId) {
 
     // === Finalize run ===
     await updateRun(runId, {
-        status: 'done',
+        status: limitReached ? 'failed' : 'done',
         finishedAt: new Date().toISOString(),
         pagesScanned: completedCount,
-        stats: agg,
+        stats: limitReached
+            ? { ...agg, error: limitError, reason: 'subscription_limit' }
+            : agg,
     });
 
     // === Update project aggregate stats ===

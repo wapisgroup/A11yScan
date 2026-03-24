@@ -98,11 +98,7 @@ export function PagesTab({ project }: PagesTabProps) {
 
   // 404 pages menu state
   const [show404Menu, setShow404Menu] = useState(false);
-  const [is404Filtered, setIs404Filtered] = useState(false);
   const menu404Ref = useRef<HTMLDivElement>(null);
-
-  const [filtered404Page, setFiltered404Page] = useState(1);
-  const FILTERED_PAGE_SIZE = 10;
 
   const panelPageId = searchParams.get("reportPageId");
   const panelScanId = searchParams.get("reportScanId");
@@ -163,6 +159,9 @@ export function PagesTab({ project }: PagesTabProps) {
     selection,
     onlyWithIssues,
     setOnlyWithIssues,
+    onlyNon2xx,
+    setOnlyNon2xx,
+    non2xxTotal,
     refresh,
   } = state;
 
@@ -186,39 +185,10 @@ export function PagesTab({ project }: PagesTabProps) {
     void refresh();
   }, [sseRuns, refresh]);
 
-  // Non-2xx items from current page
-  const filtered404Items = allItems.filter((page) => {
-    const status = page.httpStatus;
-    if (status == null) return false;
-    const n =
-      typeof status === "number" ? status : Number.parseInt(String(status), 10);
-    return Number.isFinite(n) && (n < 200 || n >= 300);
-  });
-
-  const filtered404TotalPages = Math.max(
-    1,
-    Math.ceil(filtered404Items.length / FILTERED_PAGE_SIZE)
-  );
-  const filtered404SafePage = Math.min(
-    Math.max(filtered404Page, 1),
-    filtered404TotalPages
-  );
-  const filtered404StartIdx = (filtered404SafePage - 1) * FILTERED_PAGE_SIZE;
-  const paginatedFiltered404Items = filtered404Items.slice(
-    filtered404StartIdx,
-    filtered404StartIdx + FILTERED_PAGE_SIZE
-  );
-
-  const displayedItems = is404Filtered ? paginatedFiltered404Items : pagedItems;
-  const displayedCount = is404Filtered ? filtered404Items.length : totalCount;
-  const displayedTotalPages = is404Filtered
-    ? filtered404TotalPages
-    : pagination.totalPages;
-  const displayedPage = is404Filtered ? filtered404SafePage : pagination.safePage;
-
-  useEffect(() => {
-    if (is404Filtered) setFiltered404Page(1);
-  }, [is404Filtered]);
+  const displayedItems = pagedItems;
+  const displayedCount = onlyNon2xx ? non2xxTotal : totalCount;
+  const displayedTotalPages = pagination.totalPages;
+  const displayedPage = pagination.safePage;
 
   const { selectedPages, selectedCount, clearSelection, togglePage, toggleAllOnPage, getSelectedDocs } =
     selection;
@@ -345,20 +315,14 @@ export function PagesTab({ project }: PagesTabProps) {
     })();
   }, [projectId, selectedCount, clearSelection, confirm, alert, getSelectedDocs, refresh]);
 
-  const non2xxCount = allItems.filter((page) => {
-    const status = page.httpStatus;
-    if (status == null) return false;
-    const n =
-      typeof status === "number" ? status : Number.parseInt(String(status), 10);
-    return Number.isFinite(n) && (n < 200 || n >= 300);
-  }).length;
+  const non2xxCount = non2xxTotal;
 
   const handleDeleteNon2xxPages = useCallback(() => {
     void (async () => {
       if (!projectId || non2xxCount === 0) return;
       const ok = await confirm({
         title: "Delete non-2xx pages",
-        message: `Delete ${non2xxCount} page${non2xxCount > 1 ? "s" : ""} with non-2xx HTTP status codes (404, 500, etc.) on this page?`,
+        message: `Delete ${non2xxCount} page${non2xxCount > 1 ? "s" : ""} with non-2xx HTTP status codes (404, 500, etc.)?`,
         confirmLabel: "Delete",
         cancelLabel: "Cancel",
         tone: "danger",
@@ -368,7 +332,7 @@ export function PagesTab({ project }: PagesTabProps) {
       const deletedCount = await deleteNon2xxPages(projectId);
       await refresh();
       clearSelection();
-      if (is404Filtered) setIs404Filtered(false);
+      if (onlyNon2xx) setOnlyNon2xx(false);
       setShow404Menu(false);
 
       await alert({
@@ -376,7 +340,7 @@ export function PagesTab({ project }: PagesTabProps) {
         message: `${deletedCount} page${deletedCount > 1 ? "s" : ""} deleted successfully.`,
       });
     })();
-  }, [projectId, non2xxCount, is404Filtered, confirm, alert, clearSelection, refresh]);
+  }, [projectId, non2xxCount, onlyNon2xx, confirm, alert, clearSelection, refresh]);
 
   const handleRunSelected = useCallback(() => {
     void (async () => {
@@ -572,7 +536,7 @@ export function PagesTab({ project }: PagesTabProps) {
                     <DSIconButton
                       variant="danger"
                       icon={
-                        is404Filtered ? (
+                        onlyNon2xx ? (
                           <PiFunnelSimple size={20} />
                         ) : (
                           <PiWarning size={20} />
@@ -580,9 +544,9 @@ export function PagesTab({ project }: PagesTabProps) {
                       }
                       onClick={() => setShow404Menu(true)}
                       label={
-                        is404Filtered
+                        onlyNon2xx
                           ? `Filtering ${non2xxCount} non-2xx pages`
-                          : `${non2xxCount} non-2xx pages on this page`
+                          : `${non2xxCount} non-2xx pages`
                       }
                     />
                     <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-[var(--color-error)] text-white text-[10px] font-semibold flex items-center justify-center">
@@ -603,18 +567,18 @@ export function PagesTab({ project }: PagesTabProps) {
                     <DSIconButton
                       variant="neutral"
                       icon={
-                        is404Filtered ? (
+                        onlyNon2xx ? (
                           <PiFunnelX size={18} />
                         ) : (
                           <PiFunnelSimple size={18} />
                         )
                       }
                       onClick={() => {
-                        setIs404Filtered(!is404Filtered);
+                        setOnlyNon2xx(!onlyNon2xx);
                         setShow404Menu(false);
                       }}
                       label={
-                        is404Filtered
+                        onlyNon2xx
                           ? "Clear filter"
                           : `Filter ${non2xxCount} non-2xx pages`
                       }
@@ -634,11 +598,11 @@ export function PagesTab({ project }: PagesTabProps) {
           {/* Page count and Add button */}
           <div className="flex items-center gap-3">
             <div className="as-p2-text secondary-text-color">
-              {is404Filtered
+              {onlyNon2xx
                 ? `${displayedCount} of ${totalCount}`
                 : `${totalCount}`}{" "}
               pages
-              {is404Filtered && (
+              {onlyNon2xx && (
                 <span className="text-red-400 ml-1">(filtered)</span>
               )}
             </div>
@@ -671,7 +635,7 @@ export function PagesTab({ project }: PagesTabProps) {
               page={displayedPage}
               totalPages={displayedTotalPages}
               onChange={(next) =>
-                is404Filtered ? setFiltered404Page(next) : setPage(next)
+                setPage(next)
               }
             />
           </div>
@@ -680,11 +644,11 @@ export function PagesTab({ project }: PagesTabProps) {
             <EmptyState
               icon={<PiFileText />}
               title={
-                is404Filtered ? "No non-2xx pages on this page" : "No pages found"
+                onlyNon2xx ? "No non-2xx pages" : "No pages found"
               }
               description={
-                is404Filtered
-                  ? "No non-2xx pages found on this page."
+                onlyNon2xx
+                  ? "No non-2xx pages found."
                   : "Define your first page set to start generating comprehensive accessibility reports and track issues effectively."
               }
             />

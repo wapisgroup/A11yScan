@@ -31,57 +31,57 @@ async function handlePagesToSitemapJob(projectId, runId) {
         .filter(p => p && p.url)
         .map(p => ({ id: p.url, title: p.title || null }));
 
+    let treeUrl = null;
     try {
         const structuredTree = buildSitemapTree(pages, { maxDepth: 10, stripQuery: true });
         const treeJson = JSON.stringify(structuredTree, null, 2);
-        const treePath = `projects/${projectId}/sitemaps/${runId}.tree.json`;
-        let treeUrl = null;
+
+        // Always persist the tree in the DB so the dashboard can serve it
+        // even when no external storage bucket is configured.
+        try {
+            await updateProject(projectId, { sitemapTree: structuredTree });
+            console.log('[pagesToSitemap] Saved sitemap tree to DB');
+        } catch (dbErr) {
+            console.warn('[pagesToSitemap] Failed to save sitemap tree to DB:', dbErr && dbErr.message ? dbErr.message : dbErr);
+        }
 
         const bucketName = process.env.STORAGE_BUCKET;
         if (bucketName) {
             try {
+                const treePath = `projects/${projectId}/sitemaps/${runId}.tree.json`;
                 treeUrl = await uploadAndGetUrl(treePath, treeJson, 'application/json', bucketName);
                 if (treeUrl) {
                     await updateProject(projectId, { sitemapTreeUrl: treeUrl });
                     console.log('[pagesToSitemap] Uploaded structured sitemap:', treeUrl);
                 }
             } catch (err) {
-                // fallback: write locally
-                const fs = require('fs');
-                const artifactsDir = process.env.LOCAL_ARTIFACTS_DIR || path.join(__dirname, '../local-artifacts');
-                try { fs.mkdirSync(artifactsDir, { recursive: true }); } catch (e) {}
-                const localPath = path.join(artifactsDir, `${runId}.tree.json`);
-                try {
-                    fs.writeFileSync(localPath, treeJson, 'utf8');
-                    console.log('[pagesToSitemap] Wrote sitemap locally after upload error:', err && err.message ? err.message : err);
-                } catch (fsErr) {
-                    console.error('[pagesToSitemap] Local write also failed:', fsErr && fsErr.message ? fsErr.message : fsErr);
-                }
+                console.warn('[pagesToSitemap] Storage upload failed (DB copy still saved):', err && err.message ? err.message : err);
             }
         } else {
-            console.warn('[pagesToSitemap] STORAGE_BUCKET not set — skipping upload');
-        }
-
-        await updateRun(runId, { status: 'done', finishedAt: new Date().toISOString() });
-
-        console.log('[pagesToSitemap] Finished', projectId, runId, 'pages:', pages.length);
-
-        try {
-            const slackConfig = process.env.SLACK_WEBHOOK_URL
-                ? { webhookUrl: process.env.SLACK_WEBHOOK_URL, channel: process.env.SLACK_CHANNEL }
-                : null;
-            if (slackConfig) {
-                await notifySitemapGenerated({
-                    projectId,
-                    projectName: project.name || project.domain || projectId,
-                    sitemapTreeUrl: treeUrl,
-                }, slackConfig);
-            }
-        } catch (e) {
-            console.warn('[pagesToSitemap] Slack notification failed:', e && e.message ? e.message : e);
+            console.log('[pagesToSitemap] STORAGE_BUCKET not set — using DB storage only');
         }
     } catch (err) {
-        console.warn('[pagesToSitemap] Failed to generate/upload structured sitemap:', err && err.message ? err.message : err);
+        console.warn('[pagesToSitemap] Failed to generate sitemap tree:', err && err.message ? err.message : err);
+    }
+
+    // Always finalize the run regardless of storage outcome
+    await updateRun(runId, { status: 'done', finishedAt: new Date().toISOString() });
+
+    console.log('[pagesToSitemap] Finished', projectId, runId, 'pages:', pages.length);
+
+    try {
+        const slackConfig = process.env.SLACK_WEBHOOK_URL
+            ? { webhookUrl: process.env.SLACK_WEBHOOK_URL, channel: process.env.SLACK_CHANNEL }
+            : null;
+        if (slackConfig) {
+            await notifySitemapGenerated({
+                projectId,
+                projectName: project.name || project.domain || projectId,
+                sitemapTreeUrl: treeUrl,
+            }, slackConfig);
+        }
+    } catch (e) {
+        console.warn('[pagesToSitemap] Slack notification failed:', e && e.message ? e.message : e);
     }
 }
 

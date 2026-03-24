@@ -54,8 +54,9 @@ async function processJob(job) {
             });
             return;
         }
+        let runData;
         try {
-            await getRun(runId);
+            runData = await getRun(runId);
         } catch (err) {
             const message = err && err.message ? err.message : String(err);
             if (message.includes('HTTP 404')) {
@@ -69,6 +70,20 @@ async function processJob(job) {
                 return;
             }
             throw err;
+        }
+
+        // Skip if the run was cancelled by the user or failed the subscription check
+        if (runData && (runData.status === 'cancelled' || runData.status === 'failed')) {
+            const reason =
+                (runData.stats && runData.stats.error) ||
+                `Run is ${runData.status}`;
+            console.warn(`[worker] Job ${id} skipped: ${reason}`);
+            await updateJob(id, {
+                status: runData.status === 'cancelled' ? 'cancelled' : 'failed',
+                doneAt: new Date().toISOString(),
+                error: reason,
+            });
+            return;
         }
     }
 
@@ -97,8 +112,18 @@ async function processJob(job) {
                 throw new Error(`Unknown job action: ${action}`);
         }
 
-        await updateJob(id, { status: 'completed', doneAt: new Date().toISOString() });
-        console.log(`[worker] Job ${id} completed`);
+        // Re-check run status — user may have cancelled while the handler was running
+        let finalJobStatus = 'completed';
+        if (runId) {
+            try {
+                const finalRun = await getRun(runId);
+                if (finalRun && finalRun.status === 'cancelled') {
+                    finalJobStatus = 'cancelled';
+                }
+            } catch { /* best-effort */ }
+        }
+        await updateJob(id, { status: finalJobStatus, doneAt: new Date().toISOString() });
+        console.log(`[worker] Job ${id} ${finalJobStatus}`);
     } catch (err) {
         console.error(`[worker] Job ${id} failed:`, err && err.stack ? err.stack : err);
         try {

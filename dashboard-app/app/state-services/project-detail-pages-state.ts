@@ -25,6 +25,9 @@ export type ProjectDetailPagesTabState = DefaultPageState<PageDoc> & {
   selection: SelectedPages;
   onlyWithIssues: boolean;
   setOnlyWithIssues: (v: boolean) => void;
+  onlyNon2xx: boolean;
+  setOnlyNon2xx: (v: boolean) => void;
+  non2xxTotal: number;
   isClientFilterMode: boolean;
 };
 
@@ -45,6 +48,8 @@ export const useProjectPagesPageState = (
   const [filterText, setFilterText] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [onlyWithIssues, setOnlyWithIssues] = useState(false);
+  const [onlyNon2xx, setOnlyNon2xx] = useState(false);
+  const [non2xxTotal, setNon2xxTotal] = useState(0);
   const [selectedPages, setSelectedPages] = useState<Set<string>>(() => new Set());
 
   // Track known pages by id for getSelectedDocs
@@ -61,7 +66,7 @@ export const useProjectPagesPageState = (
   // Reset to page 1 when filters change
   useEffect(() => {
     _setPage(1);
-  }, [filterText, onlyWithIssues]);
+  }, [filterText, onlyWithIssues, onlyNon2xx]);
 
   // Reset state when project changes
   useEffect(() => {
@@ -91,6 +96,7 @@ export const useProjectPagesPageState = (
           pageSize,
           search: filterText,
           onlyWithIssues,
+          onlyNon2xx,
         });
 
         if (signal?.aborted) return;
@@ -102,6 +108,7 @@ export const useProjectPagesPageState = (
 
         setItems(result.pages);
         setTotalCount(result.total);
+        setNon2xxTotal(result.non2xxTotal);
       } catch (err: unknown) {
         if (signal?.aborted) return;
         setError(err instanceof Error ? err.message : String(err));
@@ -109,7 +116,7 @@ export const useProjectPagesPageState = (
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [projectId, page, pageSize, filterText, onlyWithIssues, clearError, setError]
+    [projectId, page, pageSize, filterText, onlyWithIssues, onlyNon2xx, clearError, setError]
   );
 
   // Abort previous in-flight request when deps change
@@ -203,6 +210,9 @@ export const useProjectPagesPageState = (
     },
     onlyWithIssues,
     setOnlyWithIssues,
+    onlyNon2xx,
+    setOnlyNon2xx,
+    non2xxTotal,
     // Server-side filtering: isClientFilterMode is always false
     isClientFilterMode: false,
   };

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { STRIPE_CONFIG } from '@/config/stripe';
+import { requireSession, getSessionStripeIds, denySubscriptionMismatch, denyCustomerMismatch } from '@/lib/stripe-auth';
 
 const stripe = new Stripe(STRIPE_CONFIG.secretKey, {
   apiVersion: '2026-01-28.clover',
 });
 
 export async function POST(request: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   try {
     const body = await request.json();
     const { subscriptionId, customerId, paymentMethodId } = body;
@@ -17,6 +21,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const stripeIds = await getSessionStripeIds(session.userId, session.organizationId);
+    const subMismatch = denySubscriptionMismatch(stripeIds, subscriptionId);
+    if (subMismatch) return subMismatch;
+    const custMismatch = denyCustomerMismatch(stripeIds, customerId);
+    if (custMismatch) return custMismatch;
 
     // Attach payment method and set as default
     await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { STRIPE_CONFIG } from '@/config/stripe';
+import { requireSession, getSessionStripeIds, denyCustomerMismatch } from '@/lib/stripe-auth';
 
 const stripe = new Stripe(STRIPE_CONFIG.secretKey, {
   apiVersion: '2026-01-28.clover',
 });
 
 export async function GET(request: NextRequest) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const customerId = searchParams.get('customerId');
@@ -17,6 +21,10 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const stripeIds = await getSessionStripeIds(session.userId, session.organizationId);
+    const mismatch = denyCustomerMismatch(stripeIds, customerId);
+    if (mismatch) return mismatch;
 
     // Fetch invoices for the customer
     const invoices = await stripe.invoices.list({

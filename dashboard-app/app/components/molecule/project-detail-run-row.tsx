@@ -95,6 +95,12 @@ export function RunRow({ run, onView, onRemove, onHide, onCancel }: RunRowProps)
           )}
         </div>
 
+        {String(run.status ?? "").toLowerCase() === "failed" && run.stats?.error && (
+          <div className="as-p3-text text-red-600 mt-1">
+            {String(run.stats.error)}
+          </div>
+        )}
+
         {isGrouped && (
           <div className="mt-2 flex flex-wrap gap-2">
             {groupedRuns.map((stage) => {
@@ -147,7 +153,7 @@ export function RunRow({ run, onView, onRemove, onHide, onCancel }: RunRowProps)
           <DSIconButton variant="danger" icon={<PiX size={16} />} label="Cancel run" onClick={() => onCancel(run)} />
         )}
         {run.status == 'queued' && <DSIconButton variant="danger" icon={<FaTrashAlt />} label="Delete queued run" onClick={()=>onRemove(run)} />}
-        {run.status == 'done' && <DSIconButton variant="danger" icon={<FaEyeSlash />} label="Hide run" onClick={()=>onHide(run)} />}
+        {["done", "cancelled", "failed"].includes(String(run.status ?? "").toLowerCase()) && <DSIconButton variant="danger" icon={<FaEyeSlash />} label="Hide run" onClick={()=>onHide(run)} />}
       </div>
       <style jsx>{`
         .run-progress-indeterminate {

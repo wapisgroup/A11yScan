@@ -21,7 +21,10 @@
     "deploy:backend": "firebase deploy --only functions,firestore:rules,storage:rules",
     "deploy:all": "npm run export:main && npm run export:public && firebase deploy",
     "test:unit": "vitest run",
-    "test:unit:watch": "vitest"
+    "test:unit:watch": "vitest",
+    "test:integration": "bash scripts/run-integration-tests.sh",
+    "test:integration:with-worker": "bash scripts/run-integration-tests.sh --with-worker",
+    "test:integration:verbose": "bash scripts/run-integration-tests.sh --verbose"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

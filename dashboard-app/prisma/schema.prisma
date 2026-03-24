@@ -103,6 +103,7 @@ model Project {
   sitemapUrl      String?
   sitemapTreeUrl  String?
   sitemapGraphUrl String?
+  sitemapTree     Json?
   config          Json?
   projectStats    Json?
 

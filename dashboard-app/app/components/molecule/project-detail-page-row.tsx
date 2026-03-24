@@ -57,8 +57,9 @@ export function PageRow({ projectId, page, activeRun = null, onScan, onOpen, onD
     const runStatus = statusFromRun(referencingRun);
     const pageStatus = normalizeStatus(page.status);
 
-    // Active run should dominate while work is in progress (or has just failed).
-    if (referencingRun && ["queued", "running", "pending", "failed"].includes(runStatus)) {
+    // Active run should dominate only while work is in progress.
+    // A failed/done run is terminal — let the page's own status take over.
+    if (referencingRun && ["queued", "running", "pending"].includes(runStatus)) {
       return runStatus;
     }
 

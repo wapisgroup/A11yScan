@@ -12,7 +12,7 @@
 import type { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { incrementSubscriptionUsage } from "@/utils/subscription-guard";
+import { incrementSubscriptionUsage, checkSubscriptionLimit } from "@/utils/subscription-guard";
 import {
   authenticateWorker,
   unauthorized,
@@ -34,9 +34,16 @@ export async function GET(
     where: { id },
     include: {
       runPages: { select: { pageId: true } },
+      project: { select: { ownerId: true, organizationId: true } },
     },
   });
   if (!run) return notFound("Run not found");
+
+  // If already cancelled or failed, return as-is — worker should skip
+  if (run.status === "cancelled" || run.status === "failed") {
+    const { runPages: _rp, project: _proj, ...runData } = run;
+    return Response.json({ ...runData, pageIds: [] });
+  }
 
   let pageIds = run.runPages.map((rp) => rp.pageId);
 
@@ -60,7 +67,73 @@ export async function GET(
     }
   }
 
-  const { runPages: _rp, ...runData } = run;
+  // Subscription limit check — only applies to scan runs, not report generation or page collection
+  const SCAN_RUN_TYPES = new Set(["scan_pages", "full_scan"]);
+  const isScanRun = !run.type || SCAN_RUN_TYPES.has(run.type);
+
+  if (isScanRun && pageIds.length > 0) {
+    const ownerId = run.project?.ownerId ?? worker.id;
+    const orgId = run.project?.organizationId ?? null;
+    const limitResp = await checkSubscriptionLimit(
+      ownerId,
+      "scansThisMonth",
+      orgId,
+      pageIds.length
+    );
+    if (limitResp) {
+      let payload: { error?: string; remaining?: number; limit?: number } | null = null;
+      try { payload = await limitResp.json(); } catch { /* ignore */ }
+
+      const remaining = payload?.remaining ?? 0;
+      const monthlyLimit = payload?.limit ?? 0;
+
+      // Zero budget — fail the run immediately, nothing to scan
+      if (remaining === 0) {
+        const errorMsg =
+          payload?.error === "LIMIT_REACHED"
+            ? `Scan limit reached: ${pageIds.length} pages requested, 0 of ${monthlyLimit} monthly scans remaining.`
+            : "Subscription limit check failed.";
+        await prisma.run.update({
+          where: { id: run.id },
+          data: {
+            status: "failed",
+            finishedAt: new Date(),
+            stats: { error: errorMsg, reason: "subscription_limit" } as Prisma.InputJsonValue,
+          },
+        });
+        const { runPages: _rp, project: _proj, ...runData } = run;
+        return Response.json({
+          ...runData,
+          pageIds: [],
+          status: "failed",
+          stats: { error: errorMsg, reason: "subscription_limit" },
+        });
+      }
+
+      // Partial budget — scan as many pages as the remaining budget allows,
+      // then the worker will finalize the run as 'failed' with an explanation.
+      const skipped = pageIds.length - remaining;
+      const limitErrorMsg = `Scan budget partially exhausted: ${remaining} of ${pageIds.length} pages scanned (${skipped} skipped — monthly limit of ${monthlyLimit} reached).`;
+      pageIds = pageIds.slice(0, remaining);
+
+      await prisma.run.update({
+        where: { id: run.id },
+        data: { pagesTotal: remaining },
+      });
+
+      const { runPages: _rp, project: _proj, ...runData } = run;
+      return Response.json({
+        ...runData,
+        pageIds,
+        pagesTotal: remaining,
+        limitReached: true,
+        limitError: limitErrorMsg,
+        pagesSkipped: skipped,
+      });
+    }
+  }
+
+  const { runPages: _rp, project: _proj, ...runData } = run;
   return Response.json({ ...runData, pageIds });
 }
 
@@ -77,6 +150,7 @@ export async function PATCH(
     where: { id },
     select: {
       id: true,
+      status: true,
       project: { select: { organizationId: true, ownerId: true } },
     },
   });
@@ -94,7 +168,9 @@ export async function PATCH(
   };
 
   const updateData: Prisma.RunUpdateInput = {};
-  if (body.status != null) updateData.status = body.status;
+  // Never let the worker overwrite a user-initiated cancellation or a limit-failed status
+  const isFinalStatus = existing.status === "cancelled" || existing.status === "failed";
+  if (body.status != null && !isFinalStatus) updateData.status = body.status;
   if (body.startedAt !== undefined)
     updateData.startedAt = body.startedAt ? new Date(body.startedAt) : null;
   if (body.finishedAt !== undefined)

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -6,6 +7,11 @@ export const dynamic = 'force-dynamic';
 const MAX_HTML_LENGTH = 1200;
 
 export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const apiKey = process.env.AI_API_KEY;
     const model = process.env.AI_MODEL || 'gpt-4.1-mini';
