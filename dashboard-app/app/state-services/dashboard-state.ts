@@ -6,7 +6,7 @@
  * Responsibilities:
  * - Loads dashboard data (projects, scans, pages, violations)
  * - Manages loading/error state
- * - Polls for active scans every 5 seconds
+ * - Polls for active scans periodically
  * - Exposes all dashboard metrics and activity data
  *
  * This hook intentionally contains no UI logic.
@@ -18,11 +18,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { loadDashboardData, loadActiveScans } from "@/services/dashboardService";
 import type { 
-  DashboardData, 
   IssueBreakdown, 
   ActiveRun, 
   RecentPage, 
-  ProblemPage 
+  ProblemPage,
+  TopIssueRule,
 } from "@/services/dashboardService";
 
 /**
@@ -35,11 +35,16 @@ import type {
 export type DashboardState = {
   // Summary stats
   totalProjects: number;
+  totalPages: number;
   activeScans: number;
   pagesScanned: number;
+  pagesUnscanned: number;
+  scannedLast7Days: number;
+  stalePages: number;
   failedPages: number;
   lastScanTime: Date | null;
   issueBreakdown: IssueBreakdown;
+  topIssueRules: TopIssueRule[];
   
   // Activity data
   activeRuns: ActiveRun[];
@@ -67,8 +72,12 @@ export type DashboardState = {
 export const useDashboardState = (organisationId?: string): DashboardState => {
   // Summary stats
   const [totalProjects, setTotalProjects] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [activeScans, setActiveScans] = useState(0);
   const [pagesScanned, setPagesScanned] = useState(0);
+  const [pagesUnscanned, setPagesUnscanned] = useState(0);
+  const [scannedLast7Days, setScannedLast7Days] = useState(0);
+  const [stalePages, setStalePages] = useState(0);
   const [failedPages, setFailedPages] = useState(0);
   const [lastScanTime, setLastScanTime] = useState<Date | null>(null);
   const [issueBreakdown, setIssueBreakdown] = useState<IssueBreakdown>({
@@ -77,6 +86,7 @@ export const useDashboardState = (organisationId?: string): DashboardState => {
     moderate: 0,
     minor: 0,
   });
+  const [topIssueRules, setTopIssueRules] = useState<TopIssueRule[]>([]);
   
   // Activity data
   const [activeRuns, setActiveRuns] = useState<ActiveRun[]>([]);
@@ -101,11 +111,16 @@ export const useDashboardState = (organisationId?: string): DashboardState => {
       const data = await loadDashboardData(organisationId);
       
       setTotalProjects(data.totalProjects);
+      setTotalPages(data.totalPages);
       setActiveScans(data.activeScans);
       setPagesScanned(data.pagesScanned);
+      setPagesUnscanned(data.pagesUnscanned);
+      setScannedLast7Days(data.scannedLast7Days);
+      setStalePages(data.stalePages);
       setFailedPages(data.failedPages);
       setLastScanTime(data.lastScanTime);
       setIssueBreakdown(data.issueBreakdown);
+      setTopIssueRules(data.topIssueRules);
       setRecentPages(data.recentPages);
       setProblemPages(data.problemPages);
       setActiveRuns(data.activeRuns);
@@ -155,26 +170,32 @@ export const useDashboardState = (organisationId?: string): DashboardState => {
   }, [loadData]);
 
   /**
-   * Poll for active scans every 5 seconds (only when not loading)
+   * Poll for active scans every 6s while active work exists, otherwise every 15s.
    */
   useEffect(() => {
     if (loading || !organisationId) return;
 
+    const intervalMs = activeScans > 0 ? 6000 : 15000;
     const interval = setInterval(() => {
       refreshActiveScans();
-    }, 5000);
+    }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [loading, organisationId, refreshActiveScans]);
+  }, [loading, organisationId, refreshActiveScans, activeScans]);
 
   return {
     // Summary stats
     totalProjects,
+    totalPages,
     activeScans,
     pagesScanned,
+    pagesUnscanned,
+    scannedLast7Days,
+    stalePages,
     failedPages,
     lastScanTime,
     issueBreakdown,
+    topIssueRules,
     
     // Activity data
     activeRuns,

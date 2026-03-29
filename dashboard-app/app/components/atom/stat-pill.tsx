@@ -1,3 +1,8 @@
+/**
+ * Stat Pill
+ * Shared component in atom/stat-pill.tsx.
+ */
+
 import React from "react";
 
 export type StatPillType = "info" | "critical" | "serious" | "moderate" | "minor" | "danger";

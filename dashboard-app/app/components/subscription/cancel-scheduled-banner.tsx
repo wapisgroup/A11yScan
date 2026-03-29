@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Cancel Scheduled Banner
+ * Shared component in subscription/cancel-scheduled-banner.tsx.
+ */
+
 import { useCallback, useMemo, useState } from "react";
 import { reactivateSubscription } from "../../services/stripeService";
 

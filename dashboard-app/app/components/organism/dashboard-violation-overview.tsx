@@ -1,3 +1,11 @@
+/**
+ * Dashboard Violation Overview
+ * Shared component in organism/dashboard-violation-overview.tsx.
+ */
+
+import { DSSurface } from "@/components/organism/ds-surface";
+import { DSSectionHeader } from "@/components/molecule/ds-section-header";
+
 type IssueBreakdown = {
   critical: number;
   serious: number;
@@ -13,8 +21,10 @@ export function DashboardViolationOverview({ issueBreakdown }: DashboardViolatio
   const totalIssues = issueBreakdown.critical + issueBreakdown.serious + issueBreakdown.moderate + issueBreakdown.minor;
 
   return (
-    <div className="bg-white rounded-2xl p-[var(--spacing-m)] border border-gray-200">
-      <h2 className="as-h3-text font-bold text-gray-900 mb-6">Violation Overview</h2>
+    <DSSurface>
+      <div className="mb-6">
+        <DSSectionHeader title="Violation Overview" />
+      </div>
 
       {/* Donut Chart and Total */}
       <div className="flex flex-col items-center mb-6">
@@ -117,51 +127,6 @@ export function DashboardViolationOverview({ issueBreakdown }: DashboardViolatio
         </div>
       </div>
 
-      {/* New Issues Over Time */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-gray-700 mb-1">New Issues Over Time</h3>
-        </div>
-        <div className="relative pl-8">
-          <div className="h-20 flex items-end justify-between gap-0.5">
-            {[45, 52, 48, 60, 55, 65, 70, 68, 75, 80, 85, 90].map((height, i) => {
-              const issueCount = Math.floor(height * 1.2);
-              return (
-                <div 
-                  key={i} 
-                  className="group relative flex-1 h-full flex items-end"
-                  title={`${issueCount} issues`}
-                >
-                  <div 
-                    className="w-full bg-gradient-to-t from-red-500 to-orange-400 rounded-t opacity-80 hover:opacity-100 transition-opacity" 
-                    style={{ height: `${height}%` }}
-                  ></div>
-                </div>
-              );
-            })}
-          </div>
-          {/* Y-axis labels */}
-          <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-gray-400">
-            <span>108</span>
-            <span>54</span>
-            <span>0</span>
-          </div>
-        </div>
-        {/* X-axis labels */}
-        <div className="flex justify-between text-[10px] text-gray-400 mt-2 pl-8">
-          <span>1hr</span>
-          <span>3hrs</span>
-          <span>6hrs</span>
-          <span>9hrs</span>
-          <span>12hrs</span>
-          <span>18hrs</span>
-          <span>24hrs</span>
-          <span>6d</span>
-          <span>7d</span>
-          <span>14d</span>
-          <span>1m</span>
-        </div>
-      </div>
-    </div>
+    </DSSurface>
   );
 }

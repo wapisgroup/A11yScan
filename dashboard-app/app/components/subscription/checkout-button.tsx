@@ -1,8 +1,12 @@
+/**
+ * Checkout Button
+ * Shared component in subscription/checkout-button.tsx.
+ */
+
 'use client';
 
 import { useState } from 'react';
 import { redirectToCheckout, updateSubscription } from '../../services/stripeService';
-import { set } from 'sanity';
 
 interface CheckoutButtonProps {
     type: 'subscribe' | 'update';

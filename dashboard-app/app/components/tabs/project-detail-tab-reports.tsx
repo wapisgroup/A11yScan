@@ -1,7 +1,11 @@
 "use client";
 
+/**
+ * Project Detail Tab Reports
+ * Shared component in tabs/project-detail-tab-reports.tsx.
+ */
+
 import { useState } from "react";
-import Link from "next/link";
 import { 
   PiFileText, 
   PiPlus, 
@@ -13,7 +17,8 @@ import {
 } from "react-icons/pi";
 import type { Report } from "@/services/reportService";
 import { formatTimeAgo } from "@/ui-helpers/default";
-import { Button } from "@/components/atom/button";
+import { DSButton } from "@/components/atom/ds-button";
+import { DSIconButton } from "@/components/atom/ds-icon-button";
 import { CreateReportModal } from "@/components/modals/CreateReportModal";
 import { useAuth } from "@/utils/firebase";
 import { PageContainer } from "../molecule/page-container";
@@ -108,19 +113,19 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
     <PageContainer inner>
       <div className="flex flex-col gap-medium w-full p-[var(--spacing-m)]">
         {/* Header with Actions - matches Pages/Runs tabs */}
-        <div className="flex items-center justify-between border-b border-solid border-white/6 pb-[var(--spacing-m)]">
+        <div className="flex items-center justify-between border-b border-solid border-[var(--color-border-light)] pb-[var(--spacing-m)]">
           <div className="flex gap-small items-center">
             <h2 className="as-h3-text primary-text-color">
               Reports ({reports.length})
             </h2>
           </div>
           <div className="flex gap-small items-center">
-            <Button
-              variant="brand"
-              icon={<PiPlus size={20} />}
+            <DSButton
+              leadingIcon={<PiPlus size={20} />}
               onClick={() => setShowCreateModal(true)}
-              title="Generate Report"
-            />
+            >
+              Generate Report
+            </DSButton>
           </div>
         </div>
 
@@ -131,11 +136,11 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
             title="No reports yet"
             description="Generate comprehensive accessibility reports to track issues and share findings with your team."
             action={
-              <Button
-                variant="brand"
+              <DSButton
                 onClick={() => setShowCreateModal(true)}
-                title="Generate Your First Report"
-              />
+              >
+                Generate Your First Report
+              </DSButton>
             }
           />
         ) : (
@@ -177,22 +182,24 @@ export function ReportsTab({ projectId }: ReportsTabProps) {
 
                 <div className="flex items-center gap-small ml-[var(--spacing-m)]">
                   {report.status === 'completed' && report.pdfUrl && (
-                    <Button
+                    <DSIconButton
                       variant="brand"
                       icon={<PiDownloadSimple size={18} />}
-                      title="Download PDF"
+                      label="Download PDF"
                       onClick={() => window.open(report.pdfUrl, '_blank')}
                     />
                   )}
                   {report.status === 'failed' && (
-                    <Button
-                      title="Retry"
-                      variant="secondary"
+                    <DSButton
+                      variant="outline"
+                      size="sm"
                       onClick={() => {
                         // TODO: Implement retry logic
                         console.log("Retry report generation");
                       }}
-                    />
+                    >
+                      Retry
+                    </DSButton>
                   )}
                 </div>
               </div>

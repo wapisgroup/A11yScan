@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { doc, onSnapshot, type DocumentData } from "firebase/firestore";
 
 import { db } from "@/utils/firebase";
 import type { Project } from "@/types/project";
 import type { ProjectTabKey } from "@/types/project";
-import { config } from "process";
 
 /**
  * Supported tabs for the Project Detail page.
@@ -60,23 +60,29 @@ export type ProjectDetailPageState = {
 export const useProjectDetailPageState = (
   projectId: string | undefined
 ): ProjectDetailPageState | null => {
+  // useSearchParams must be called unconditionally (before any early returns)
+  // so React's hook call order stays consistent across renders.
+  const searchParams = useSearchParams();
+
   if (!projectId) return null;
 
   // Keep tabs stable. If you ever need to conditionally hide tabs, replace this
   // with a memo that depends on feature flags / project state.
   const tabs = useMemo(() => DEFAULT_TABS, []);
 
-  // Initialize tab from URL hash if present
-  const getInitialTab = (): ProjectTabKey => {
-    if (typeof window === "undefined") return "overview";
-    const hash = window.location.hash.slice(1); // Remove #
-    return DEFAULT_TABS.includes(hash as ProjectTabKey) ? (hash as ProjectTabKey) : "overview";
-  };
+  // Initialize tab from the URL query param. useSearchParams is SSR-safe, so
+  // this returns the correct value during both server pre-rendering and client
+  // hydration — avoiding the mismatch that caused the URL to reset to ?tab=overview.
+  const queryTab = searchParams.get("tab");
+  const initialTab: ProjectTabKey = DEFAULT_TABS.includes(queryTab as ProjectTabKey)
+    ? (queryTab as ProjectTabKey)
+    : "overview";
 
-  const [tab, setTab] = useState<ProjectTabKey>(getInitialTab);
+  const [tab, setTabState] = useState<ProjectTabKey>(initialTab);
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
+  const skipNextHistoryPush = useRef(false);
 
   useEffect(() => {
     setLoading(true);
@@ -120,26 +126,38 @@ export const useProjectDetailPageState = (
     return () => unsub();
   }, [projectId]);
 
-  // Update URL hash when tab changes
+  // Push tab changes into browser history so Back/Forward moves between tabs.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.location.hash = tab;
+    if (typeof window === "undefined") return;
+    if (skipNextHistoryPush.current) {
+      skipNextHistoryPush.current = false;
+      return;
     }
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("tab") === tab) return;
+    url.searchParams.set("tab", tab);
+    window.history.pushState({ ...window.history.state, tab }, "", url.toString());
   }, [tab]);
 
-  // Listen to hash changes (back/forward navigation)
+  // Listen to browser navigation (back/forward) and sync tab from URL.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const handleHashChange = () => {
-      const hash = window.location.hash.slice(1);
-      if (DEFAULT_TABS.includes(hash as ProjectTabKey)) {
-        setTab(hash as ProjectTabKey);
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const queryTab = params.get("tab");
+      if (DEFAULT_TABS.includes(queryTab as ProjectTabKey)) {
+        skipNextHistoryPush.current = true;
+        setTabState(queryTab as ProjectTabKey);
       }
     };
 
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const setTab = useCallback((next: ProjectTabKey) => {
+    setTabState((current) => (current === next ? current : next));
   }, []);
 
   const setTabSafe = useCallback(

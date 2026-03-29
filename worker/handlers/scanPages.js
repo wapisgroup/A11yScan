@@ -39,6 +39,27 @@ const pLimit = require('p-limit');
 const { fetchHtml } = require('../helpers/generic');
 const { AblelyticsCoreTests } = require('../helpers/ablelytics-core-tests');
 const { AblelyticsAiHeuristics } = require('../helpers/ai-heuristics');
+const { insertPageScan, insertIssues, insertCoreCheckTimings } = require('../helpers/bigquery');
+
+// ── Compliance profile → axe tag mapping ─────────────────────────────────────
+const PROFILE_TO_AXE_TAGS = {
+    ada_title_ii_wcag21: ['wcag2a', 'wcag2aa', 'wcag21aa'],
+    section_508_wcag20:  ['wcag2a', 'wcag2aa'],
+    en_301_549_web:      ['wcag2a', 'wcag2aa', 'wcag21aa'],
+    wcag22:              ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'],
+};
+
+function getAxeTagsFromProfiles(profiles) {
+    const tags = new Set(['best-practice']);
+    const list = Array.isArray(profiles) && profiles.length > 0
+        ? profiles
+        : ['ada_title_ii_wcag21'];
+    list.forEach(p => {
+        const mapped = PROFILE_TO_AXE_TAGS[p] || ['wcag2a', 'wcag2aa', 'wcag21aa'];
+        mapped.forEach(t => tags.add(t));
+    });
+    return Array.from(tags);
+}
 
 async function removeCookieBanners(pageP, mode) {
     const removed = await pageP.evaluate((bannerMode) => {
@@ -175,6 +196,35 @@ async function uploadHtmlToStorage(projectId, runId, pageId, html) {
     }
 }
 
+async function uploadBinaryToStorage(projectId, runId, pageId, filename, buffer, contentType) {
+    try {
+        const bucket = admin.storage().bucket();
+        const filePath = `scans/${projectId}/${runId}/${pageId}/${filename}`;
+        const file = bucket.file(filePath);
+        await file.save(buffer, {
+            contentType,
+            metadata: {
+                cacheControl: 'public, max-age=604800',
+            },
+        });
+
+        if (process.env.EMULATOR_MODE === '1') {
+            const bucketName = bucket.name;
+            const storageHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || 'localhost:9199';
+            return `http://${storageHost}/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
+        }
+
+        const [url] = await file.getSignedUrl({
+            action: 'read',
+            expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        });
+        return url;
+    } catch (error) {
+        console.error('Failed to upload binary to storage:', error);
+        return null;
+    }
+}
+
 /**
  * Scans all pages referenced by a run, writes scan results, and updates usage and stats.
  *
@@ -209,6 +259,11 @@ async function handleScanPages(db, projectId, runId) {
     // Get project owner for usage tracking
     const projectData = projSnap.data();
     const projectOwner = projectData?.owner;
+
+    // Project config settings
+    const storeArtifacts = projectData?.config?.storeArtifacts !== false; // default true
+    const axeTags = getAxeTagsFromProfiles(projectData?.config?.complianceProfiles);
+    console.log('[scan] storeArtifacts:', storeArtifacts, '| axe tags:', axeTags);
 
     // === Usage counters reset logic ===
     // Check and reset usage counters if needed (do this once at the start of scan)
@@ -248,7 +303,18 @@ async function handleScanPages(db, projectId, runId) {
         throw new Error('Run not found: ' + runId);
     }
     const runData = runSnap.data() || {};
-    const pagesIds = Array.isArray(runData.pagesIds) ? runData.pagesIds : [];
+    let pagesIds = Array.isArray(runData.pagesIds) ? runData.pagesIds : [];
+
+    // For pipeline jobs (collect pages -> scan), resolve target pages at run start.
+    if (pagesIds.length === 0 && Boolean(runData.resolvePagesAtStart)) {
+        const pagesSnap = await projectRef.collection('pages').get();
+        pagesIds = pagesSnap.docs.map((d) => d.id);
+        await runRef.update({
+            pagesIds,
+            pagesTotal: pagesIds.length,
+            resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
 
     if (pagesIds.length === 0) {
         console.log('No pages to scan for run', runId);
@@ -305,7 +371,7 @@ async function handleScanPages(db, projectId, runId) {
      *   { impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target }
      * Also increments the corresponding counter in agg.
      */
-    function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target, engine, confidence, needsReview, evidence, aiHowToFix) {
+    function pushIssue(issues, impact, message, selector, ruleId, helpUrl, description, tags, failureSummary, html, target, engine, confidence, needsReview, evidence, aiHowToFix, decision) {
         issues.push({ 
             impact, 
             message, 
@@ -321,7 +387,8 @@ async function handleScanPages(db, projectId, runId) {
             confidence: typeof confidence === 'number' ? confidence : null,
             needsReview: typeof needsReview === 'boolean' ? needsReview : null,
             evidence: Array.isArray(evidence) ? evidence : [],
-            aiHowToFix: aiHowToFix || null
+            aiHowToFix: aiHowToFix || null,
+            decision: decision || null
         });
         if (agg[impact] !== undefined) agg[impact]++;
     }
@@ -329,12 +396,14 @@ async function handleScanPages(db, projectId, runId) {
     // === Per-page scan flow (concurrent) ===
     // Each page is processed independently, including fetch/render, axe/static checks, snapshotting, and persistence.
     await Promise.all(pagesIds.map(pageId => limit(async () => {
+        let pageRef = null;
+        const pageScanStartedAt = new Date();
         try {
             // Per-page metadata (snapshot, node rectangles, etc.).
             // IMPORTANT: must be per-page to avoid leaking data across pages.
             const pageInfo = {};
 
-            const pageRef = projectRef.collection('pages').doc(pageId);
+            pageRef = projectRef.collection('pages').doc(pageId);
             const pageSnap = await pageRef.get();
             if (!pageSnap.exists) {
                 console.warn('Page doc not found for id', pageId);
@@ -342,6 +411,16 @@ async function handleScanPages(db, projectId, runId) {
             }
             const page = pageSnap.data();
             const pageUrl = page.url;
+
+            try {
+                await pageRef.update({
+                    status: 'running',
+                    activeRunId: runId,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            } catch (e) {
+                console.warn('Failed to mark page as running for', pageId, e && e.message ? e.message : e);
+            }
 
             const issues = [];
             let httpStatus = null;
@@ -434,6 +513,11 @@ async function handleScanPages(db, projectId, runId) {
                         }
                     }
                     
+                    // Pre-inject axe-core before navigation so it's available immediately after page load
+                    if (axe && axe.source) {
+                        await pageP.evaluateOnNewDocument(axe.source);
+                    }
+
                     // Use 'networkidle2' to wait for network to be mostly idle, so page is fully loaded
                     const resp = await pageP.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 30000 }).catch(e => null);
 
@@ -452,6 +536,40 @@ async function handleScanPages(db, projectId, runId) {
                                 });
                             }
                             console.log(`--- End banner removal ---\n`);
+
+                            // Install MutationObserver to auto-remove cookie banners that re-appear
+                            await pageP.evaluate((bannerMode) => {
+                                const cookieYesSelectors = [
+                                    '#cookieyes-consent', '.cookieyes-banner', '[id*="cookieyes"]',
+                                    '[class*="cookieyes"]', '.cky-consent-container', '.cky-overlay'
+                                ];
+                                const commonSelectors = [
+                                    ...cookieYesSelectors,
+                                    '#consent-management-box', '#onetrust-banner-sdk', '#onetrust-consent-sdk',
+                                    '.onetrust-pc-dark-filter', '[id*="onetrust"]',
+                                    '#CybotCookiebotDialog', '#CookiebotWidget', '[id*="cookiebot"]',
+                                    '[class*="cookie-banner"]', '[class*="cookie-consent"]',
+                                    '[class*="gdpr-banner"]', '[class*="gdpr-consent"]',
+                                    '[id*="cookie-banner"]', '[id*="cookie-consent"]',
+                                    '[aria-label*="cookie" i]', '[aria-label*="consent" i]'
+                                ];
+                                const selectorsToUse = bannerMode === 'cookieyes' ? cookieYesSelectors : commonSelectors;
+                                const observer = new MutationObserver(() => {
+                                    selectorsToUse.forEach(sel => {
+                                        try {
+                                            document.querySelectorAll(sel).forEach(el => {
+                                                if (el && el.parentNode) el.remove();
+                                            });
+                                        } catch (e) {}
+                                    });
+                                    document.body.style.overflow = '';
+                                    document.documentElement.style.overflow = '';
+                                });
+                                if (document.body) {
+                                    observer.observe(document.body, { childList: true, subtree: true });
+                                }
+                                window.__cookieBannerObserver = observer;
+                            }, mode);
                         } catch (bannerErr) {
                             console.warn('Failed to remove cookie banners:', bannerErr);
                         }
@@ -477,29 +595,62 @@ async function handleScanPages(db, projectId, runId) {
                         }
                         console.log(`--- End cookie verification ---\n`);
                     }
-                    // Ensure cookie banners are removed right before axe runs
-                    if (removeCookieBannersEnabled) {
-                        try {
-                            await pageP.waitForTimeout(300);
-                            await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
-                        } catch (bannerErr) {
-                            console.warn('Failed to re-remove cookie banners before axe:', bannerErr);
-                        }
-                    }
+                    // Cookie banner MutationObserver installed after first removal handles re-appearances
 
-                    // Inject axe-core into page context and run accessibility checks
+                    // Run axe-core accessibility checks (pre-injected via evaluateOnNewDocument)
                     if (axe && axe.source) {
-                        await pageP.addScriptTag({ content: axe.source });
-                        // Run axe with WCAG 2.0, 2.1, and best-practice checks for comprehensive coverage
-                        const axeResults = await pageP.evaluate(async () => {
+                        // Run axe with tags derived from the project's compliance profiles
+                        const axeResults = await pageP.evaluate(async (tags) => {
                             try {
-                                return await axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'best-practice'] } });
+                                return await axe.run(document, { runOnly: { type: 'tag', values: tags } });
                             } catch (e) {
                                 return { error: String(e) };
                             }
-                        });
+                        }, axeTags);
                         
                         if (axeResults && axeResults.violations) {
+                            // Extra stability check for axe "list" findings:
+                            // validate candidates against current DOM to reduce transient false positives.
+                            const listSelectors = Array.from(
+                                new Set(
+                                    axeResults.violations
+                                        .filter(v => v && v.id === 'list' && Array.isArray(v.nodes))
+                                        .flatMap(v => v.nodes || [])
+                                        .map(node => (Array.isArray(node?.target) ? node.target[0] : null))
+                                        .filter(Boolean)
+                                )
+                            );
+                            let listValidationMap = {};
+                            if (listSelectors.length > 0) {
+                                listValidationMap = await pageP.evaluate((selectors) => {
+                                    const result = {};
+                                    const allowedChildren = new Set(['LI', 'SCRIPT', 'TEMPLATE']);
+                                    selectors.forEach((selector) => {
+                                        try {
+                                            const el = document.querySelector(selector);
+                                            if (!el) {
+                                                result[selector] = false;
+                                                return;
+                                            }
+                                            const tag = String(el.tagName || '').toUpperCase();
+                                            if (tag === 'LI') {
+                                                result[selector] = !el.closest('ul,ol,menu');
+                                                return;
+                                            }
+                                            if (tag === 'UL' || tag === 'OL' || tag === 'MENU') {
+                                                const invalidChild = Array.from(el.children).some((child) => !allowedChildren.has(String(child.tagName || '').toUpperCase()));
+                                                result[selector] = invalidChild;
+                                                return;
+                                            }
+                                            result[selector] = false;
+                                        } catch (e) {
+                                            result[selector] = false;
+                                        }
+                                    });
+                                    return result;
+                                }, listSelectors);
+                            }
+
                             axeResults.violations.forEach(v => {
                                 const impact = v.impact || 'moderate';
                                 const ruleId = v.id;
@@ -510,6 +661,12 @@ async function handleScanPages(db, projectId, runId) {
                                 
                                 // one issue per node
                                 v.nodes.forEach(node => {
+                                    if (ruleId === 'list') {
+                                        const verificationSelector = Array.isArray(node?.target) ? node.target[0] : null;
+                                        if (verificationSelector && listValidationMap[verificationSelector] !== true) {
+                                            return;
+                                        }
+                                    }
                                     // Use either the node's html or the joined target selectors for highlighting
                                     const selector = (node && (node.html || node.target && node.target.join(','))) || null;
                                     const failureSummary = (node && node.failureSummary) || null;
@@ -522,27 +679,20 @@ async function handleScanPages(db, projectId, runId) {
                             pushIssue(issues, 'serious', 'Axe run error: ' + axeResults.error, null, null, null, null, [], null, null, null, 'axe-core');
                         }
 
-                        // Ensure cookie banners are removed right before snapshot
-                        if (removeCookieBannersEnabled) {
-                            try {
-                                await pageP.waitForTimeout(200);
-                                await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
-                            } catch (bannerErr) {
-                                console.warn('Failed to re-remove cookie banners before snapshot:', bannerErr);
-                            }
-                        }
+                        // Cookie banner MutationObserver handles re-appearances automatically
 
-                        // === Page snapshot and node highlight capture ===
+                        // === Page snapshot and node highlight capture (merged into single evaluate) ===
                         try {
-                            // Get the rendered HTML content and sanitize it inside the page context
-                            // Remove scripts, noscript, and dangerous attributes before persisting
-                            console.log('Before sanitizedHtml');
-                            const sanitizedHtml = await pageP.evaluate(() => {
+                            const nodesForEvaluation = (axeResults && axeResults.violations) ? axeResults.violations.flatMap(v => v.nodes || []).map(n => ({ target: n.target, html: n.html })) : [];
+                            console.log('Nodes for evaluation count:', nodesForEvaluation.length);
+
+                            // Single evaluate call: sanitize HTML + compute node bounding rects
+                            const snapshotResult = await pageP.evaluate((nodes) => {
+                                // --- Sanitize HTML ---
+                                let html = null;
                                 try {
                                     const clone = document.documentElement.cloneNode(true);
-                                    // Remove scripts & noscript for safety
                                     clone.querySelectorAll('script, noscript').forEach(n => n.remove());
-                                    // Remove potentially dangerous event attributes and javascript: hrefs
                                     const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT, null, false);
                                     const eventAttrs = ['onabort', 'onblur', 'onchange', 'onclick', 'onerror', 'onfocus', 'oninput', 'onload', 'onmouseover', 'onsubmit', 'onresize', 'onunload'];
                                     while (walker.nextNode()) {
@@ -553,20 +703,30 @@ async function handleScanPages(db, projectId, runId) {
                                             if (href.trim().toLowerCase().startsWith('javascript:')) el.removeAttribute('href');
                                         }
                                     }
-                                    return '<!doctype html>' + clone.outerHTML;
-                                } catch (e) {
-                                    return null;
-                                }
-                            });
-                            console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
+                                    html = '<!doctype html>' + clone.outerHTML;
+                                } catch (e) {}
 
-                            // Compute bounding rects and normalized selectors for each axe node in a single evaluate (faster)
-                            // Selectors are chosen from axe node.target (prefer), or by matching html
-                            const nodesForEvaluation = (axeResults && axeResults.violations) ? axeResults.violations.flatMap(v => v.nodes || []).map(n => ({ target: n.target, html: n.html })) : [];
-                            console.log('Nodes for evaluation count:', nodesForEvaluation.length);
-                            const issueNodes = nodesForEvaluation.length > 0 ? await pageP.evaluate((nodes) => {
+                                // --- Compute node rects ---
                                 function getPrimarySelector(n) { if (n && n.target && n.target.length > 0) return n.target[0]; return null; }
-                                const results = [];
+                                function getXPathForElement(elm) {
+                                    if (elm.id) return `id("${elm.id}")`;
+                                    const parts = [];
+                                    while (elm && elm.nodeType === Node.ELEMENT_NODE) {
+                                        let nb = 1;
+                                        let sib = elm.previousSibling;
+                                        while (sib) {
+                                            if (sib.nodeType === Node.DOCUMENT_TYPE_NODE) { sib = sib.previousSibling; continue; }
+                                            if (sib.nodeType === Node.ELEMENT_NODE && sib.nodeName === elm.nodeName) nb++;
+                                            sib = sib.previousSibling;
+                                        }
+                                        const tagName = elm.nodeName.toLowerCase();
+                                        parts.unshift(`${tagName}[${nb}]`);
+                                        elm = elm.parentNode;
+                                    }
+                                    return '/' + parts.join('/');
+                                }
+
+                                const nodeRects = [];
                                 nodes.forEach((n) => {
                                     const selector = getPrimarySelector(n) || null;
                                     try {
@@ -579,48 +739,52 @@ async function handleScanPages(db, projectId, runId) {
                                             }) || null;
                                         }
                                         if (!el) {
-                                            results.push({ selector, xpath: null, outerHTML: n.html || null, rect: null });
+                                            nodeRects.push({ selector, xpath: null, outerHTML: n.html || null, rect: null });
                                         } else {
                                             const r = el.getBoundingClientRect();
-                                            function getXPathForElement(elm) {
-                                                if (elm.id) return `id("${elm.id}")`;
-                                                const parts = [];
-                                                while (elm && elm.nodeType === Node.ELEMENT_NODE) {
-                                                    let nb = 1;
-                                                    let sib = elm.previousSibling;
-                                                    while (sib) {
-                                                        if (sib.nodeType === Node.DOCUMENT_TYPE_NODE) { sib = sib.previousSibling; continue; }
-                                                        if (sib.nodeType === Node.ELEMENT_NODE && sib.nodeName === elm.nodeName) nb++;
-                                                        sib = sib.previousSibling;
-                                                    }
-                                                    const tagName = elm.nodeName.toLowerCase();
-                                                    parts.unshift(`${tagName}[${nb}]`);
-                                                    elm = elm.parentNode;
-                                                }
-                                                return '/' + parts.join('/');
-                                            }
-                                            // Truncate outerHTML to avoid Firestore nested entity limits (500 chars is enough for matching)
                                             const truncatedHtml = el.outerHTML ? el.outerHTML.substring(0, 500) : null;
-                                            results.push({ selector, xpath: getXPathForElement(el), outerHTML: truncatedHtml, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
+                                            nodeRects.push({ selector, xpath: getXPathForElement(el), outerHTML: truncatedHtml, rect: { top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height } });
                                         }
                                     } catch (e) {
-                                        // Truncate HTML for fallback case too
                                         const truncatedHtml = n.html ? n.html.substring(0, 500) : null;
-                                        results.push({ selector: selector || null, xpath: null, outerHTML: truncatedHtml, rect: null });
+                                        nodeRects.push({ selector: selector || null, xpath: null, outerHTML: truncatedHtml, rect: null });
                                     }
                                 });
-                                return results;
-                            }, nodesForEvaluation) : [];
 
-                            // Upload HTML to Storage instead of storing in Firestore
-                            if (sanitizedHtml) {
+                                return { html, nodeRects };
+                            }, nodesForEvaluation);
+
+                            const sanitizedHtml = snapshotResult ? snapshotResult.html : null;
+                            const issueNodes = snapshotResult ? snapshotResult.nodeRects : [];
+                            console.log('SanitizedHtml:', !!sanitizedHtml, sanitizedHtml ? sanitizedHtml.length : 0);
+
+                            // Upload HTML snapshot and screenshot only when storeArtifacts is enabled
+                            if (storeArtifacts && sanitizedHtml) {
                                 const storageUrl = await uploadHtmlToStorage(projectId, runId, pageId, sanitizedHtml);
                                 if (storageUrl) {
                                     pageInfo.pageSnapshotUrl = storageUrl;
                                 } else {
                                     // Fallback: store truncated HTML if storage upload fails
                                     console.warn('Storage upload failed, storing truncated HTML in Firestore');
-                                    pageInfo.pageSnapshot = sanitizedHtml.substring(0, 500000); // Max 50KB
+                                    pageInfo.pageSnapshot = sanitizedHtml.substring(0, 500000);
+                                }
+                            }
+                            if (storeArtifacts) {
+                                try {
+                                    const screenshotBuffer = await pageP.screenshot({ fullPage: true, type: 'jpeg', quality: 65 });
+                                    if (screenshotBuffer) {
+                                        const screenshotUrl = await uploadBinaryToStorage(
+                                            projectId,
+                                            runId,
+                                            pageId,
+                                            'screenshot.jpg',
+                                            screenshotBuffer,
+                                            'image/jpeg'
+                                        );
+                                        if (screenshotUrl) pageInfo.pageScreenshotUrl = screenshotUrl;
+                                    }
+                                } catch (shotErr) {
+                                    console.warn('Failed to capture/upload screenshot:', shotErr && shotErr.message ? shotErr.message : shotErr);
                                 }
                             }
                             if (issueNodes && issueNodes.length) pageInfo.nodeInfo = issueNodes;
@@ -634,17 +798,28 @@ async function handleScanPages(db, projectId, runId) {
 
                     // Ablelytics core tests (Puppeteer/Playwright compatible checks)
                     let coreIssues = [];
+                    let coreStats = null;
                     try {
-                        if (removeCookieBannersEnabled) {
-                            try {
-                                await pageP.waitForTimeout(400);
-                                await removeCookieBanners(pageP, projectData.config.removeCookieBanners);
-                            } catch (bannerErr) {
-                                console.warn('Failed to re-remove cookie banners:', bannerErr);
-                            }
-                        }
-                        const coreTests = new AblelyticsCoreTests(pageP, { includeMultiPageChecks: false });
+                        // Cookie banner MutationObserver handles re-appearances automatically
+                        const coreTests = new AblelyticsCoreTests(pageP, {
+                            includeMultiPageChecks: false,
+                            includeExperimentalChecks: String(process.env.ENABLE_CORE_EXPERIMENTAL_HEURISTICS || '').toLowerCase() === '1',
+                            includeAccessibilityTreeChecks: String(process.env.ENABLE_CORE_A11Y_TREE_CHECKS || '1').toLowerCase() !== '0',
+                            enableVisualFocusChecks: String(process.env.ENABLE_CORE_VISUAL_FOCUS_CHECKS || '1').toLowerCase() !== '0',
+                            minConfidenceForAutoRaise: Number(process.env.CORE_AUTORAISE_CONFIDENCE || 0.7),
+                            suppressions: (() => {
+                                try {
+                                    const raw = process.env.CORE_SUPPRESSIONS_JSON;
+                                    if (!raw) return [];
+                                    const parsed = JSON.parse(raw);
+                                    return Array.isArray(parsed) ? parsed : [];
+                                } catch (e) {
+                                    return [];
+                                }
+                            })()
+                        });
                         coreIssues = await coreTests.runAll();
+                        coreStats = typeof coreTests.getLastRunStats === 'function' ? coreTests.getLastRunStats() : null;
                         coreIssues.forEach((issue) => {
                             pushIssue(
                                 issues,
@@ -658,9 +833,27 @@ async function handleScanPages(db, projectId, runId) {
                                 issue.failureSummary,
                                 issue.html,
                                 issue.target,
-                                issue.engine || 'ablelytics-core'
+                                issue.engine || 'ablelytics-core',
+                                issue.confidence,
+                                issue.needsReview,
+                                issue.evidence,
+                                null,
+                                issue.decision
                             );
                         });
+                        if (coreStats) {
+                            pageInfo.coreTiming = coreStats;
+                            if (String(process.env.ENABLE_CORE_TIMING_LOGS || '1').toLowerCase() !== '0') {
+                                console.log('[ablelytics-core][timing]', JSON.stringify({
+                                    projectId,
+                                    runId,
+                                    pageId,
+                                    pageUrl,
+                                    totalDurationMs: coreStats.totalDurationMs,
+                                    checks: coreStats.checks
+                                }));
+                            }
+                        }
                     } catch (coreErr) {
                         console.warn('Ablelytics core tests failed:', coreErr && coreErr.message ? coreErr.message : coreErr);
                     }
@@ -837,6 +1030,32 @@ async function handleScanPages(db, projectId, runId) {
                         // ignore
                     }
 
+                    // === Cross-engine deduplication ===
+                    // If axe-core and ablelytics-core report same rule on same element, keep axe-core
+                    const seenAxeKeys = new Set();
+                    issues.forEach(issue => {
+                        if (issue.engine === 'axe-core') {
+                            seenAxeKeys.add(`${issue.ruleId}::${issue.selector || (issue.html ? issue.html.slice(0, 80) : '')}`);
+                        }
+                    });
+                    // Build a rule-id mapping between ablelytics-core and axe-core rule ids
+                    const coreToAxeRuleMap = {
+                        'wcag-2.4.1': 'bypass',
+                        'wcag-2.4.7': 'focus-visible',
+                        'wcag-1.4.2': 'audio-caption',
+                        'wcag-4.1.2': 'aria-required-attr',
+                        'wcag-2.4.3': 'tabindex',
+                    };
+                    for (let i = issues.length - 1; i >= 0; i--) {
+                        const issue = issues[i];
+                        if (issue.engine !== 'ablelytics-core') continue;
+                        const mappedRuleId = coreToAxeRuleMap[issue.ruleId] || issue.ruleId;
+                        const key = `${mappedRuleId}::${issue.selector || (issue.html ? issue.html.slice(0, 80) : '')}`;
+                        if (seenAxeKeys.has(key)) {
+                            issues.splice(i, 1);
+                        }
+                    }
+
                 } catch (err) {
                     pushIssue(issues, 'critical', `Failed to render page in headless browser: ${String(err)}`, null, null, null, null, [], null, null, null, 'ablelytics-core');
                 } finally {
@@ -881,7 +1100,7 @@ async function handleScanPages(db, projectId, runId) {
             const scansCol = projectRef.collection('scans');
             
             // Extract pageSnapshot, pageSnapshotUrl and nodeInfo to top level
-            const { pageSnapshot, pageSnapshotUrl, nodeInfo, ...restPageInfo } = pageInfo;
+            const { pageSnapshot, pageSnapshotUrl, pageScreenshotUrl, nodeInfo, coreTiming, ...restPageInfo } = pageInfo;
             
             const scanDoc = {
                 pageId: pageId,
@@ -897,13 +1116,96 @@ async function handleScanPages(db, projectId, runId) {
                 issues,
                 // Store HTML snapshot URL from Cloud Storage (preferred) or truncated HTML (fallback)
                 pageSnapshotUrl: pageSnapshotUrl || null,
+                pageScreenshotUrl: pageScreenshotUrl || null,
                 pageSnapshot: pageSnapshot || null,
                 nodeInfo: nodeInfo || [],
+                coreTiming: coreTiming || null,
                 pageInfo: Object.keys(restPageInfo).length > 0 ? restPageInfo : null,
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             };
 
+            const scanFinishedAt = new Date();
+            const detectedEngines = Array.from(
+                new Set((issues || []).map((issue) => issue && issue.engine).filter(Boolean))
+            );
+
+            try {
+                await insertPageScan({
+                    projectId,
+                    organisationId: projectData?.organisationId || null,
+                    runId,
+                    pageId,
+                    pageUrl,
+                    action: runData?.action || runData?.type || null,
+                    status: 'scanned',
+                    httpStatus,
+                    summary: scanDoc.summary,
+                    issuesTotal: issues.length,
+                    engines: detectedEngines,
+                    coreTotalDurationMs: pageInfo?.coreTiming?.totalDurationMs || null,
+                    usedPuppeteer: usePuppeteer && Boolean(browser),
+                    scanStartedAt: pageScanStartedAt,
+                    scanFinishedAt,
+                    ingestedAt: scanFinishedAt,
+                });
+
+                await insertIssues({
+                    projectId,
+                    organisationId: projectData?.organisationId || null,
+                    runId,
+                    pageId,
+                    pageUrl,
+                    issues,
+                    ingestedAt: scanFinishedAt,
+                });
+
+                if (Array.isArray(pageInfo?.coreTiming?.checks) && pageInfo.coreTiming.checks.length > 0) {
+                    await insertCoreCheckTimings({
+                        projectId,
+                        organisationId: projectData?.organisationId || null,
+                        runId,
+                        pageId,
+                        pageUrl,
+                        checks: pageInfo.coreTiming.checks,
+                        scanStartedAt: pageScanStartedAt,
+                        scanFinishedAt,
+                        ingestedAt: scanFinishedAt,
+                    });
+                }
+            } catch (bqErr) {
+                console.warn(
+                    'BigQuery write failed for scanned page',
+                    pageId,
+                    bqErr && bqErr.message ? bqErr.message : bqErr
+                );
+            }
+
             await scansCol.add(scanDoc);
+
+            // Maintain an org-scoped scan index for fast listing/filtering in UI.
+            try {
+                const organisationId = projectData?.organisationId || null;
+                const scanIndexId = `${projectId}__${pageId}`;
+                await db.collection('scanIndex').doc(scanIndexId).set({
+                    projectId,
+                    projectName: projectData?.name || projectData?.domain || projectId,
+                    organisationId,
+                    pageId,
+                    url: pageUrl || null,
+                    runId,
+                    status: 'scanned',
+                    summary: scanDoc.summary,
+                    totalIssues:
+                        Number(scanDoc.summary?.critical || 0) +
+                        Number(scanDoc.summary?.serious || 0) +
+                        Number(scanDoc.summary?.moderate || 0) +
+                        Number(scanDoc.summary?.minor || 0),
+                    lastScanned: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            } catch (e) {
+                console.warn('Failed to update scan index for', pageId, e && e.message ? e.message : e);
+            }
 
             // Track this page scan in subscription usage
             if (projectOwner) {
@@ -935,6 +1237,7 @@ async function handleScanPages(db, projectId, runId) {
                     lastPageInfo: pageInfo,
                     violationsCount: scanDoc.summary,
                     status: 'scanned',
+                    activeRunId: null,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp()
                 });
             } catch (e) {
@@ -953,12 +1256,74 @@ async function handleScanPages(db, projectId, runId) {
 
         } catch (err) {
             console.error('Error scanning page', pageId, err && err.stack ? err.stack : err);
+            const scanFinishedAt = new Date();
             // record error inside scans collection
             try {
                 const scansCol = projectRef.collection('scans');
                 await scansCol.add({ pageId, runId, error: String(err), createdAt: admin.firestore.FieldValue.serverTimestamp() });
             } catch (e) {
                 console.warn('Failed to write error scan doc', e);
+            }
+
+            try {
+                const failedPageUrl = pageRef ? (await pageRef.get()).data()?.url || null : null;
+                await insertPageScan({
+                    projectId,
+                    organisationId: projectData?.organisationId || null,
+                    runId,
+                    pageId,
+                    pageUrl: failedPageUrl,
+                    action: runData?.action || runData?.type || null,
+                    status: 'failed',
+                    httpStatus: null,
+                    summary: { critical: 0, serious: 0, moderate: 0, minor: 0 },
+                    issuesTotal: 0,
+                    engines: [],
+                    coreTotalDurationMs: null,
+                    usedPuppeteer: usePuppeteer && Boolean(browser),
+                    error: String(err),
+                    scanStartedAt: pageScanStartedAt,
+                    scanFinishedAt,
+                    ingestedAt: scanFinishedAt,
+                });
+            } catch (bqErr) {
+                console.warn(
+                    'BigQuery write failed for failed page',
+                    pageId,
+                    bqErr && bqErr.message ? bqErr.message : bqErr
+                );
+            }
+
+            try {
+                const organisationId = projectData?.organisationId || null;
+                const scanIndexId = `${projectId}__${pageId}`;
+                await db.collection('scanIndex').doc(scanIndexId).set({
+                    projectId,
+                    projectName: projectData?.name || projectData?.domain || projectId,
+                    organisationId,
+                    pageId,
+                    url: pageRef ? (await pageRef.get()).data()?.url || null : null,
+                    runId,
+                    status: 'failed',
+                    summary: { critical: 0, serious: 0, moderate: 0, minor: 0 },
+                    totalIssues: 0,
+                    lastScanned: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            } catch (e) {
+                console.warn('Failed to update failed scan index for', pageId, e && e.message ? e.message : e);
+            }
+
+            try {
+                if (pageRef) {
+                    await pageRef.update({
+                        status: 'failed',
+                        activeRunId: null,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to mark page as failed for', pageId, e && e.message ? e.message : e);
             }
         }
     })));

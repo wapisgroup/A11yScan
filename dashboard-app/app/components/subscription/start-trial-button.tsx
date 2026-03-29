@@ -1,3 +1,8 @@
+/**
+ * Start Trial Button
+ * Shared component in subscription/start-trial-button.tsx.
+ */
+
 'use client';
 
 import { useState } from 'react';
@@ -7,6 +12,7 @@ import { createTrialSubscription } from '../../services/subscriptionService';
 interface StartTrialButtonProps {
   userId: string;
   organizationId: string;
+  email: string;
   buttonText?: string;
   className?: string;
 }
@@ -14,6 +20,7 @@ interface StartTrialButtonProps {
 export function StartTrialButton({
   userId,
   organizationId,
+  email,
   buttonText = 'Start Free Trial',
   className = '',
 }: StartTrialButtonProps) {
@@ -26,8 +33,8 @@ export function StartTrialButton({
       setLoading(true);
       setError(null);
 
-      // Create trial subscription directly in Firestore
-      await createTrialSubscription(userId, organizationId);
+      // Create trial subscription via Stripe API
+      await createTrialSubscription(userId, organizationId, email);
 
       // Redirect to workspace
       router.push('/workspace');

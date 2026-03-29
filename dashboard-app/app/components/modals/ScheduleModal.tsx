@@ -1,8 +1,13 @@
 "use client";
 
+/**
+ * ScheduleModal
+ * Shared component in modals/ScheduleModal.tsx.
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { Popup } from "@/components/molecule/popup";
-import { Button } from "@/components/atom/button";
+import { DSButton } from "@/components/atom/ds-button";
 import { loadProjects, type Project } from "@/services/projectsService";
 import { loadPageSets } from "@/services/projectSetsService";
 import type { ScheduleCadence, ScheduleType } from "@/types/schedule";
@@ -234,10 +239,8 @@ export default function ScheduleModal({
       )}
 
       <div className="flex items-center justify-end gap-small pt-[var(--spacing-m)]">
-        <Button variant="secondary" title="Cancel" onClick={onClose} />
-        <Button
-          variant="brand"
-          title={mode === "edit" ? "Save changes" : "Create schedule"}
+        <DSButton variant="outline" onClick={onClose}>Cancel</DSButton>
+        <DSButton
           disabled={!canSubmit}
           onClick={() => {
             if (!selectedProject) return;
@@ -254,7 +257,9 @@ export default function ScheduleModal({
               startDate,
             });
           }}
-        />
+        >
+          {mode === "edit" ? "Save changes" : "Create schedule"}
+        </DSButton>
       </div>
     </Popup>
   );

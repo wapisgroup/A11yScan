@@ -1,6 +1,12 @@
+/**
+ * Dashboard Problem Pages
+ * Shared component in organism/dashboard-problem-pages.tsx.
+ */
+
 import Link from "next/link";
 import { PiWarning } from "react-icons/pi";
-import { Button } from "../atom/button";
+import { DSButton } from "../atom/ds-button";
+import { DSSurface } from "./ds-surface";
 
 type ProblemPage = {
   id: string;
@@ -21,12 +27,12 @@ export function DashboardProblemPages({ problemPages }: DashboardProblemPagesPro
   }
 
   return (
-    <div className="bg-white rounded-2xl p-[var(--spacing-m)] border border-orange-200">
+    <DSSurface className="border-orange-200">
       <div className="flex items-center justify-between mb-[var(--spacing-m)]">
-        <h2 className="as-h3-text primary-text-color flex items-center gap-small">
+        <div className="inline-flex items-center gap-small">
           <PiWarning className="text-2xl text-orange-600" />
-          Problems That Need Attention
-        </h2>
+          <h2 className="as-h3-text primary-text-color">Problems That Need Attention</h2>
+        </div>
         <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full as-p2-text">
           {problemPages.length} issues
         </span>
@@ -62,15 +68,12 @@ export function DashboardProblemPages({ problemPages }: DashboardProblemPagesPro
                 </div>
               </div>
               <Link href={`/workspace/projects/${page.projectId}`}>
-                <Button 
-                  variant="brand"
-                  title="Fix Now"
-                />
+                <DSButton>Fix Now</DSButton>
               </Link>
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </DSSurface>
   );
 }

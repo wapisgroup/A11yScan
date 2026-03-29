@@ -167,6 +167,8 @@ type UserProfile = {
   language?: string;
   organisationId?: string;
   createdAt?: unknown;
+  apiToken?: string;
+  apiTokenCreatedAt?: unknown;
 };
 
 export type AuthUser = {
